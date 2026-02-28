@@ -177,7 +177,7 @@ auth.onAuthStateChanged(async user => {
 
   } else {
     AUTH.userProfile = null;
-    if (appEl)  appEl.style.display  = 'none';
+    if (appEl)  appEl.style.display  = 'flex';
     if (loadingEl) loadingEl.style.display = 'none';
     if (authEl) authEl.style.display = '';
   }
