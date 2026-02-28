@@ -20,14 +20,51 @@ function populateModuloSelects() {
   });
 }
 
+// ── Cargar colaboradores del equipo desde Firestore ───────────
+let _teamMembers = []; // { uid, displayName, email }
+
+async function loadTeamMembers() {
+  _teamMembers = [];
+  const teamId = AUTH?.userProfile?.teamId;
+  if (!teamId) return;
+  try {
+    const teamDoc = await db.collection('teams').doc(teamId).get();
+    if (!teamDoc.exists) return;
+    const members = teamDoc.data().members || [];
+    for (const uid of members) {
+      if (uid === AUTH.userProfile.uid) continue; // excluir al propio usuario
+      try {
+        const uDoc = await db.collection('users').doc(uid).get();
+        if (uDoc.exists) {
+          const d = uDoc.data();
+          _teamMembers.push({ uid, displayName: d.displayName || d.email || uid, email: d.email || '' });
+        }
+      } catch(_) {}
+    }
+  } catch(e) { console.warn('Error cargando equipo:', e); }
+  updateAbogadoSelects();
+}
+
 function updateAbogadoSelects() {
-  const abogados = STATE.config.abogados || [];
+  // Construir lista combinada: miembros del equipo + colaboradores manuales de config
+  // Los miembros del equipo tienen prioridad y usan su uid como key
+  const items = [];
+
+  // Primero: miembros del equipo (de Firestore)
+  _teamMembers.forEach(m => {
+    items.push({ key: m.uid, nombre: m.displayName });
+  });
+
+  // Segundo: colaboradores manuales de config (para compatibilidad con trámites existentes)
+  (STATE.config.abogados || []).forEach(a => {
+    if (!items.find(x => x.key === a.key)) items.push({ key: a.key, nombre: a.nombre });
+  });
 
   ['filterAbogado', 'filterResponsable'].forEach((id, idx) => {
     const sel = document.getElementById(id); if (!sel) return;
     const cur = sel.value;
     sel.innerHTML = '<option value="">Todos</option>';
-    abogados.forEach(a => { const o=document.createElement('option'); o.value=a.key; o.textContent=a.nombre; sel.appendChild(o); });
+    items.forEach(a => { const o=document.createElement('option'); o.value=a.key; o.textContent=a.nombre; sel.appendChild(o); });
     if (idx === 1) { const o=document.createElement('option'); o.value='yo'; o.textContent='Yo mismo'; sel.appendChild(o); }
     if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
   });
@@ -36,21 +73,20 @@ function updateAbogadoSelects() {
   if (fAbM) {
     const cur = fAbM.value;
     fAbM.innerHTML = '';
-    abogados.forEach(a => { const o=document.createElement('option'); o.value=a.key; o.textContent=a.nombre; fAbM.appendChild(o); });
-    fAbM.value = ([...fAbM.options].some(o => o.value === cur)) ? cur : (abogados[0]?.key || '');
+    items.forEach(a => { const o=document.createElement('option'); o.value=a.key; o.textContent=a.nombre; fAbM.appendChild(o); });
+    fAbM.value = ([...fAbM.options].some(o => o.value === cur)) ? cur : (items[0]?.key || '');
   }
 
   const rg = document.getElementById('reportFilterGroup');
   if (rg) {
     rg.innerHTML = '<button class="toggle-btn active" data-abogado="">Todos</button>';
-    abogados.forEach(a => {
+    items.forEach(a => {
       const btn = document.createElement('button'); btn.className='toggle-btn'; btn.dataset.abogado=a.key; btn.textContent=a.nombre; rg.appendChild(btn);
     });
     const yo = document.createElement('button'); yo.className='toggle-btn'; yo.dataset.abogado='yo'; yo.textContent='Yo mismo'; rg.appendChild(yo);
     reportFiltroAbogado = '';
   }
 }
-const updateAbogadoNames = updateAbogadoSelects;
 
 function buildRespOptions(tipoTramite, abogadoKey, selectedValue) {
   const opts = [];
@@ -164,3 +200,4 @@ function syncConfigAccountUI() {
   const dashNav = document.querySelector('.dash-nav-item');
   if (dashNav) dashNav.style.display = p.role === 'admin' ? '' : 'none';
 }
+const updateAbogadoNames = updateAbogadoSelects;

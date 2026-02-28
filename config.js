@@ -119,9 +119,7 @@ function init() {
   document.getElementById('modalClose').addEventListener('click',   closeModal);
   document.getElementById('cancelModal').addEventListener('click',  closeModal);
   document.getElementById('saveTramite').addEventListener('click',  saveTramite);
-  document.getElementById('modalOverlay').addEventListener('click', e => {
-    if (e.target === document.getElementById('modalOverlay')) closeModal();
-  });
+  // Sin cierre al hacer click fuera — evita pérdida accidental de datos
   initDraggableModal(document.getElementById('tramiteModal'));
 
   // ── Modal detalle (overlay cierra al click en fondo) ─────

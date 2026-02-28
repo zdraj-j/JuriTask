@@ -89,6 +89,12 @@ function escapeAttr(str) {
 
 function abogadoName(key) {
   if (!key || key === 'yo') return 'Yo mismo';
+  // Buscar primero en miembros del equipo (de Firestore)
+  if (typeof _teamMembers !== 'undefined') {
+    const m = _teamMembers.find(x => x.uid === key);
+    if (m) return m.displayName;
+  }
+  // Fallback: colaboradores manuales de config
   const a = (STATE.config.abogados || []).find(x => x.key === key);
   return a ? a.nombre : key;
 }

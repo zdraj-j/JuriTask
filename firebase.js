@@ -217,6 +217,7 @@ auth.onAuthStateChanged(async user => {
     if (typeof syncConfigAccountUI  === 'function') syncConfigAccountUI();
     if (typeof purgeExpiredFinished === 'function') purgeExpiredFinished();
     if (typeof startAutoBackup      === 'function') startAutoBackup();
+    if (typeof loadTeamMembers      === 'function') loadTeamMembers();
 
   } else {
     AUTH.userProfile = null;

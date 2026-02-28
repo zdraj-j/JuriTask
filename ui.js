@@ -712,7 +712,8 @@ function setModalTipo(tipo) {
   modalTipoActual = tipo;
   document.getElementById('tipoBtnAbogado')?.classList.toggle('active', tipo === 'abogado');
   document.getElementById('tipoBtnPropio')?.classList.toggle('active',  tipo === 'propio');
-  document.getElementById('fAbogadoWrap').style.display = tipo === 'abogado' ? '' : 'none';
+  const abWrap = document.getElementById('fAbogadoWrap');
+  if (abWrap) abWrap.style.display = tipo === 'abogado' ? '' : 'none';
 }
 
 function setModalScope(scope) {
@@ -777,8 +778,11 @@ function openModal(tramite = null) {
   setModalTipo(tramite?.tipo || 'abogado');
   setModalScope(tramite?._scope || 'private');
 
+  // Mostrar colaborador si hay miembros del equipo
   const sw = document.getElementById('fScopeWrap');
-  if (sw) sw.style.display = (typeof AUTH !== 'undefined' && AUTH?.userProfile?.teamId) ? '' : 'none';
+  if (sw) sw.style.display = 'none'; // ya no se usa - scope derivado del colaborador
+  const abWrap = document.getElementById('fAbogadoWrap');
+  if (abWrap) abWrap.style.display = (modalTipoActual === 'abogado') ? '' : 'none';
 
   document.getElementById('modalOverlay').classList.add('open');
   setTimeout(() => document.getElementById('fNumero')?.focus(), 120);
@@ -795,15 +799,14 @@ let isEditing = false;
 let editingId = null;
 
 async function saveTramite() {
-  const numero  = document.getElementById('fNumero').value.trim();
-  const desc    = sentenceCase(document.getElementById('fDescripcion').value.trim());
-  const modulo  = document.getElementById('fModulo').value;
-  const tipo    = modalTipoActual;
-  const abogado = tipo === 'abogado' ? document.getElementById('fAbogado').value : null;
-  const venc    = document.getElementById('fFechaVencimiento').value;
+  const numero      = document.getElementById('fNumero').value.trim();
+  const desc        = sentenceCase(document.getElementById('fDescripcion').value.trim());
+  const modulo      = document.getElementById('fModulo').value;
+  const tipo        = modalTipoActual;
+  const colaborador = tipo === 'abogado' ? document.getElementById('fAbogado').value : null;
+  const venc        = document.getElementById('fFechaVencimiento').value;
 
-  if (!numero || !desc || !modulo) { showToast('Completa: número, descripción y módulo.'); return; }
-  if (tipo === 'abogado' && !venc) { showToast('Completa la fecha de vencimiento.'); return; }
+  if (!numero || !modulo) { showToast('Completa: número y módulo.'); return; }
 
   syncTareasFromDOM();
   const tareasValidas = _tareasIniciales.filter(t => t.descripcion);
@@ -819,34 +822,49 @@ async function saveTramite() {
       if (!t) { showToast('Error: no se encontró el trámite.'); return; }
       pushHistory(`Editar trámite #${numero}`);
       Object.assign(t, { numero, descripcion: desc, modulo, tipo, fechaVencimiento: venc });
-      if (tipo === 'abogado') t.abogado = abogado; else delete t.abogado;
+      if (tipo === 'abogado') t.abogado = colaborador; else delete t.abogado;
       if (tareasValidas.length) t.seguimiento.unshift(...tareasValidas);
       if (notaInicial.length)   t.notas.push(...notaInicial);
       if (typeof saveTramiteFS === 'function') await saveTramiteFS(t);
       showToast('Trámite actualizado.');
     } else {
       pushHistory(`Crear trámite #${numero}`);
+      const scope = (tipo === 'abogado' && colaborador) ? 'team' : 'private';
       const newT = {
         id: genId(), numero, descripcion: desc, modulo, tipo,
         fechaVencimiento: venc,
-        gestion:   { analisis: false, cumplimiento: false },
+        gestion:    { analisis: false, cumplimiento: false },
         seguimiento: tareasValidas, notas: notaInicial,
         terminado: false, terminadoEn: null,
         creadoEn:  new Date().toISOString(),
-        _scope:    modalScopeActual,
-        createdBy: (typeof AUTH !== 'undefined') ? AUTH?.currentUser?.uid : null,
+        _scope:    scope,
+        createdBy: AUTH?.userProfile?.uid || null,
       };
-      if (tipo === 'abogado') newT.abogado = abogado;
+      if (tipo === 'abogado' && colaborador) newT.abogado = colaborador;
+
+      STATE.tramites.push(newT);
+      STATE.order.push(newT.id);
+
       if (typeof saveTramiteFS === 'function') {
         await saveTramiteFS(newT);
+        // Compartir con colaborador si es miembro del equipo en Firestore
+        if (scope === 'team' && colaborador && typeof _teamMembers !== 'undefined') {
+          const isTeamMember = _teamMembers.find(m => m.uid === colaborador);
+          if (isTeamMember) {
+            try {
+              const sharedData = { ...newT, _sharedFrom: AUTH.userProfile.uid, _sharedFromName: AUTH.userProfile.displayName || AUTH.userProfile.email };
+              delete sharedData.id;
+              await db.collection('users').doc(colaborador).collection('tramites').doc(newT.id).set(sharedData);
+            } catch(e) { console.warn('No se pudo compartir con colaborador:', e.code); }
+          }
+        }
       } else {
-        STATE.tramites.push(newT); STATE.order.push(newT.id);
         saveAll(true);
       }
-      showToast(`Trámite creado con ${tareasValidas.length} tarea(s).`);
+      showToast(`Trámite creado${tareasValidas.length ? ' con ' + tareasValidas.length + ' tarea(s)' : ''}.`);
     }
     renderAll(); closeModal();
-  } catch (e) {
+  } catch(e) {
     console.error(e); showToast('Error al guardar. Intenta de nuevo.');
   } finally {
     btn.disabled = false; btn.textContent = 'Guardar';
