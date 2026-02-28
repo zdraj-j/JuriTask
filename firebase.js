@@ -19,13 +19,33 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db   = firebase.firestore();
 
+// Manejar resultado del redirect de Google
+auth.getRedirectResult().then(async result => {
+  if (!result.user) return;
+  const uRef = db.collection('users').doc(result.user.uid);
+  const uDoc = await uRef.get();
+  if (!uDoc.exists) {
+    const usersSnap = await db.collection('users').get();
+    const isFirst   = usersSnap.empty || (usersSnap.size === 1 && usersSnap.docs[0].id === result.user.uid);
+    await uRef.set({
+      displayName: result.user.displayName || '',
+      email:       result.user.email       || '',
+      role:        isFirst ? 'admin' : 'user',
+      creadoEn:    new Date().toISOString(),
+    });
+  }
+}).catch(err => {
+  if (err.code !== 'auth/popup-closed-by-user') console.warn('Google redirect error:', err);
+});
+
 // ─── OBJETO AUTH (usado por ui.js / filters.js) ───────────────
 const AUTH = {
   userProfile: null,
 
   loginGoogle() {
     const provider = new firebase.auth.GoogleAuthProvider();
-    return auth.signInWithPopup(provider);
+    // En GitHub Pages los popups suelen bloquearse; usamos redirect
+    return auth.signInWithRedirect(provider);
   },
 
   loginEmail(email, password) {

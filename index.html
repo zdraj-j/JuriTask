@@ -223,8 +223,56 @@
 
     <!-- DASHBOARD ADMIN -->
     <div class="view" id="view-dashboard">
-      <div class="view-header"><h2>🛡 Dashboard Administrador</h2></div>
-      <div id="dashboardContent"></div>
+      <div class="view-header" style="justify-content:space-between">
+        <h2>🛡 Dashboard Administrador</h2>
+        <button class="btn btn-primary" id="dashRefreshBtn" style="font-size:12px">↺ Actualizar</button>
+      </div>
+
+      <!-- KPIs globales -->
+      <div class="dash-kpi-grid" id="dashKpiGrid">
+        <div class="dash-kpi"><div class="dash-kpi-icon">👥</div><div class="dash-kpi-value" id="kpiUsuarios">—</div><div class="dash-kpi-label">Usuarios registrados</div></div>
+        <div class="dash-kpi"><div class="dash-kpi-icon">📁</div><div class="dash-kpi-value" id="kpiTramites">—</div><div class="dash-kpi-label">Trámites activos (todos)</div></div>
+        <div class="dash-kpi dash-kpi-danger"><div class="dash-kpi-icon">⚠</div><div class="dash-kpi-value" id="kpiVencidos">—</div><div class="dash-kpi-label">Trámites vencidos</div></div>
+        <div class="dash-kpi dash-kpi-warning"><div class="dash-kpi-icon">⏰</div><div class="dash-kpi-value" id="kpiHoy">—</div><div class="dash-kpi-label">Vencen hoy</div></div>
+        <div class="dash-kpi"><div class="dash-kpi-icon">✅</div><div class="dash-kpi-value" id="kpiTerminados">—</div><div class="dash-kpi-label">Terminados (30 días)</div></div>
+        <div class="dash-kpi"><div class="dash-kpi-icon">👥</div><div class="dash-kpi-value" id="kpiEquipos">—</div><div class="dash-kpi-label">Equipos activos</div></div>
+        <div class="dash-kpi"><div class="dash-kpi-icon">🔴</div><div class="dash-kpi-value" id="kpiUrgentes">—</div><div class="dash-kpi-label">Tareas urgentes pendientes</div></div>
+        <div class="dash-kpi"><div class="dash-kpi-icon">📋</div><div class="dash-kpi-value" id="kpiCompartidos">—</div><div class="dash-kpi-label">Trámites compartidos</div></div>
+      </div>
+
+      <!-- Tabla de usuarios -->
+      <div class="dash-section">
+        <div class="dash-section-header">
+          <h3>👥 Usuarios</h3>
+          <button class="btn-small" id="dashInviteBtn">+ Invitar usuario</button>
+        </div>
+        <div class="dash-table-wrap">
+          <table class="dash-table">
+            <thead><tr><th>Usuario</th><th>Correo</th><th>Rol</th><th>Equipo</th><th>Trámites</th><th>Acciones</th></tr></thead>
+            <tbody id="dashUsersBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Tabla de equipos -->
+      <div class="dash-section">
+        <div class="dash-section-header">
+          <h3>👥 Equipos</h3>
+          <button class="btn-small btn-primary" id="dashCreateTeamBtn">+ Crear equipo</button>
+        </div>
+        <div id="dashTeamsGrid" class="dash-teams-grid"></div>
+      </div>
+
+      <!-- Trámites vencidos globales -->
+      <div class="dash-section">
+        <div class="dash-section-header"><h3>⚠ Trámites vencidos (todos los usuarios)</h3></div>
+        <div class="dash-table-wrap">
+          <table class="dash-table">
+            <thead><tr><th>#</th><th>Descripción</th><th>Usuario</th><th>Vencimiento</th><th>Módulo</th></tr></thead>
+            <tbody id="dashVencidosBody"></tbody>
+          </table>
+        </div>
+      </div>
     </div>
 
     <div class="view" id="view-config">
@@ -518,6 +566,28 @@
 
 
 
+
+<!-- MODAL CREAR EQUIPO -->
+<div id="createTeamOverlay" class="overlay">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2>👥 Crear / Editar equipo</h2>
+      <button class="modal-close" id="createTeamClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <input type="hidden" id="editTeamId" />
+      <div class="form-group"><label>Nombre del equipo *</label><input type="text" id="newTeamName" placeholder="Ej: Litigios" /></div>
+      <div class="form-group">
+        <label>Miembros del equipo</label>
+        <div id="teamMemberList" class="team-member-list"></div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-small" id="createTeamClose2">Cancelar</button>
+      <button class="btn btn-primary" id="confirmCreateTeamBtn">Guardar equipo</button>
+    </div>
+  </div>
+</div>
 
 <!-- ==================== SCRIPTS ==================== -->
 

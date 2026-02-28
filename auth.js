@@ -103,26 +103,11 @@ function initAuthUI() {
   document.querySelector('.btn-google-login')?.addEventListener('click', async () => {
     setAuthLoading(true);
     try {
-      const cred = await AUTH.loginGoogle();
-      // Si es nuevo usuario con Google, guardar perfil
-      const uRef = db.collection('users').doc(cred.user.uid);
-      const uDoc = await uRef.get();
-      if (!uDoc.exists) {
-        const usersSnap = await db.collection('users').get();
-        const isFirst   = usersSnap.empty || (usersSnap.size === 1 && usersSnap.docs[0].id === cred.user.uid);
-        await uRef.set({
-          displayName: cred.user.displayName || '',
-          email:       cred.user.email       || '',
-          role:        isFirst ? 'admin' : 'user',
-          creadoEn:    new Date().toISOString(),
-        });
-      }
-      // onAuthStateChanged se encarga del resto
+      await AUTH.loginGoogle();
+      // onAuthStateChanged + getRedirectResult en firebase.js manejan el resto
     } catch (err) {
       setAuthLoading(false);
-      if (err.code !== 'auth/popup-closed-by-user') {
-        showAuthError(friendlyAuthError(err.code));
-      }
+      showAuthError(friendlyAuthError(err.code));
     }
   });
 }

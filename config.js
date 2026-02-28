@@ -46,7 +46,7 @@ function switchView(view) {
 
   if      (isConfig) { renderConfig(); syncConfigAccountUI(); }
   else if (isCal)    { renderCalendar(); }
-  else if (isDash && typeof loadDashboardData === 'function') { loadDashboardData(); }
+  else if (isDash)   { if (typeof renderDashboard === 'function') renderDashboard(); }
   else               { renderAll(); }
 }
 
@@ -306,8 +306,9 @@ function init() {
   });
 
   // ── Auth UI ──────────────────────────────────────────────
-  if (typeof initAuthUI === 'function') initAuthUI();
-  if (typeof initAuth   === 'function') initAuth();
+  if (typeof initAuthUI    === 'function') initAuthUI();
+  if (typeof initAuth      === 'function') initAuth();
+  if (typeof initDashboard === 'function') initDashboard();
 
   // ── Logout ───────────────────────────────────────────────
   document.getElementById('logoutBtn')?.addEventListener('click', () => {
