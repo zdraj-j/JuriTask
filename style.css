@@ -1264,3 +1264,115 @@ body {
   .report-item.today     { border-left-color: #d97706 !important; }
   .report-item.vencimiento { border-left-color: #3d5af1 !important; }
 }
+
+/* ═══════════════════ APROBACIÓN DE USUARIOS ══════════════════ */
+
+/* Tarjeta de usuario pendiente (en config) */
+.pending-user-card {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 12px 14px;
+  background: var(--warning-bg, #fffbeb);
+  border: 1px solid var(--warning-border, #fde68a);
+  border-radius: 10px;
+  margin-bottom: 8px;
+  flex-wrap: wrap;
+  transition: box-shadow .15s;
+}
+.pending-user-card:hover {
+  box-shadow: 0 2px 8px rgba(245,158,11,.15);
+}
+.pending-user-avatar {
+  width: 38px;
+  height: 38px;
+  border-radius: 50%;
+  background: var(--warning, #f59e0b);
+  color: #1a1a1a;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-weight: 700;
+  font-size: 13px;
+  flex-shrink: 0;
+}
+.pending-user-info {
+  flex: 1;
+  min-width: 0;
+}
+.pending-user-name  { font-weight: 600; font-size: 13px; color: var(--text-primary); }
+.pending-user-email { font-size: 12px; color: var(--text-secondary); }
+.pending-user-date  { font-size: 11px; color: var(--text-muted); margin-top: 2px; }
+.pending-user-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+}
+
+/* Badge "Pendiente" en tabla del dashboard */
+.pending-badge {
+  font-size: 11px;
+  background: var(--warning-light, #fef3c7);
+  color: var(--warning-dark, #92400e);
+  padding: 2px 8px;
+  border-radius: 8px;
+  font-weight: 600;
+  white-space: nowrap;
+}
+
+/* Sección del dashboard con borde de advertencia */
+.dash-section-warning {
+  border-left: 3px solid var(--warning, #f59e0b);
+}
+.dash-section-warning .dash-section-header h3 {
+  color: var(--warning-dark, #92400e);
+}
+
+/* Botón de éxito (aprobar) */
+.btn-success {
+  background: var(--success-light, #dcfce7);
+  color: var(--success, #16a34a);
+  border: 1px solid var(--success, #16a34a);
+  font-weight: 600;
+}
+.btn-success:hover {
+  background: var(--success, #16a34a);
+  color: #fff;
+}
+
+/* Botón de advertencia (bloquear) */
+.btn-warning {
+  background: var(--warning-light, #fef3c7);
+  color: var(--warning-dark, #92400e);
+  border: 1px solid var(--warning, #f59e0b);
+}
+.btn-warning:hover {
+  background: var(--warning, #f59e0b);
+  color: #1a1a1a;
+}
+
+/* Pantalla "Verifica tu correo" en el flujo de registro */
+.verify-email-screen {
+  text-align: center;
+  padding: 8px 0 4px;
+  animation: fadeIn .3s ease;
+}
+.verify-email-icon  { font-size: 48px; margin-bottom: 10px; }
+.verify-email-title { font-size: 20px; font-weight: 700; color: var(--text-primary); margin: 0 0 10px; }
+.verify-email-body  { font-size: 14px; color: var(--text-secondary); line-height: 1.6; margin: 0 0 4px; }
+
+/* Variables de color para modo oscuro / temas alternativos */
+[data-theme="oscuro"] {
+  --warning-bg:     #2d2000;
+  --warning-border: #78350f;
+  --warning-dark:   #fde68a;
+  --warning-light:  #451a03;
+  --success-light:  #052e16;
+}
+[data-theme="pizarra"] {
+  --warning-bg:     #2a2000;
+  --warning-border: #6b4c00;
+  --warning-dark:   #fde68a;
+  --warning-light:  #3a2a00;
+  --success-light:  #042010;
+}

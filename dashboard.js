@@ -81,6 +81,171 @@ function startAutoBackup() {
   }, 2*60*60*1000);
 }
 
+
+// ============================================================
+// APROBACIÓN DE CUENTAS PENDIENTES
+// ============================================================
+
+/**
+ * Aprueba una cuenta de usuario.
+ */
+async function approveUserAction(uid, displayName, btn) {
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  try {
+    await db.collection('users').doc(uid).update({ approved: true });
+    showToast(`✓ Cuenta de ${displayName} aprobada.`);
+    const u = _dashUsers.find(x => x.uid === uid);
+    if (u) u.approved = true;
+    await renderPendingUsersPanel();
+    await loadAdminUsers();
+    _updatePendingBadge();
+  } catch(e) {
+    showToast('Error al aprobar: ' + (e.message || e.code));
+    if (btn) { btn.disabled = false; btn.textContent = '✓ Aprobar'; }
+  }
+}
+
+/**
+ * Rechaza y bloquea una cuenta pendiente.
+ */
+async function rejectUserAction(uid, displayName, btn) {
+  const ok = await showConfirm(`¿Rechazar y bloquear la cuenta de ${displayName}?\nNo podrá iniciar sesión.`);
+  if (!ok) return;
+  if (btn) { btn.disabled = true; btn.textContent = '…'; }
+  try {
+    await db.collection('users').doc(uid).update({ approved: false, blocked: true });
+    showToast(`Cuenta de ${displayName} bloqueada.`);
+    const u = _dashUsers.find(x => x.uid === uid);
+    if (u) { u.approved = false; u.blocked = true; }
+    await renderPendingUsersPanel();
+    await loadAdminUsers();
+    _updatePendingBadge();
+  } catch(e) {
+    showToast('Error al rechazar: ' + (e.message || e.code));
+    if (btn) { btn.disabled = false; btn.textContent = '✕ Rechazar'; }
+  }
+}
+
+/**
+ * Renderiza el panel de cuentas pendientes en el dashboard y en config.
+ */
+async function renderPendingUsersPanel() {
+  let pendingUsers = [];
+  try {
+    const idx  = await db.collection('meta').doc('userIndex').get();
+    const uids = idx.exists ? (idx.data().uids || []) : [];
+    for (const uid of uids) {
+      try {
+        const doc = await db.collection('users').doc(uid).get();
+        if (doc.exists) {
+          const d = doc.data();
+          if (!d.approved && !d.blocked && d.role !== 'admin') {
+            pendingUsers.push({ uid, ...d });
+          }
+        }
+      } catch(_) {}
+    }
+  } catch(e) { console.warn('Error leyendo pendientes:', e); }
+
+  // ── Dashboard ──────────────────────────────────────────────
+  const dashSection = document.getElementById('pendingUsersSection');
+  const dashBody    = document.getElementById('pendingUsersBody');
+  if (dashSection && dashBody) {
+    dashSection.style.display = pendingUsers.length ? '' : 'none';
+    if (pendingUsers.length) {
+      dashBody.innerHTML = '';
+      pendingUsers.forEach(u => _buildPendingRow(u, dashBody));
+    }
+  }
+
+  // ── Configuración ──────────────────────────────────────────
+  const cfgWrap = document.getElementById('adminPendingWrap');
+  const cfgList = document.getElementById('adminPendingList');
+  if (cfgWrap && cfgList) {
+    cfgWrap.style.display = pendingUsers.length ? '' : 'none';
+    if (pendingUsers.length) {
+      cfgList.innerHTML = '';
+      pendingUsers.forEach(u => _buildPendingCard(u, cfgList));
+    }
+  }
+  return pendingUsers;
+}
+
+function _buildPendingRow(u, tbody) {
+  const tr = document.createElement('tr');
+  tr.innerHTML = `
+    <td>
+      <div class="dash-user-cell">
+        <div class="dash-avatar-initials" style="background:var(--warning,#f59e0b);color:#1a1a1a">
+          ${(u.displayName||u.email||'?').slice(0,2).toUpperCase()}
+        </div>
+        <div>
+          <div style="font-weight:600;font-size:13px">${u.displayName||'(sin nombre)'}</div>
+          <div style="font-size:11px;color:var(--text-muted)">${u.creadoEn ? new Date(u.creadoEn).toLocaleDateString('es-CO') : ''}</div>
+        </div>
+      </div>
+    </td>
+    <td class="dash-email">${u.email||'—'}</td>
+    <td><span class="pending-badge">⏳ Pendiente de aprobación</span></td>
+    <td>
+      <div style="display:flex;gap:6px;flex-wrap:wrap">
+        <button class="btn-small btn-success" data-approve="${u.uid}">✓ Aprobar</button>
+        <button class="btn-small btn-danger"  data-reject="${u.uid}">✕ Rechazar</button>
+      </div>
+    </td>`;
+  tr.querySelector('[data-approve]').addEventListener('click', e => approveUserAction(u.uid, u.displayName||u.email, e.currentTarget));
+  tr.querySelector('[data-reject]').addEventListener('click',  e => rejectUserAction(u.uid,  u.displayName||u.email, e.currentTarget));
+  tbody.appendChild(tr);
+}
+
+function _buildPendingCard(u, container) {
+  const card = document.createElement('div');
+  card.className = 'pending-user-card';
+  card.innerHTML = `
+    <div class="pending-user-avatar">${(u.displayName||u.email||'?').slice(0,2).toUpperCase()}</div>
+    <div class="pending-user-info">
+      <div class="pending-user-name">${u.displayName||'(sin nombre)'}</div>
+      <div class="pending-user-email">${u.email||''}</div>
+      <div class="pending-user-date">Solicitud: ${u.creadoEn ? new Date(u.creadoEn).toLocaleString('es-CO',{dateStyle:'short',timeStyle:'short'}) : '—'}</div>
+    </div>
+    <div class="pending-user-actions">
+      <button class="btn-small btn-success" data-approve="${u.uid}">✓ Aprobar</button>
+      <button class="btn-small btn-danger"  data-reject="${u.uid}">✕ Rechazar</button>
+    </div>`;
+  card.querySelector('[data-approve]').addEventListener('click', e => approveUserAction(u.uid, u.displayName||u.email, e.currentTarget));
+  card.querySelector('[data-reject]').addEventListener('click',  e => rejectUserAction(u.uid,  u.displayName||u.email, e.currentTarget));
+  container.appendChild(card);
+}
+
+async function _updatePendingBadge() {
+  try {
+    const idx  = await db.collection('meta').doc('userIndex').get();
+    const uids = idx.exists ? (idx.data().uids || []) : [];
+    let count  = 0;
+    for (const uid of uids) {
+      try {
+        const doc = await db.collection('users').doc(uid).get();
+        if (doc.exists) { const d = doc.data(); if (!d.approved && !d.blocked && d.role !== 'admin') count++; }
+      } catch(_) {}
+    }
+    let badge = document.getElementById('pendingApprovalBadge');
+    if (!badge) {
+      const navBtn = document.querySelector('[data-view="dashboard"]');
+      if (navBtn) {
+        badge = document.createElement('span');
+        badge.id = 'pendingApprovalBadge';
+        badge.className = 'badge';
+        badge.style.cssText = 'background:var(--warning,#f59e0b);color:#1a1a1a;margin-left:auto';
+        navBtn.appendChild(badge);
+      }
+    }
+    if (badge) { badge.textContent = count||''; badge.style.display = count ? '' : 'none'; }
+    setText('kpiPendientes', count);
+    const cfgBadge = document.getElementById('adminPendingCount');
+    if (cfgBadge) { cfgBadge.textContent = count ? `${count} pendiente${count!==1?'s':''}` : ''; cfgBadge.style.display = count ? '' : 'none'; }
+  } catch(_) {}
+}
+
 // ============================================================
 // DASHBOARD
 // ============================================================
@@ -160,6 +325,7 @@ async function renderDashboard() {
 
   // KPIs — usar totales reales de todos los usuarios
   setText('kpiUsuarios',    knownUids.size);
+  // kpiPendientes se actualiza en _updatePendingBadge()
   setText('kpiTramites',    totalTramitesAll || activos.length);
   setText('kpiVencidos',    totalVencidosAll || vencidos.length);
   setText('kpiHoy',         hoyVenc.length);
@@ -171,11 +337,16 @@ async function renderDashboard() {
   // Métricas visuales
   renderDashMetrics(activos, vencidos);
 
-  // Tabla usuarios
+  // ── Pendientes ──────────────────────────────────────────────
+  await renderPendingUsersPanel();
+  await _updatePendingBadge();
+
+  // Tabla usuarios (solo aprobados)
   const tbody = document.getElementById('dashUsersBody');
   if (tbody) {
     tbody.innerHTML = '';
-    _dashUsers.forEach(u => {
+    const approvedUsers = _dashUsers.filter(u => u.approved !== false || u.role === 'admin' || u.uid === AUTH.userProfile.uid);
+    approvedUsers.forEach(u => {
       const equipo   = _dashEquipos.find(e => (e.members||[]).includes(u.uid));
       const isMe     = u.uid === AUTH.userProfile.uid;
       const nAct     = u._tramitesActivos  ?? '?';
@@ -451,9 +622,12 @@ async function saveTeam() {
 async function loadAdminUsers() {
   const el = document.getElementById('adminUserList');
   if (!el || AUTH.userProfile?.role !== 'admin') return;
+  // Refresh pending panel in config view
+  await renderPendingUsersPanel();
   const users = _dashUsers.length ? _dashUsers : [{ ...AUTH.userProfile }];
+  const activeUsers = users.filter(u => u.approved !== false || u.role === 'admin' || u.uid === AUTH.userProfile.uid);
   el.innerHTML = '';
-  users.forEach(u => {
+  activeUsers.forEach(u => {
     const uid = u.uid; const isMe = uid === AUTH.userProfile.uid;
     const row = document.createElement('div');
     row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-light);flex-wrap:wrap';

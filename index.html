@@ -270,15 +270,41 @@
           <div class="dash-kpi-value" id="kpiCompartidos">—</div>
           <div class="dash-kpi-label">Trámites compartidos</div>
         </div>
+        <div class="dash-kpi dash-kpi-warning" id="kpiPendientesCard">
+          <div class="dash-kpi-icon">⏳</div>
+          <div class="dash-kpi-value" id="kpiPendientes">—</div>
+          <div class="dash-kpi-label">Cuentas pendientes</div>
+        </div>
       </div>
 
       <!-- Métricas visuales -->
       <div id="dashMetricsRow" class="dash-metrics-row"></div>
 
-      <!-- Usuarios -->
+      <!-- Cuentas pendientes de aprobación (se oculta si no hay ninguna) -->
+      <div class="dash-section dash-section-warning" id="pendingUsersSection" style="display:none">
+        <div class="dash-section-header">
+          <h3>⏳ Cuentas pendientes de aprobación</h3>
+          <span style="font-size:12px;color:var(--warning-dark,#92400e);background:var(--warning-light,#fef3c7);padding:3px 10px;border-radius:20px;font-weight:600" id="pendingCountLabel"></span>
+        </div>
+        <div class="dash-table-wrap">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Correo</th>
+                <th>Estado</th>
+                <th>Acciones</th>
+              </tr>
+            </thead>
+            <tbody id="pendingUsersBody"></tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Usuarios activos -->
       <div class="dash-section">
         <div class="dash-section-header">
-          <h3>👤 Usuarios</h3>
+          <h3>👤 Usuarios activos</h3>
           <button class="btn-small" id="dashCreateTeamBtn">＋ Crear equipo</button>
         </div>
         <div class="dash-table-wrap">
@@ -485,6 +511,18 @@
 
         <div class="config-section admin-only-section" id="adminSection" style="display:none">
           <h3>🛡 Administración de usuarios</h3>
+
+          <!-- Cuentas pendientes de aprobación -->
+          <div id="adminPendingWrap" style="display:none;margin-bottom:20px">
+            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
+              <span style="font-size:13px;font-weight:700;color:var(--warning-dark,#92400e)">⏳ Cuentas pendientes de aprobación</span>
+              <span id="adminPendingCount" style="font-size:11px;background:var(--warning,#f59e0b);color:#1a1a1a;padding:2px 8px;border-radius:20px;font-weight:700;display:none"></span>
+            </div>
+            <div id="adminPendingList"></div>
+          </div>
+
+          <!-- Usuarios activos -->
+          <p style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">Usuarios activos</p>
           <div id="adminUserList" style="margin-bottom:16px"></div>
           <button class="btn btn-primary" id="adminRefreshBtn">↺ Actualizar lista</button>
         </div>
