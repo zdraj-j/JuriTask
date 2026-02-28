@@ -307,8 +307,9 @@ function init() {
   });
 
   // ── Auth UI ──────────────────────────────────────────────
-  if (typeof initAuthUI === 'function') initAuthUI();
-  if (typeof initAuth   === 'function') initAuth();
+  if (typeof initAuthUI    === 'function') initAuthUI();
+  if (typeof initAuth      === 'function') initAuth();
+  if (typeof initDashboard === 'function') initDashboard();
 
   // ── Logout ───────────────────────────────────────────────
   document.getElementById('logoutBtn')?.addEventListener('click', () => {
@@ -333,7 +334,8 @@ function init() {
 
     if (e.key !== 'Escape') return;
     const close = sel => document.querySelector(sel)?.classList.contains('open');
-    if (close('#confirmOverlay')) { _confirmClose(false); return; }
+    if (close('#confirmOverlay'))    { _confirmClose(false); return; }
+    if (close('#createTeamOverlay')) { if (typeof closeTeamModal === 'function') closeTeamModal(); return; }
     if (close('#reportOverlay'))  { closeReport();   return; }
     if (close('#detailOverlay'))  { closeDetail();   return; }
     if (close('#modalOverlay'))   { closeModal();    return; }

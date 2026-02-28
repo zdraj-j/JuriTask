@@ -136,7 +136,8 @@ function friendlyAuthError(code) {
     'auth/network-request-failed': 'Sin conexión. Verifica tu internet.',
     'auth/popup-blocked':          'El popup fue bloqueado por el navegador.',
     'auth/invalid-credential':     'Correo o contraseña incorrectos.',
-    'auth/unauthorized-domain':    'Dominio no autorizado en Firebase. Agrega tu dominio en Authentication → Authorized domains.',
+    'auth/operation-not-allowed':  'Google no está habilitado. Ve a Firebase → Authentication → Sign-in method → Google y actívalo.',
+    'auth/unauthorized-domain':    'Dominio no autorizado. Agrega tu dominio en Firebase → Authentication → Authorized domains.',
   };
   return map[code] || `Error inesperado (${code || 'desconocido'}). Intenta de nuevo.`;
 }
