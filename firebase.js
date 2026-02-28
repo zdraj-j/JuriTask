@@ -137,6 +137,8 @@ async function loadFromFirestore() {
       const t = { id: doc.id, ...doc.data() };
       migrateTramite(t);
       STATE.tramites.push(t);
+      // Poblar caché de nombres desde trámites compartidos
+      if (t._sharedFrom && t._sharedFromName) cacheUidName(t._sharedFrom, t._sharedFromName);
     });
 
     applyCssColors();
@@ -260,6 +262,7 @@ auth.onAuthStateChanged(async user => {
 
     if (typeof renderAll            === 'function') renderAll();
     if (typeof syncConfigAccountUI  === 'function') syncConfigAccountUI();
+    if (typeof showView             === 'function') showView('all'); // Siempre iniciar en Todos los trámites
     if (typeof purgeExpiredFinished === 'function') purgeExpiredFinished();
     if (typeof startAutoBackup      === 'function') startAutoBackup();
     if (typeof loadTeamMembers      === 'function') loadTeamMembers();

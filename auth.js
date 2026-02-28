@@ -148,13 +148,19 @@ function logout() {
   AUTH.logout().catch(console.error);
 }
 
-// ── Modal perfil ──────────────────────────────────────────────
+// ── Overlay avatar: resumen rápido + ir a editar + logout ─────
 function openProfileModal() {
   const p = AUTH.userProfile;
   if (!p) return;
-  document.getElementById('profileName').value  = p.displayName || '';
-  document.getElementById('profileEmail').value = p.email       || '';
-  document.getElementById('profileRole').textContent = p.role === 'admin' ? '👑 Administrador' : '👤 Usuario';
+  const initials = (p.displayName || p.email || '?').slice(0, 2).toUpperCase();
+  const avatarBig = document.getElementById('profileAvatarBig');
+  if (avatarBig) avatarBig.textContent = initials;
+  const nd = document.getElementById('profileNameDisplay');
+  const ed = document.getElementById('profileEmailDisplay');
+  const rd = document.getElementById('profileRoleDisplay');
+  if (nd) nd.textContent = p.displayName || '(sin nombre)';
+  if (ed) ed.textContent = p.email || '';
+  if (rd) rd.textContent = p.role === 'admin' ? '👑 Administrador' : '👤 Usuario';
   document.getElementById('profileOverlay').classList.add('open');
 }
 
@@ -162,12 +168,48 @@ function closeProfileModal() {
   document.getElementById('profileOverlay').classList.remove('open');
 }
 
+// ── Modal editar perfil (abre desde config) ───────────────────
+function openEditProfileModal() {
+  const p = AUTH.userProfile;
+  if (!p) return;
+  const nameEl  = document.getElementById('profileName');
+  const emailEl = document.getElementById('profileEmail');
+  if (nameEl)  nameEl.value  = p.displayName || '';
+  if (emailEl) emailEl.value = p.email || '';
+  document.getElementById('editProfileOverlay')?.classList.add('open');
+}
+
+function closeEditProfileModal() {
+  document.getElementById('editProfileOverlay')?.classList.remove('open');
+  ['currentPass','newPass','confirmPass'].forEach(id => {
+    const el = document.getElementById(id); if (el) el.value = '';
+  });
+}
+
 function initAuth() {
+  // Overlay avatar
   document.getElementById('profileClose')?.addEventListener('click', closeProfileModal);
   document.getElementById('profileOverlay')?.addEventListener('click', e => {
     if (e.target === document.getElementById('profileOverlay')) closeProfileModal();
   });
+  document.getElementById('goToEditProfileBtn')?.addEventListener('click', () => {
+    closeProfileModal();
+    if (typeof showView === 'function') showView('config');
+    setTimeout(openEditProfileModal, 80);
+  });
+  document.getElementById('profileLogoutBtn')?.addEventListener('click', () => {
+    closeProfileModal(); logout();
+  });
+  document.getElementById('userAvatarBtn')?.addEventListener('click', openProfileModal);
 
+  // Modal editar perfil
+  document.getElementById('editProfileClose')?.addEventListener('click', closeEditProfileModal);
+  document.getElementById('editProfileOverlay')?.addEventListener('click', e => {
+    if (e.target === document.getElementById('editProfileOverlay')) closeEditProfileModal();
+  });
+  document.getElementById('configEditProfileBtn')?.addEventListener('click', openEditProfileModal);
+
+  // Guardar nombre
   document.getElementById('saveProfileBtn')?.addEventListener('click', async () => {
     const name = document.getElementById('profileName').value.trim();
     if (!name) { showToast('El nombre no puede estar vacío.'); return; }
@@ -184,6 +226,7 @@ function initAuth() {
     } catch(err) { showToast('Error: ' + err.message); }
   });
 
+  // Cambiar contraseña
   document.getElementById('changePassBtn')?.addEventListener('click', async () => {
     const current  = document.getElementById('currentPass').value;
     const newPass  = document.getElementById('newPass').value;
@@ -194,12 +237,9 @@ function initAuth() {
     try {
       await AUTH.reauthenticate(current);
       await AUTH.updatePassword(newPass);
-      document.getElementById('currentPass').value = '';
-      document.getElementById('newPass').value     = '';
-      document.getElementById('confirmPass').value = '';
-      showToast('Contraseña cambiada.');
+      ['currentPass','newPass','confirmPass'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+      showToast('Contraseña cambiada correctamente.');
+      closeEditProfileModal();
     } catch(err) { showToast(friendlyAuthError(err.code)); }
   });
-
-  document.getElementById('userAvatarBtn')?.addEventListener('click', openProfileModal);
 }

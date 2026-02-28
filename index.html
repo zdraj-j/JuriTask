@@ -381,6 +381,28 @@
           </div>
         </div>
 
+        <!-- Modal editar perfil (dentro de config) -->
+        <div id="editProfileOverlay" class="overlay" style="z-index:600">
+          <div class="modal modal-sm">
+            <div class="modal-header">
+              <h2>Editar perfil</h2>
+              <button class="modal-close" id="editProfileClose">✕</button>
+            </div>
+            <div class="modal-body">
+              <div class="form-group" style="margin-bottom:14px"><label>Nombre</label><input type="text" id="profileName" /></div>
+              <div class="form-group" style="margin-bottom:18px"><label>Correo</label><input type="email" id="profileEmail" disabled /></div>
+              <button class="btn-primary" id="saveProfileBtn" style="width:100%;margin-bottom:20px">Guardar nombre</button>
+              <div style="border-top:1px solid var(--border-light);padding-top:18px">
+                <p style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px">Cambiar contraseña</p>
+                <div class="form-group" style="margin-bottom:10px"><label>Contraseña actual</label><input type="password" id="currentPass" /></div>
+                <div class="form-group" style="margin-bottom:10px"><label>Nueva contraseña</label><input type="password" id="newPass" /></div>
+                <div class="form-group" style="margin-bottom:14px"><label>Confirmar nueva</label><input type="password" id="confirmPass" /></div>
+                <button class="btn-primary" id="changePassBtn" style="width:100%">Cambiar contraseña</button>
+              </div>
+            </div>
+          </div>
+        </div>
+
         <div class="config-section">
           <h3>Colaboradores</h3>
           <div id="abogadosList"></div>
@@ -632,17 +654,16 @@
       <button class="modal-close" id="profileClose">✕</button>
     </div>
     <div class="modal-body">
-      <div class="form-group"><label>Nombre</label><input type="text" id="profileName" /></div>
-      <div class="form-group"><label>Correo</label><input type="email" id="profileEmail" disabled /></div>
-      <div class="form-group"><label>Rol</label><span id="profileRole" style="font-weight:600"></span></div>
-      <button class="btn btn-primary" id="saveProfileBtn">Guardar nombre</button>
-      <div id="changePassSection" style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
-        <h4 style="margin-bottom:12px">Cambiar contraseña</h4>
-        <div class="form-group"><label>Contraseña actual</label><input type="password" id="currentPass" /></div>
-        <div class="form-group"><label>Nueva contraseña</label><input type="password" id="newPass" /></div>
-        <div class="form-group"><label>Confirmar nueva</label><input type="password" id="confirmPass" /></div>
-        <button class="btn btn-primary" id="changePassBtn">Cambiar contraseña</button>
+      <div style="display:flex;align-items:center;gap:14px;margin-bottom:20px">
+        <div class="user-avatar" id="profileAvatarBig" style="width:52px;height:52px;font-size:20px;flex-shrink:0"></div>
+        <div>
+          <div id="profileNameDisplay" style="font-weight:700;font-size:16px"></div>
+          <div id="profileEmailDisplay" style="font-size:13px;color:var(--text-secondary)"></div>
+          <div id="profileRoleDisplay" style="font-size:12px;color:var(--text-muted);margin-top:2px"></div>
+        </div>
       </div>
+      <button class="btn-primary" id="goToEditProfileBtn" style="width:100%;margin-bottom:10px">✎ Editar perfil y contraseña</button>
+      <button class="btn-danger" id="profileLogoutBtn" style="width:100%;border-radius:20px">⏻ Cerrar sesión</button>
     </div>
   </div>
 </div>

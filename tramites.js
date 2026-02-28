@@ -87,14 +87,42 @@ function escapeAttr(str) {
   return String(str).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
-function abogadoName(key) {
+// Caché de nombres de UIDs (poblado cuando se cargan trámites compartidos)
+const _uidNameCache = {};
+
+function cacheUidName(uid, name) {
+  if (uid && name && name !== uid) _uidNameCache[uid] = name;
+}
+
+// Nombre legible dado un uid/key, con trámite opcional para contexto
+function abogadoName(key, tramite) {
   if (!key || key === 'yo') return 'Yo mismo';
+
+  // Es el propio usuario logueado
+  if (typeof AUTH !== 'undefined' && key === AUTH?.userProfile?.uid) {
+    return AUTH.userProfile.displayName || AUTH.userProfile.email || 'Yo';
+  }
+
+  // Miembros del equipo cargados desde Firestore
   if (typeof _teamMembers !== 'undefined') {
     const m = _teamMembers.find(x => x.uid === key);
     if (m) return m.displayName || m.email || key;
   }
+
+  // Caché de UIDs conocidos (de trámites compartidos recibidos)
+  if (_uidNameCache[key]) return _uidNameCache[key];
+
+  // Trámite compartido: si key es _sharedFrom, usar _sharedFromName
+  if (tramite && tramite._sharedFrom === key && tramite._sharedFromName) {
+    cacheUidName(key, tramite._sharedFromName);
+    return tramite._sharedFromName;
+  }
+
+  // Colaboradores manuales de config
   const a = (STATE.config.abogados || []).find(x => x.key === key);
-  return a ? a.nombre : key;
+  if (a) return a.nombre;
+
+  return key; // último recurso: mostrar el key tal cual
 }
 
 function abogadoColor(key) {

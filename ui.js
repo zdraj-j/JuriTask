@@ -185,20 +185,24 @@ function buildCard(t) {
     vencHtml    = `<span class="venc-fecha ${vcls}">${lbl}: ${formatDate(t.fechaVencimiento)}</span>${dtag}`;
   }
 
-  // Responsable
+  // Responsable — para trámites compartidos recibidos, mostrar quién los creó
   let respTag;
   if (esP) {
     respTag = `<span class="tag tag-propio">👤 Propio</span>`;
   } else {
-    const col = abogadoColor(t.abogado), bg = hexToRgba(col, 0.12);
-    respTag = `<span class="tag tag-abogado" style="background:${bg};color:${col}">${abogadoName(t.abogado)}</span>`;
+    // Si el trámite viene de otra persona (_sharedFrom), mostrar su nombre
+    const displayKey = (t._sharedFrom && t._sharedFrom !== AUTH?.userProfile?.uid)
+      ? t._sharedFrom
+      : t.abogado;
+    const col = abogadoColor(displayKey), bg = hexToRgba(col, 0.12);
+    respTag = `<span class="tag tag-abogado" style="background:${bg};color:${col}">${abogadoName(displayKey, t)}</span>`;
   }
 
   const etapaTag   = t.terminado ? `<span class="tag tag-terminado">Terminado</span>` : '';
   const pends      = (t.seguimiento||[]).filter(s => s.estado === 'pendiente');
   const tieneUrg   = pends.some(s => s.urgente);
   const urgenteTag = tieneUrg ? `<span class="tag tag-urgente">🔴 Urgente</span>` : '';
-  const segHtml    = buildSeguimientoHtml(pends);
+  const segHtml    = buildSeguimientoHtml(pends, t);
 
   // Checkboxes
   let checksHtml = '';
@@ -287,14 +291,14 @@ function buildCard(t) {
   return wrapper;
 }
 
-function buildSeguimientoHtml(tareas) {
+function buildSeguimientoHtml(tareas, tramite) {
   if (!tareas.length) return '';
   return `<div class="card-seguimiento">
     ${tareas.slice(0, 2).map(s => {
       const dc   = dateClass(s.fecha);
       const urg  = s.urgente ? '<span class="seg-urg">🔴</span>' : '';
       const fech = s.fecha  ? `<span class="seg-fecha ${dc}">${formatDate(s.fecha)}</span>` : '';
-      const resp = s.responsable ? `<span style="color:var(--text-muted);font-size:10px">· ${abogadoName(s.responsable)}</span>` : '';
+      const resp = s.responsable ? `<span style="color:var(--text-muted);font-size:10px">· ${abogadoName(s.responsable, tramite)}</span>` : '';
       return `<div class="card-seg-item"><div class="seg-dot ${dc}"></div>${urg}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.descripcion}</span>${fech}${resp}</div>`;
     }).join('')}
     ${tareas.length > 2 ? `<div class="card-seg-item" style="color:var(--text-muted);font-size:11px">+${tareas.length - 2} más…</div>` : ''}
@@ -325,7 +329,7 @@ function refreshCardOnly(t) {
     }
 
     const pends   = (t.seguimiento || []).filter(s => s.estado === 'pendiente');
-    const newHtml = buildSeguimientoHtml(pends);
+    const newHtml = buildSeguimientoHtml(pends, t);
     const segEl   = card.querySelector('.card-seguimiento');
     if (segEl) {
       const parent = segEl.parentNode; segEl.remove();
@@ -589,7 +593,7 @@ function renderActividadesIn(t, listEl, container, expandWrapper) {
         <div class="actividad-desc ${isDone?'done':''}" title="Doble clic para editar">${escapeHtml(act.descripcion)}</div>
         <div class="actividad-meta">
           <input type="date" value="${act.fecha||''}" />
-          ${act.responsable ? `<span class="actividad-resp">${abogadoName(act.responsable)}</span>` : ''}
+          ${act.responsable ? `<span class="actividad-resp">${abogadoName(act.responsable, t)}</span>` : ''}
           <span class="actividad-estado ${act.estado}">${isDone?'Realizado':'Pendiente'}</span>
         </div>
       </div>
