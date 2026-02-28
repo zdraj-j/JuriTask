@@ -186,6 +186,7 @@ body {
 .btn-clear-filters:hover { background: var(--danger-light); color: var(--danger); border-color: var(--danger); }
 
 /* ==================== APP LAYOUT ==================== */
+#appContainer { display: flex; width: 100%; height: 100vh; overflow: hidden; }
 .app-layout { margin-left: var(--sidebar-w); width: calc(100% - var(--sidebar-w)); display: flex; flex-direction: column; height: 100vh; overflow: hidden; transition: margin-left var(--transition), width var(--transition); }
 .app-layout.expanded { margin-left: 0; width: 100%; }
 
@@ -416,10 +417,10 @@ body {
 .empty-state p { font-size: 14px; }
 
 /* ==================== MODAL ==================== */
-.modal-overlay, .overlay { position: fixed; inset: 0; background: var(--overlay-bg); z-index: 500; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity var(--transition); }
-.modal-overlay.open, .overlay.open { opacity: 1; pointer-events: all; }
+.modal-overlay { position: fixed; inset: 0; background: var(--overlay-bg); z-index: 500; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity var(--transition); }
+.modal-overlay.open { opacity: 1; pointer-events: all; }
 .modal { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-lg); width: 560px; max-width: 95vw; max-height: 90vh; display: flex; flex-direction: column; transform: translateY(20px); transition: transform var(--transition); overflow: hidden; border: 1px solid var(--border); }
-.modal-overlay.open .modal, .overlay.open .modal { transform: translateY(0); }
+.modal-overlay.open .modal { transform: translateY(0); }
 .modal.draggable-active { position: fixed; transform: none !important; transition: none; margin: 0; }
 .modal.is-dragging { cursor: grabbing !important; user-select: none; }
 #tramiteModal .modal-header { cursor: grab; }
@@ -598,7 +599,7 @@ body {
   .form-grid { grid-template-columns: 1fr; }
   .form-group.full { grid-column: 1; }
   .modal { max-width: 100vw; max-height: 92dvh; border-radius: var(--radius) var(--radius) 0 0; }
-  .modal-overlay, .overlay { align-items: flex-end; }
+  .modal-overlay { align-items: flex-end; }
   .modal-large { width: 100vw; }
   .modal.draggable-active { position: relative; left: auto !important; top: auto !important; }
   .card-body { padding: 9px 11px; }

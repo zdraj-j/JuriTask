@@ -43,10 +43,11 @@ function switchView(view) {
   document.getElementById('sortWrap').style.display       = hide ? 'none' : '';
   document.getElementById('mobOptsBtn').style.display     = hide ? 'none' : '';
   document.getElementById('reportBtn').style.display      = hide ? 'none' : '';
+  document.getElementById('newTramiteBtn').style.display  = hide ? 'none' : '';
 
   if      (isConfig) { renderConfig(); syncConfigAccountUI(); }
   else if (isCal)    { renderCalendar(); }
-  else if (isDash)   { if (typeof renderDashboard === 'function') renderDashboard(); }
+  else if (isDash && typeof loadDashboardData === 'function') { loadDashboardData(); }
   else               { renderAll(); }
 }
 
@@ -306,9 +307,8 @@ function init() {
   });
 
   // ── Auth UI ──────────────────────────────────────────────
-  if (typeof initAuthUI    === 'function') initAuthUI();
-  if (typeof initAuth      === 'function') initAuth();
-  if (typeof initDashboard === 'function') initDashboard();
+  if (typeof initAuthUI === 'function') initAuthUI();
+  if (typeof initAuth   === 'function') initAuth();
 
   // ── Logout ───────────────────────────────────────────────
   document.getElementById('logoutBtn')?.addEventListener('click', () => {

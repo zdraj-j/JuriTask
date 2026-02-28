@@ -103,11 +103,27 @@ function initAuthUI() {
   document.querySelector('.btn-google-login')?.addEventListener('click', async () => {
     setAuthLoading(true);
     try {
-      await AUTH.loginGoogle();
-      // onAuthStateChanged + getRedirectResult en firebase.js manejan el resto
+      const cred = await AUTH.loginGoogle();
+      const uRef = db.collection('users').doc(cred.user.uid);
+      const uDoc = await uRef.get();
+      if (!uDoc.exists) {
+        const usersSnap = await db.collection('users').get();
+        const isFirst   = usersSnap.empty || (usersSnap.size === 1 && usersSnap.docs[0].id === cred.user.uid);
+        await uRef.set({
+          displayName: cred.user.displayName || '',
+          email:       cred.user.email       || '',
+          role:        isFirst ? 'admin' : 'user',
+          creadoEn:    new Date().toISOString(),
+        });
+      }
     } catch (err) {
       setAuthLoading(false);
-      showAuthError(friendlyAuthError(err.code));
+      if (err.code === 'auth/popup-closed-by-user') return;
+      if (err.code === 'auth/unauthorized-domain') {
+        showAuthError('Dominio no autorizado. Ve a Firebase Console → Authentication → Authorized domains y agrega "zdraj-j.github.io".');
+      } else {
+        showAuthError(friendlyAuthError(err.code));
+      }
     }
   });
 }
