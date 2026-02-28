@@ -167,9 +167,9 @@ auth.onAuthStateChanged(async user => {
 
     // Cargar datos y mostrar app
     await loadFromFirestore();
-    if (authEl) authEl.style.display  = 'none';
+    if (authEl) authEl.style.display       = 'none';
     if (loadingEl) loadingEl.style.display = 'none';
-    if (appEl)  appEl.style.display   = '';
+    if (appEl)  appEl.style.display        = 'flex'; // flex para que sidebar + app-layout queden lado a lado
 
     if (typeof renderAll            === 'function') renderAll();
     if (typeof syncConfigAccountUI  === 'function') syncConfigAccountUI();
