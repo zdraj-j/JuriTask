@@ -86,12 +86,22 @@ function initAuthUI() {
   });
 
   // ── GOOGLE ───────────────────────────────────────────────
-  // signInWithRedirect: navega a Google y vuelve a la app.
-  // El resultado lo captura getRedirectResult() en firebase.js.
-  // NO usar await aquí porque la página hace redirect antes de resolver.
-  document.querySelector('.btn-google-login')?.addEventListener('click', () => {
+  document.querySelector('.btn-google-login')?.addEventListener('click', async () => {
     setAuthLoading(true);
-    AUTH.loginGoogle(); // dispara redirect, la página sale
+    try {
+      const cred = await AUTH.loginGoogle();
+      // Asegurar perfil en Firestore (ensureUserProfile está en firebase.js)
+      await ensureUserProfile(cred.user);
+      // onAuthStateChanged se encarga de mostrar la app
+    } catch(err) {
+      setAuthLoading(false);
+      if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') return;
+      if (err.code === 'auth/unauthorized-domain') {
+        showAuthError('Dominio no autorizado. Agrega "zdraj-j.github.io" en Firebase → Authentication → Authorized domains.');
+      } else {
+        showAuthError(friendlyAuthError(err.code));
+      }
+    }
   });
 }
 

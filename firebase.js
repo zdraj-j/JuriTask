@@ -24,7 +24,9 @@ const AUTH = {
   loginGoogle() {
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
-    return auth.signInWithRedirect(provider);
+    // signInWithPopup funciona en GitHub Pages cuando el dominio está autorizado
+    // en Firebase Console → Authentication → Authorized domains
+    return auth.signInWithPopup(provider);
   },
 
   loginEmail(email, password) {
@@ -176,24 +178,7 @@ function saveConfigDebounced() {
   }, 800);
 }
 
-// ─── RESULTADO DEL REDIRECT DE GOOGLE ────────────────────────
-// Se ejecuta al volver de la página de Google.
-// Si no hay redirect pendiente, result.user es null y no hace nada.
-auth.getRedirectResult()
-  .then(async result => {
-    if (!result || !result.user) return;
-    // onAuthStateChanged también se dispara; solo aseguramos el perfil aquí
-    await ensureUserProfile(result.user);
-  })
-  .catch(err => {
-    console.error('getRedirectResult:', err.code, err.message);
-    requestAnimationFrame(() => {
-      if (document.getElementById('authScreen')?.style.display !== 'none') {
-        if (typeof showAuthError  === 'function') showAuthError('Error con Google: ' + err.message);
-        if (typeof setAuthLoading === 'function') setAuthLoading(false);
-      }
-    });
-  });
+// (sin redirect — se usa signInWithPopup)
 
 // ─── CAMBIOS DE SESIÓN ────────────────────────────────────────
 auth.onAuthStateChanged(async user => {
