@@ -1,0 +1,561 @@
+<!DOCTYPE html>
+<html lang="es" data-theme="claro">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <title>JuriTask</title>
+  <link rel="icon" type="image/png" href="favicon.png" />
+  <link rel="stylesheet" href="style.css" />
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
+</head>
+<body>
+
+<!-- ============================================================
+     PANTALLA DE AUTENTICACIÓN
+     ============================================================ -->
+<div id="authScreen">
+  <div class="auth-bg"></div>
+  <div class="auth-card">
+    <div class="auth-logo">⚖ <strong>JuriTask</strong></div>
+    <p class="auth-tagline">Gestión de trámites inteligente</p>
+
+    <div class="auth-tabs">
+      <button class="auth-tab active" data-tab="login">Iniciar sesión</button>
+      <button class="auth-tab" data-tab="register">Registrarse</button>
+    </div>
+
+    <div id="authError" class="auth-message" style="display:none"></div>
+
+    <!-- LOGIN -->
+    <form id="loginForm">
+      <div class="auth-field">
+        <label>Correo electrónico</label>
+        <input type="email" id="loginEmail" placeholder="correo@ejemplo.com" autocomplete="email" />
+      </div>
+      <div class="auth-field">
+        <label>Contraseña</label>
+        <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" />
+      </div>
+      <button type="submit" class="btn btn-primary auth-submit-btn">Iniciar sesión</button>
+    </form>
+
+    <!-- REGISTER -->
+    <form id="registerForm" style="display:none">
+      <div class="auth-field">
+        <label>Nombre completo</label>
+        <input type="text" id="regName" placeholder="Tu nombre" autocomplete="name" />
+      </div>
+      <div class="auth-field">
+        <label>Correo electrónico</label>
+        <input type="email" id="regEmail" placeholder="correo@ejemplo.com" autocomplete="email" />
+      </div>
+      <div class="auth-field">
+        <label>Contraseña</label>
+        <input type="password" id="regPass" placeholder="Mínimo 6 caracteres" autocomplete="new-password" />
+      </div>
+      <div class="auth-field">
+        <label>Confirmar contraseña</label>
+        <input type="password" id="regPass2" placeholder="Repite la contraseña" autocomplete="new-password" />
+      </div>
+      <button type="submit" class="btn btn-primary auth-submit-btn">Crear cuenta</button>
+    </form>
+
+    <!-- RESET -->
+    <form id="resetForm" style="display:none">
+      <p class="auth-reset-hint">Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.</p>
+      <div class="auth-field">
+        <label>Correo electrónico</label>
+        <input type="email" id="resetEmail" placeholder="correo@ejemplo.com" autocomplete="email" />
+      </div>
+      <button type="submit" class="btn btn-primary auth-submit-btn">Enviar enlace</button>
+    </form>
+
+    <div class="auth-divider"><span>o</span></div>
+    <button class="btn-google-login" type="button">
+      <svg width="18" height="18" viewBox="0 0 48 48">
+        <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.2l6.7-6.7C35.8 2.5 30.3 0 24 0 14.6 0 6.6 5.4 2.5 13.3l7.8 6C12.1 13.2 17.6 9.5 24 9.5z"/>
+        <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.2-.4-4.7H24v8.9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.2z"/>
+        <path fill="#FBBC05" d="M10.3 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7l-7.8-6A23.9 23.9 0 0 0 0 24c0 3.8.9 7.5 2.5 10.7l7.8-6z"/>
+        <path fill="#34A853" d="M24 48c6.3 0 11.6-2.1 15.5-5.6l-7.5-5.8c-2.1 1.4-4.8 2.2-8 2.2-6.4 0-11.9-3.7-13.7-9.1l-7.8 6C6.6 42.6 14.6 48 24 48z"/>
+      </svg>
+      Continuar con Google
+    </button>
+    <button class="auth-link-btn" type="button" id="forgotPassBtn">¿Olvidaste tu contraseña?</button>
+  </div>
+
+  <div id="authLoadingOverlay" style="display:none">
+    <div class="auth-spinner"></div>
+    <p>Iniciando sesión…</p>
+  </div>
+</div>
+
+<!-- ============================================================
+     APP PRINCIPAL
+     ============================================================ -->
+<div id="appContainer" style="display:none">
+
+<aside class="sidebar" id="sidebar">
+  <div class="sidebar-header">
+    <div class="logo">
+      <img src="logo.png" alt="JuriTask" class="logo-img" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />
+      <span class="logo-fallback">⚖ JuriTask</span>
+    </div>
+    <button class="sidebar-toggle" id="sidebarToggle" title="Cerrar menú">✕</button>
+  </div>
+  <nav class="sidebar-nav">
+    <button class="nav-item active"  data-view="all">      <span class="nav-icon">◈</span> Todos los trámites</button>
+    <button class="nav-item"         data-view="today">    <span class="nav-icon">◉</span> Hoy / Vencidos<span class="badge" id="todayBadge">0</span></button>
+    <button class="nav-item"         data-view="calendar"> <span class="nav-icon">📅</span> Calendario</button>
+    <button class="nav-item"         data-view="finished"> <span class="nav-icon">◎</span> Terminados</button>
+    <button class="nav-item dash-nav-item" data-view="dashboard" style="display:none"><span class="nav-icon">🛡</span> Dashboard Admin</button>
+    <button class="nav-item"         data-view="config">   <span class="nav-icon">◫</span> Configuración</button>
+  </nav>
+  <div class="sidebar-filters" id="sidebarFilters">
+    <p class="filter-label">Filtros</p>
+    <div class="filter-group"><label>Tipo</label>
+      <select id="filterTipo"><option value="">Todos</option><option value="abogado">Trámites abogado</option><option value="propio">Trámites propios</option></select>
+    </div>
+    <div class="filter-group"><label>Abogado</label><select id="filterAbogado"><option value="">Todos</option></select></div>
+    <div class="filter-group"><label>Módulo</label><select id="filterModulo"><option value="">Todos</option></select></div>
+    <div class="filter-group"><label>Responsable</label><select id="filterResponsable"><option value="">Todos</option></select></div>
+    <div class="filter-group"><label>Etapa</label>
+      <select id="filterEtapa"><option value="">Todas</option><option value="gestion">Gestión</option><option value="seguimiento">Seguimiento</option></select>
+    </div>
+    <div class="filter-group" id="filterScopeWrap" style="display:none"><label>Alcance</label>
+      <select id="filterScope"><option value="">Todos</option><option value="private">Mis trámites</option><option value="team">Equipo</option></select>
+    </div>
+    <button class="btn-clear-filters" id="clearFilters">Limpiar filtros</button>
+  </div>
+</aside>
+
+<div class="app-layout">
+  <header class="topbar">
+    <button class="menu-btn" id="menuBtn">☰</button>
+    <div class="topbar-title" id="topbarTitle">Todos los trámites</div>
+    <div class="topbar-right">
+      <div class="search-wrap">
+        <input type="text" id="searchInput" placeholder="Buscar…" />
+        <span class="search-icon">⌕</span>
+      </div>
+      <div class="sort-wrap" id="sortWrap">
+        <select id="sortSelect" title="Ordenar por…">
+          <option value="vencimiento">↑ Vencimiento</option>
+          <option value="seguimiento">↑ Seguimiento</option>
+          <option value="mixto">↑ Mixto</option>
+          <option value="abogado">ABC Abogado</option>
+          <option value="numero">123 Número</option>
+        </select>
+      </div>
+      <div class="col-switcher" id="colSwitcher">
+        <button class="col-btn active" data-cols="1">▬</button>
+        <button class="col-btn" data-cols="2">⊟</button>
+        <button class="col-btn" data-cols="3">⊞</button>
+      </div>
+      <button class="btn-icon" id="reportBtn" title="Reporte de hoy">📋</button>
+      <button class="btn-icon" id="backupBtn" title="Backups automáticos">💾</button>
+      <button class="btn-icon mob-opts-btn" id="mobOptsBtn">⋮</button>
+      <!-- User button -->
+      <button class="user-avatar-btn" id="userAvatarBtn">
+        <div class="user-avatar" id="userAvatar">?</div>
+        <span class="user-name-display" id="userNameDisplay"></span>
+        <span class="admin-badge" id="adminBadge" style="display:none">Admin</span>
+      </button>
+    </div>
+  </header>
+
+  <main class="main-content">
+
+    <div class="view active" id="view-all">
+      <div class="view-header">
+        <h2>Todos los trámites</h2>
+        <button class="btn btn-primary" id="newTramiteBtn">+ Nuevo trámite</button>
+      </div>
+      <div class="tramite-grid" id="tramiteList"></div>
+      <div class="empty-state" id="emptyAll">
+        <div class="empty-icon">📂</div><p>No hay trámites activos.</p>
+        <button class="btn btn-primary" id="newTramiteBtnEmpty">+ Crear primer trámite</button>
+      </div>
+    </div>
+
+    <div class="view" id="view-today">
+      <div class="view-header"><h2>Hoy / Vencidos</h2></div>
+      <div class="tramite-grid" id="todayList"></div>
+      <div class="empty-state" id="emptyToday">
+        <div class="empty-icon">🎉</div><p>¡Sin pendientes urgentes!</p>
+      </div>
+    </div>
+
+    <div class="view" id="view-calendar">
+      <div class="view-header"><h2>Calendario</h2></div>
+      <div class="calendar-container">
+        <div class="cal-toolbar">
+          <button class="btn-icon cal-nav" id="calPrev">‹</button>
+          <span class="cal-month-title" id="calMonthTitle"></span>
+          <button class="btn-icon cal-nav" id="calNext">›</button>
+          <button class="btn btn-small cal-today-btn" id="calTodayBtn">Hoy</button>
+        </div>
+        <div class="cal-weekdays">
+          <div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div>
+        </div>
+        <div class="cal-grid" id="calGrid"></div>
+        <div class="cal-legend">
+          <span><span class="cal-dot overdue"></span>Vencido</span>
+          <span><span class="cal-dot today"></span>Hoy</span>
+          <span><span class="cal-dot upcoming"></span>Vencimiento</span>
+          <span><span class="cal-dot tarea"></span>Tarea</span>
+        </div>
+      </div>
+    </div>
+
+    <div class="view" id="view-finished">
+      <div class="view-header"><h2>Terminados</h2></div>
+      <div class="tramite-grid" id="finishedList"></div>
+      <div class="empty-state" id="emptyFinished">
+        <div class="empty-icon">✓</div><p>No hay trámites terminados.</p>
+      </div>
+    </div>
+
+    <!-- DASHBOARD ADMIN -->
+    <div class="view" id="view-dashboard">
+      <div class="view-header"><h2>🛡 Dashboard Administrador</h2></div>
+      <div id="dashboardContent"></div>
+    </div>
+
+    <div class="view" id="view-config">
+      <div class="view-header"><h2>Configuración</h2></div>
+      <div class="config-content">
+
+        <div class="config-section">
+          <h3>Mi cuenta</h3>
+          <div class="config-account-row">
+            <div class="config-account-info">
+              <div class="user-avatar" id="configAvatar" style="width:48px;height:48px;font-size:18px"></div>
+              <div>
+                <div id="configUserName"  class="config-user-name"></div>
+                <div id="configUserEmail" class="config-user-email"></div>
+                <div id="configUserRole"  class="config-user-role"></div>
+              </div>
+            </div>
+            <div class="config-account-actions">
+              <button class="btn-small" id="configEditProfileBtn">✎ Editar perfil</button>
+              <button class="btn-small btn-danger" id="logoutBtn">⏻ Cerrar sesión</button>
+            </div>
+          </div>
+        </div>
+
+        <div class="config-section">
+          <h3>Abogados</h3>
+          <div id="abogadosList"></div>
+          <div class="add-abogado-row">
+            <input type="text" id="newAbNombre" placeholder="Nombre del nuevo abogado" />
+            <button class="btn-small" id="addAbogadoBtn">+ Agregar</button>
+          </div>
+          <button class="btn btn-primary" id="saveAbogadosBtn" style="margin-top:12px">Guardar abogados</button>
+        </div>
+
+        <div class="config-section">
+          <h3>Módulos</h3>
+          <div id="modulosList"></div>
+          <div class="add-modulo-row">
+            <input type="text" id="newModuloSigla" placeholder="SIGLA" maxlength="6" style="width:80px" />
+            <input type="text" id="newModuloNombre" placeholder="Nombre completo" />
+            <button class="btn-small" id="addModuloBtn">+ Agregar</button>
+          </div>
+        </div>
+
+        <div class="config-section">
+          <h3>Visualización</h3>
+          <div class="config-row"><label>Modo de detalle</label>
+            <div class="toggle-group">
+              <button class="toggle-btn" id="modeExpand">Expandir</button>
+              <button class="toggle-btn" id="modeModal">Modal</button>
+            </div>
+          </div>
+          <div class="config-row"><label>Días restantes en tarjetas</label>
+            <label class="switch"><input type="checkbox" id="diasRestantesToggle" /><span class="slider"></span></label>
+          </div>
+          <div class="config-row"><label>Tema</label></div>
+          <div class="theme-grid" id="themeGrid"></div>
+        </div>
+
+        <div class="config-section">
+          <h3>Colores de progreso</h3>
+          <div class="bar-color-grid">
+            <div class="bar-color-row"><span class="bar-color-preview" id="barPreview1"></span><label>Etapa 1</label><input type="color" id="colorBar1" class="color-picker" /></div>
+            <div class="bar-color-row"><span class="bar-color-preview" id="barPreview2"></span><label>Etapa 2</label><input type="color" id="colorBar2" class="color-picker" /></div>
+            <div class="bar-color-row"><span class="bar-color-preview" id="barPreview3"></span><label>Etapa 3</label><input type="color" id="colorBar3" class="color-picker" /></div>
+          </div>
+          <div class="config-btns-row">
+            <button class="btn btn-primary" id="saveBarColorsBtn">Guardar colores</button>
+            <button class="btn-small" id="resetBarColorsBtn">Restablecer</button>
+          </div>
+        </div>
+
+        <div class="config-section">
+          <h3>Tarea automática al marcar cumplimiento</h3>
+          <div class="config-row"><label>Activar</label>
+            <label class="switch"><input type="checkbox" id="autoReqToggle" /><span class="slider"></span></label>
+          </div>
+          <div id="autoReqFields">
+            <div class="form-grid">
+              <div class="form-group"><label>Texto de la tarea</label><input type="text" id="autoReqTexto" /></div>
+              <div class="form-group"><label>Días a partir de hoy</label><input type="number" id="autoReqDias" min="1" max="365" /></div>
+            </div>
+            <button class="btn-small" id="saveAutoReqBtn">Guardar</button>
+          </div>
+        </div>
+
+        <div class="config-section">
+          <h3>Exportar / Importar</h3>
+          <div class="config-btns-row">
+            <button class="btn btn-primary" id="exportBtn">⬇ Exportar JSON</button>
+            <button class="btn-small" id="importBtn">⬆ Importar JSON</button>
+            <input type="file" id="importFile" accept=".json" style="display:none" />
+          </div>
+        </div>
+
+        <div class="config-section config-danger-zone">
+          <h3>Zona de peligro</h3>
+          <button class="btn btn-danger" id="clearAllBtn">🗑 Borrar todos mis datos</button>
+        </div>
+      </div>
+    </div>
+
+  </main>
+</div><!-- /.app-layout -->
+</div><!-- /#appContainer -->
+
+<!-- ==================== OVERLAYS / MODALES ==================== -->
+
+<div id="toast" class="toast"></div>
+
+<div id="confirmOverlay" class="overlay">
+  <div class="confirm-dialog">
+    <p id="confirmMsg"></p>
+    <div class="confirm-btns">
+      <button class="btn btn-primary" id="confirmOk">Confirmar</button>
+      <button class="btn-small" id="confirmCancel">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<div id="mobSheetOverlay" class="mob-sheet-overlay"></div>
+<div id="mobSheet" class="mob-sheet">
+  <div class="mob-sheet-handle"></div>
+  <div class="mob-sheet-content">
+    <p class="mob-sheet-title">Ordenar por</p>
+    <select id="sortSelectMob">
+      <option value="vencimiento">↑ Vencimiento</option>
+      <option value="seguimiento">↑ Seguimiento</option>
+      <option value="mixto">↑ Mixto</option>
+      <option value="abogado">ABC Abogado</option>
+      <option value="numero">123 Número</option>
+    </select>
+    <p class="mob-sheet-title" style="margin-top:16px">Columnas</p>
+    <div class="mob-col-btns">
+      <button class="mob-col-btn active" data-cols="1">1</button>
+      <button class="mob-col-btn" data-cols="2">2</button>
+      <button class="mob-col-btn" data-cols="3">3</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL NUEVO TRÁMITE — con múltiples tareas iniciales -->
+<div id="modalOverlay" class="overlay">
+  <div id="tramiteModal" class="modal">
+    <div class="modal-header">
+      <h2 id="modalTitle">Nuevo trámite</h2>
+      <button class="modal-close" id="modalClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-grid">
+        <div class="form-group">
+          <label>Número de trámite *</label>
+          <input type="text" id="fNumero" placeholder="Ej: 2024-001" />
+        </div>
+        <div class="form-group form-group-full">
+          <label>Descripción *</label>
+          <input type="text" id="fDescripcion" placeholder="Describe el trámite…" />
+        </div>
+        <div class="form-group">
+          <label>Módulo *</label>
+          <select id="fModulo"></select>
+        </div>
+        <div class="form-group">
+          <label>Tipo de trámite</label>
+          <div class="toggle-group">
+            <button type="button" class="toggle-btn active" id="tipoBtnAbogado">Abogado</button>
+            <button type="button" class="toggle-btn" id="tipoBtnPropio">Propio</button>
+          </div>
+        </div>
+        <div class="form-group" id="fAbogadoWrap">
+          <label>Abogado</label>
+          <select id="fAbogado"></select>
+        </div>
+        <div class="form-group">
+          <label>Fecha de vencimiento</label>
+          <input type="date" id="fFechaVencimiento" />
+        </div>
+        <div class="form-group" id="fScopeWrap">
+          <label>Alcance</label>
+          <div class="toggle-group">
+            <button type="button" class="toggle-btn active" id="scopeBtnPrivate">🔒 Privado</button>
+            <button type="button" class="toggle-btn" id="scopeBtnTeam">👥 Equipo</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- MÚLTIPLES TAREAS INICIALES -->
+      <div class="modal-subsection">
+        <div class="modal-subsection-header">
+          <h4>Tareas iniciales</h4>
+          <button type="button" class="btn-small" id="btnAgregarTareaModal">＋ Agregar tarea</button>
+        </div>
+        <div id="tareasInicialesList" class="tareas-iniciales-list">
+          <p class="tareas-empty-hint">Ninguna tarea aún — puedes agregar después.</p>
+        </div>
+      </div>
+
+      <!-- NOTA INICIAL -->
+      <div class="modal-subsection">
+        <div class="modal-subsection-header">
+          <h4>Nota inicial</h4>
+          <button type="button" class="btn-small" id="btnMostrarNotaModal">＋ Agregar nota</button>
+        </div>
+        <div id="nuevaNotaFieldsModal" style="display:none">
+          <textarea id="fNota" placeholder="Escribe una nota inicial…" rows="2"></textarea>
+        </div>
+      </div>
+    </div>
+    <div class="modal-footer">
+      <button class="btn-small" id="cancelModal">Cancelar</button>
+      <button class="btn btn-primary" id="saveTramite">Guardar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL DETALLE -->
+<div id="detailOverlay" class="overlay">
+  <div id="detailModal" class="modal modal-detail" data-id="">
+    <div class="modal-header">
+      <div>
+        <h2 id="detailTitle"></h2>
+        <p id="detailSubtitle" class="modal-subtitle"></p>
+      </div>
+      <div class="modal-header-actions">
+        <button class="btn-icon" title="Duplicar" onclick="_detailAction('duplicate')">⧉</button>
+        <button class="btn-icon" title="Editar"   onclick="_detailAction('edit')">✎</button>
+        <button class="btn-icon btn-icon-danger" title="Eliminar" onclick="_detailAction('delete')">🗑</button>
+        <button class="modal-close" onclick="closeDetail()">✕</button>
+      </div>
+    </div>
+    <div class="modal-body" id="detailModalBody"></div>
+  </div>
+</div>
+
+<!-- MODAL REPORTE -->
+<div id="reportOverlay" class="overlay">
+  <div class="modal modal-report">
+    <div class="modal-header">
+      <div><h2>Reporte del día</h2><p id="reportSubtitle" class="modal-subtitle"></p></div>
+      <div class="modal-header-actions">
+        <button class="btn-small" id="reportCopyBtn">⎘ Copiar</button>
+        <button class="btn-small" id="reportPrintBtn">🖨 Imprimir</button>
+        <button class="modal-close" id="reportClose">✕</button>
+      </div>
+    </div>
+    <div class="modal-body">
+      <div id="reportFilterGroup" class="toggle-group report-filter-group"></div>
+      <div id="reportContent"></div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL PERFIL -->
+<div id="profileOverlay" class="overlay">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2>Mi perfil</h2>
+      <button class="modal-close" id="profileClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="form-group"><label>Nombre</label><input type="text" id="profileName" /></div>
+      <div class="form-group"><label>Correo</label><input type="email" id="profileEmail" disabled /></div>
+      <div class="form-group"><label>Rol</label><span id="profileRole" style="font-weight:600"></span></div>
+      <button class="btn btn-primary" id="saveProfileBtn">Guardar nombre</button>
+      <div id="changePassSection" style="margin-top:20px;border-top:1px solid var(--border);padding-top:16px">
+        <h4 style="margin-bottom:12px">Cambiar contraseña</h4>
+        <div class="form-group"><label>Contraseña actual</label><input type="password" id="currentPass" /></div>
+        <div class="form-group"><label>Nueva contraseña</label><input type="password" id="newPass" /></div>
+        <div class="form-group"><label>Confirmar nueva</label><input type="password" id="confirmPass" /></div>
+        <button class="btn btn-primary" id="changePassBtn">Cambiar contraseña</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL BACKUPS -->
+<div id="backupOverlay" class="overlay">
+  <div class="modal modal-sm">
+    <div class="modal-header">
+      <h2>💾 Backups automáticos</h2>
+      <button class="modal-close" id="backupClose">✕</button>
+    </div>
+    <div class="modal-body">
+      <p class="backup-desc">Se crean automáticamente cada 2 horas y se eliminan después de 24h. Se guardan en la nube y localmente.</p>
+      <button class="btn-small" id="backupNowBtn" style="margin-bottom:14px">⬆ Crear backup ahora</button>
+      <div id="backupList"></div>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD: Invitar usuario -->
+<div id="inviteOverlay" class="overlay">
+  <div class="modal modal-sm">
+    <div class="modal-header"><h2>✉ Invitar usuario</h2><button class="modal-close" id="inviteClose">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>Correo electrónico</label><input type="email" id="inviteEmail" placeholder="correo@ejemplo.com" /></div>
+      <div class="form-group"><label>Rol</label>
+        <select id="inviteRole"><option value="user">Usuario</option><option value="admin">Administrador</option></select>
+      </div>
+      <button class="btn btn-primary" id="sendInviteBtn">Enviar invitación</button>
+    </div>
+  </div>
+</div>
+
+<!-- DASHBOARD: Crear equipo -->
+<div id="createTeamOverlay" class="overlay">
+  <div class="modal modal-sm">
+    <div class="modal-header"><h2>👥 Crear equipo</h2><button class="modal-close" id="createTeamClose">✕</button></div>
+    <div class="modal-body">
+      <div class="form-group"><label>Nombre del equipo</label><input type="text" id="newTeamName" placeholder="Ej: Litigios" /></div>
+      <div class="form-group"><label>Miembros</label><div id="teamMemberList" class="team-member-list"></div></div>
+      <button class="btn btn-primary" id="confirmCreateTeamBtn">Crear equipo</button>
+    </div>
+  </div>
+</div>
+
+<!-- ==================== SCRIPTS ==================== -->
+
+<!-- 1. Firebase CDN (solo una vez, versión 10) -->
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
+
+<!-- 2. Base de la app -->
+<script src="storage.js"></script>
+<script src="tramites.js"></script>
+<script src="filters.js"></script>
+<script src="calendar.js"></script>
+<script src="ui.js"></script>
+
+<!-- 3. Firebase: inicialización + auth + firestore -->
+<script src="firebase.js"></script>
+
+<!-- 4. Orquestador general (debe ir de último) -->
+<script src="config.js"></script>
+
+</body>
+</html>
