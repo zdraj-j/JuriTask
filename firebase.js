@@ -4,7 +4,7 @@
  */
 
 const firebaseConfig = {
-  apiKey:            "AIzaSyBQ3T-6vaF-C74gcikCpDP3HXNbq_rYrYg",
+  apiKey:            "AIzaSyCTcuxDMUd1K9LSfdy0hjnBwsOaDM5A2S4",
   authDomain:        "juritask-5df51.firebaseapp.com",
   projectId:         "juritask-5df51",
   storageBucket:     "juritask-5df51.firebasestorage.app",
