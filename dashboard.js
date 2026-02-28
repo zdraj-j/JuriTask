@@ -127,12 +127,15 @@ async function renderDashboard() {
     try {
       const uDoc = await db.collection('users').doc(uid).get();
       if (uDoc.exists) {
-        const data = uDoc.data();
-        if (data.email || uid === AUTH.userProfile.uid) {
-          _dashUsers.push({ uid, ...data });
-        }
+        _dashUsers.push({ uid, ...uDoc.data() });
+      } else if (uid === AUTH.userProfile.uid) {
+        // Fallback: al menos el propio admin
+        _dashUsers.push({ ...AUTH.userProfile });
       }
-    } catch(_) {}
+    } catch(e) {
+      // Si falla leer un usuario, incluirlo con datos básicos si es el admin
+      if (uid === AUTH.userProfile.uid) _dashUsers.push({ ...AUTH.userProfile });
+    }
   }
   if (!_dashUsers.length) {
     _dashUsers = [{ ...AUTH.userProfile }];

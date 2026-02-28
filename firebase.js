@@ -74,16 +74,16 @@ async function removeFromUserIndex(uid) {
   } catch(e) { console.warn('userIndex remove failed:', e.code); }
 }
 
-// ─── CREAR PERFIL EN FIRESTORE ────────────────────────────────
+// ─── CREAR/COMPLETAR PERFIL EN FIRESTORE ─────────────────────
 async function ensureUserProfile(user) {
   const uRef = db.collection('users').doc(user.uid);
   const uDoc = await uRef.get();
 
   if (!uDoc.exists) {
-    // Determinar si es el primer usuario leyendo el índice
+    // Nuevo usuario: determinar rol
     let role = 'user';
     try {
-      const idx = await db.collection('meta').doc('userIndex').get();
+      const idx  = await db.collection('meta').doc('userIndex').get();
       const uids = (idx.exists && idx.data().uids) ? idx.data().uids : [];
       if (uids.length === 0) role = 'admin';
     } catch(_) {}
@@ -98,9 +98,19 @@ async function ensureUserProfile(user) {
     return role;
   }
 
-  // Ya existe: asegurar que esté en el índice
+  // Ya existe: completar campos faltantes (ej: admin que solo tiene "role")
+  const existing = uDoc.data();
+  const patch = {};
+  if (!existing.email       && user.email)       patch.email       = user.email;
+  if (!existing.displayName && user.displayName) patch.displayName = user.displayName;
+  if (!existing.creadoEn)                        patch.creadoEn    = new Date().toISOString();
+  if (Object.keys(patch).length) {
+    await uRef.update(patch).catch(() => uRef.set(patch, { merge: true }));
+  }
+
+  // Asegurar que esté en el índice (idempotente)
   await registerInUserIndex(user.uid);
-  return uDoc.data().role || 'user';
+  return existing.role || 'user';
 }
 
 // ─── CARGAR DATOS DESDE FIRESTORE ────────────────────────────
