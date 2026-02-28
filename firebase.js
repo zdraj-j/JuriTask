@@ -209,6 +209,14 @@ auth.onAuthStateChanged(async user => {
     } catch(_) {}
 
     await loadFromFirestore();
+
+    // Sincronizar botones de columna con el valor guardado en Firestore
+    const savedCols = STATE.config.columns || 1;
+    document.querySelectorAll('.col-btn').forEach(b =>
+      b.classList.toggle('active', parseInt(b.dataset.cols) === savedCols));
+    document.querySelectorAll('.mob-col-btn').forEach(b =>
+      b.classList.toggle('active', parseInt(b.dataset.cols) === savedCols));
+
     if (authEl)    authEl.style.display    = 'none';
     if (loadingEl) loadingEl.style.display = 'none';
     if (appEl)     appEl.style.display     = 'flex';
