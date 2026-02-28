@@ -17,6 +17,18 @@ function initAuthUI() {
     });
   });
 
+  // Prellenar código de invitación desde URL (?invite=XXXX)
+  const urlInvite = new URLSearchParams(window.location.search).get('invite');
+  if (urlInvite) {
+    const codeEl = document.getElementById('regInviteCode');
+    if (codeEl) {
+      codeEl.value = urlInvite.toUpperCase();
+      // Abrir pestaña de registro automáticamente
+      const regTab = document.querySelector('.auth-tab[data-tab="register"]');
+      if (regTab) regTab.click();
+    }
+  }
+
   // ── Olvidé contraseña ───────────────────────────────────
   document.getElementById('forgotPassBtn')?.addEventListener('click', () => {
     document.getElementById('loginForm').style.display    = 'none';
@@ -35,6 +47,7 @@ function initAuthUI() {
     setAuthLoading(true);
     try {
       await AUTH.loginEmail(email, pass);
+      // onAuthStateChanged se encarga de todo lo siguiente
     } catch(err) {
       setAuthLoading(false);
       showAuthError(friendlyAuthError(err.code));
@@ -44,43 +57,78 @@ function initAuthUI() {
   // ── REGISTRO ─────────────────────────────────────────────
   document.getElementById('registerForm')?.addEventListener('submit', async e => {
     e.preventDefault();
-    const name  = document.getElementById('regName').value.trim();
-    const email = document.getElementById('regEmail').value.trim();
-    const pass  = document.getElementById('regPass').value;
-    const pass2 = document.getElementById('regPass2').value;
+    const name   = document.getElementById('regName').value.trim();
+    const email  = document.getElementById('regEmail').value.trim();
+    const pass   = document.getElementById('regPass').value;
+    const pass2  = document.getElementById('regPass2').value;
+    const code   = (document.getElementById('regInviteCode')?.value || '').trim().toUpperCase();
 
     if (!name || !email || !pass || !pass2) { showAuthError('Completa todos los campos.'); return; }
-    if (pass !== pass2)    { showAuthError('Las contraseñas no coinciden.'); return; }
-    if (pass.length < 6)   { showAuthError('La contraseña debe tener al menos 6 caracteres.'); return; }
+    if (pass !== pass2)  { showAuthError('Las contraseñas no coinciden.'); return; }
+    if (pass.length < 6) { showAuthError('La contraseña debe tener al menos 6 caracteres.'); return; }
 
     setAuthLoading(true);
     try {
+      // Validar invitación ANTES de crear la cuenta (para no dejar cuentas huérfanas)
+      let inviteDocId   = null;
+      let hasValidInvite = false;
+      if (code) {
+        try {
+          const now     = new Date().toISOString();
+          const invSnap = await db.collection('invitations')
+            .where('code', '==', code)
+            .where('used', '==', false)
+            .limit(1).get();
+          if (!invSnap.empty) {
+            const invDoc = invSnap.docs[0];
+            if (invDoc.data().expiresAt > now) {
+              inviteDocId    = invDoc.id;
+              hasValidInvite = true;
+            } else {
+              setAuthLoading(false);
+              showAuthError('El código de invitación ha expirado.');
+              return;
+            }
+          } else {
+            setAuthLoading(false);
+            showAuthError('Código de invitación inválido o ya utilizado.');
+            return;
+          }
+        } catch(e) {
+          console.warn('Error validating invite:', e);
+          // Si hay error de permisos en invitations, continuar sin invitación
+        }
+      }
+
+      // Crear cuenta
       const cred = await AUTH.registerEmail(email, pass);
       await cred.user.updateProfile({ displayName: name });
 
-      // ensureUserProfile crea el doc en Firestore y decide el rol
-      const role = await ensureUserProfile({ ...cred.user, displayName: name });
+      // Crear perfil en Firestore (pre-aprobado si tiene invitación)
+      const role = await ensureUserProfile(
+        { ...cred.user, displayName: name },
+        hasValidInvite
+      );
 
-      // Enviar correo de verificación (excepto si ya es admin por ser el primero)
-      if (role !== 'admin' && !cred.user.emailVerified) {
-        try { await cred.user.sendEmailVerification(); } catch(_) {}
+      // Marcar invitación como usada
+      if (inviteDocId) {
+        db.collection('invitations').doc(inviteDocId).update({
+          used: true, usedBy: cred.user.uid, usedAt: new Date().toISOString(),
+        }).catch(() => {});
       }
-
-      AUTH.userProfile = {
-        uid: cred.user.uid, displayName: name, email, role, photoURL: null, teamId: null,
-      };
 
       setAuthLoading(false);
 
-      if (role === 'admin') {
-        // Primer usuario: accede directamente sin verificación adicional
-        // onAuthStateChanged se encargará de cargar la app
-      } else {
-        // Mostrar pantalla de "verifica tu correo"
-        if (typeof showPendingScreen === 'function') {
-          showPendingScreen('unverified', cred.user);
-        }
+      // Primer admin o usuario con invitación: onAuthStateChanged carga la app directamente
+      if (role === 'admin' || hasValidInvite) {
+        // onAuthStateChanged se encarga
+        return;
       }
+
+      // Sin invitación: enviar verificación y mostrar pantalla de espera
+      try { await AUTH.sendVerificationEmail(cred.user); } catch(_) {}
+      showWaitScreen('verify', email);
+
     } catch(err) {
       setAuthLoading(false);
       showAuthError(friendlyAuthError(err.code));
@@ -108,9 +156,8 @@ function initAuthUI() {
     setAuthLoading(true);
     try {
       const cred = await AUTH.loginGoogle();
-      // Asegurar perfil en Firestore (ensureUserProfile está en firebase.js)
-      await ensureUserProfile(cred.user);
-      // onAuthStateChanged se encarga de mostrar la app
+      await ensureUserProfile(cred.user, false);
+      // onAuthStateChanged se encarga
     } catch(err) {
       setAuthLoading(false);
       if (err.code === 'auth/popup-closed-by-user' || err.code === 'auth/cancelled-popup-request') return;
@@ -129,7 +176,7 @@ function setAuthLoading(on) {
   if (overlay) overlay.style.display = on ? 'flex' : 'none';
 }
 
-// ── Mensajes ──────────────────────────────────────────────────
+// ── Mensajes de error ─────────────────────────────────────────
 function showAuthError(msg, type = 'error') {
   const el = document.getElementById('authError');
   if (!el) return;
@@ -149,13 +196,13 @@ function friendlyAuthError(code) {
     'auth/wrong-password':         'Contraseña incorrecta.',
     'auth/email-already-in-use':   'Ya existe una cuenta con ese correo.',
     'auth/invalid-email':          'El correo no es válido.',
-    'auth/weak-password':          'La contraseña es demasiado débil.',
+    'auth/weak-password':          'La contraseña es demasiado débil (mínimo 6 caracteres).',
     'auth/too-many-requests':      'Demasiados intentos. Espera un momento.',
     'auth/network-request-failed': 'Sin conexión. Verifica tu internet.',
     'auth/popup-blocked':          'El popup fue bloqueado por el navegador.',
     'auth/invalid-credential':     'Correo o contraseña incorrectos.',
-    'auth/operation-not-allowed':  'Google no está habilitado. Ve a Firebase → Authentication → Sign-in method → Google y actívalo.',
-    'auth/unauthorized-domain':    'Dominio no autorizado. Agrega tu dominio en Firebase → Authentication → Authorized domains.',
+    'auth/operation-not-allowed':  'Método de acceso no habilitado en Firebase.',
+    'auth/unauthorized-domain':    'Dominio no autorizado en Firebase.',
   };
   return map[code] || `Error inesperado (${code || 'desconocido'}). Intenta de nuevo.`;
 }
@@ -166,7 +213,7 @@ function logout() {
   AUTH.logout().catch(console.error);
 }
 
-// ── Overlay avatar: resumen rápido + ir a editar + logout ─────
+// ── Overlay de perfil (topbar) ────────────────────────────────
 function openProfileModal() {
   const p = AUTH.userProfile;
   if (!p) return;
@@ -186,7 +233,7 @@ function closeProfileModal() {
   document.getElementById('profileOverlay').classList.remove('open');
 }
 
-// ── Modal editar perfil (abre desde config) ───────────────────
+// ── Modal editar perfil (desde config) ───────────────────────
 function openEditProfileModal() {
   const p = AUTH.userProfile;
   if (!p) return;
@@ -205,7 +252,7 @@ function closeEditProfileModal() {
 }
 
 function initAuth() {
-  // Overlay avatar
+  // Overlay de perfil
   document.getElementById('profileClose')?.addEventListener('click', closeProfileModal);
   document.getElementById('profileOverlay')?.addEventListener('click', e => {
     if (e.target === document.getElementById('profileOverlay')) closeProfileModal();
@@ -255,7 +302,9 @@ function initAuth() {
     try {
       await AUTH.reauthenticate(current);
       await AUTH.updatePassword(newPass);
-      ['currentPass','newPass','confirmPass'].forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
+      ['currentPass','newPass','confirmPass'].forEach(id => {
+        const el = document.getElementById(id); if (el) el.value = '';
+      });
       showToast('Contraseña cambiada correctamente.');
       closeEditProfileModal();
     } catch(err) { showToast(friendlyAuthError(err.code)); }

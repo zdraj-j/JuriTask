@@ -62,6 +62,10 @@
         <label>Confirmar contraseña</label>
         <input type="password" id="regPass2" placeholder="Repite la contraseña" autocomplete="new-password" />
       </div>
+      <div class="auth-field" id="inviteCodeField">
+        <label>Código de invitación <span style="font-size:11px;color:var(--text-muted);font-weight:400">(opcional — si no tienes, dejarlo vacío)</span></label>
+        <input type="text" id="regInviteCode" placeholder="Ej: AB1CD2EF" autocomplete="off" style="text-transform:uppercase;letter-spacing:2px" />
+      </div>
       <button type="submit" class="btn btn-primary auth-submit-btn">Crear cuenta</button>
     </form>
 
@@ -95,16 +99,16 @@
 </div>
 
 <!-- ============================================================
-     PANTALLA DE ESPERA (correo no verificado / cuenta pendiente)
+     PANTALLA DE ESPERA (verificación / aprobación / bloqueado)
      ============================================================ -->
-<div id="pendingScreen" style="display:none; position:fixed; inset:0; background:var(--bg,#f0f2f7); z-index:9999; flex-direction:column; align-items:center; justify-content:center; padding:24px; font-family:var(--font,'Inter',sans-serif)">
-  <div style="background:var(--surface,#fff); border-radius:16px; padding:36px 32px; max-width:440px; width:100%; text-align:center; box-shadow:0 8px 40px rgba(0,0,0,.12)">
-    <div id="pendingIcon" style="font-size:48px; margin-bottom:16px">📧</div>
-    <h2 id="pendingTitle" style="font-size:20px; font-weight:700; color:var(--text-primary,#111827); margin-bottom:10px">Verifica tu correo</h2>
-    <p id="pendingMsg" style="font-size:14px; color:var(--text-secondary,#4b5563); line-height:1.6; margin-bottom:24px"></p>
-    <button id="reloadStatusBtn" style="width:100%; padding:11px; background:var(--accent,#3d5af1); color:#fff; border:none; border-radius:10px; font-size:14px; font-weight:600; cursor:pointer; margin-bottom:10px">↺ Ya verifiqué mi correo</button>
-    <button id="resendVerificationBtn" style="width:100%; padding:11px; background:none; border:1px solid var(--border,#e2e4ea); border-radius:10px; font-size:14px; color:var(--text-secondary,#4b5563); cursor:pointer; margin-bottom:10px">↺ Reenviar correo de verificación</button>
-    <button id="logoutPendingBtn" style="width:100%; padding:9px; background:none; border:none; font-size:13px; color:var(--text-muted,#9ca3af); cursor:pointer; text-decoration:underline">← Cerrar sesión</button>
+<div id="waitScreen" style="display:none;position:fixed;inset:0;z-index:9000;background:var(--bg,#f0f2f7);flex-direction:column;align-items:center;justify-content:center;padding:24px;font-family:var(--font,'Inter',sans-serif)">
+  <div style="background:var(--surface,#fff);border-radius:20px;padding:40px 32px;max-width:420px;width:100%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.12)">
+    <div id="waitIcon" style="font-size:52px;margin-bottom:16px">📧</div>
+    <h2 id="waitTitle" style="font-size:20px;font-weight:700;color:var(--text-primary,#111827);margin-bottom:10px"></h2>
+    <p  id="waitMsg"   style="font-size:14px;color:var(--text-secondary,#4b5563);line-height:1.6;margin-bottom:24px"></p>
+    <button id="waitAction" style="display:none;width:100%;padding:12px;background:var(--accent,#3d5af1);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:10px"></button>
+    <button id="waitResend" style="display:none;width:100%;padding:11px;background:none;border:1px solid var(--border,#e2e4ea);border-radius:10px;font-size:13px;color:var(--text-secondary,#4b5563);cursor:pointer;margin-bottom:10px">↺ Reenviar correo de verificación</button>
+    <button id="waitLogout" style="width:100%;padding:9px;background:none;border:none;font-size:12px;color:var(--text-muted,#9ca3af);cursor:pointer;text-decoration:underline">← Volver / Cerrar sesión</button>
   </div>
 </div>
 
@@ -373,6 +377,26 @@
         </div>
       </div>
 
+      <!-- Invitaciones de usuarios -->
+      <div class="dash-section" id="invitationsSection">
+        <div class="dash-section-header">
+          <h3>✉️ Invitar usuarios</h3>
+        </div>
+        <div style="background:var(--surface-2);border-radius:12px;padding:18px 20px;margin-bottom:18px">
+          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">Genera un link de invitación. El usuario que lo use se registra y accede directamente, sin necesidad de aprobación manual.</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+            <input type="email" id="inviteEmailInput" placeholder="correo@ejemplo.com" style="flex:1;min-width:180px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text-primary)" />
+            <input type="text"  id="inviteNoteInput"  placeholder="Nota (opcional)" style="flex:1;min-width:140px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text-primary)" />
+            <button class="btn btn-primary" id="createInviteBtn">＋ Crear invitación</button>
+          </div>
+          <div id="inviteResult"></div>
+        </div>
+        <p style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">Invitaciones recientes</p>
+        <div id="invitationsList">
+          <p style="font-size:13px;color:var(--text-muted);font-style:italic">Cargando…</p>
+        </div>
+      </div>
+
       <!-- Modal crear equipo -->
       <div id="createTeamOverlay" class="overlay">
         <div class="modal modal-sm">
@@ -523,23 +547,7 @@
           <div id="backupList"></div>
         </div>
 
-        <div class="config-section admin-only-section" id="adminSection" style="display:none">
-          <h3>🛡 Administración de usuarios</h3>
 
-          <!-- Cuentas pendientes de aprobación -->
-          <div id="adminPendingAlert" style="display:none;margin-bottom:20px;background:var(--warning-light,#fef3c7);border:1px solid var(--warning,#f59e0b);border-radius:10px;padding:14px 16px">
-            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
-              <span style="font-size:13px;font-weight:700;color:var(--warning-dark,#92400e)">⏳ Cuentas pendientes de aprobación: <span id="adminPendingCount"></span></span>
-              <button id="adminApproveAllBtn" class="btn-small" style="background:var(--success,#16a34a);color:#fff;border:none">✓ Aprobar todos</button>
-            </div>
-            <div id="adminPendingList"></div>
-          </div>
-
-          <!-- Usuarios activos -->
-          <p id="adminActiveHeader" style="display:none;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">Usuarios activos</p>
-          <div id="adminUserList" style="margin-bottom:16px"></div>
-          <button class="btn btn-primary" id="adminRefreshBtn">↺ Actualizar lista</button>
-        </div>
 
         <div class="config-section config-danger-zone">
           <h3>Zona de peligro</h3>

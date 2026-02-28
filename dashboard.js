@@ -446,171 +446,215 @@ async function saveTeam() {
 }
 
 // ============================================================
-// GESTIÓN USUARIOS (vista config)
+// GESTIÓN USUARIOS — Listener en tiempo real, aprobación, invitaciones
 // ============================================================
 
-async function approveUser(uid) {
-  await db.collection('users').doc(uid).update({ approved: true, blocked: false });
-  // Notificar en el dashboard si está activo
-  showToast(`✓ Usuario aprobado.`);
-}
+// ── Listener en tiempo real para usuarios pendientes ─────────
+let _pendingListener = null;
 
-async function rejectUser(uid) {
-  await db.collection('users').doc(uid).update({ approved: false, blocked: true });
-}
-
-async function loadAdminUsers() {
-  const alertEl    = document.getElementById('adminPendingAlert');
-  const pendListEl = document.getElementById('adminPendingList');
-  const countEl    = document.getElementById('adminPendingCount');
-  const userListEl = document.getElementById('adminUserList');
-  const activeHdr  = document.getElementById('adminActiveHeader');
-  const approveAll = document.getElementById('adminApproveAllBtn');
-
+function startPendingListener() {
+  if (_pendingListener) return;
   if (AUTH.userProfile?.role !== 'admin') return;
 
-  // Mostrar estado de carga
-  if (userListEl) userListEl.innerHTML =
-    '<p style="font-size:13px;color:var(--text-muted);padding:12px 0">Cargando usuarios…</p>';
-
-  // ── Cargar usuarios directamente desde Firestore ──────────
-  // No dependemos de _dashUsers para que funcione sin pasar por el dashboard.
-  let allUsers = [];
-  try {
-    const idxDoc = await db.collection('meta').doc('userIndex').get();
-    const uids   = idxDoc.exists ? (idxDoc.data().uids || []) : [AUTH.userProfile.uid];
-    for (const uid of uids) {
-      try {
-        const uDoc = await db.collection('users').doc(uid).get();
-        if (uDoc.exists) allUsers.push({ uid, ...uDoc.data() });
-        else if (uid === AUTH.userProfile.uid) allUsers.push({ ...AUTH.userProfile });
-      } catch(_) {
-        if (uid === AUTH.userProfile.uid) allUsers.push({ ...AUTH.userProfile });
+  _pendingListener = db.collection('users')
+    .where('approved', '==', false)
+    .where('blocked',  '==', false)
+    .onSnapshot(snap => {
+      const pending = [];
+      snap.forEach(doc => {
+        const d = doc.data();
+        if (d.role !== 'admin') pending.push({ uid: doc.id, ...d });
+      });
+      // Actualizar badge en el nav del dashboard
+      _updatePendingBadge(pending.length);
+      // Si el dashboard está visible, actualizar la tabla
+      const dashView = document.getElementById('view-dashboard');
+      if (dashView && dashView.classList.contains('active')) {
+        _renderPendingTable(pending);
       }
+    }, err => console.warn('Pending listener error:', err.code));
+}
+
+function stopPendingListener() {
+  if (_pendingListener) { _pendingListener(); _pendingListener = null; }
+}
+
+function _updatePendingBadge(count) {
+  // KPI card
+  const kpiEl = document.getElementById('kpiPendientes');
+  if (kpiEl) kpiEl.textContent = count || '0';
+
+  // Badge rojo en el nav
+  const navBtn = document.querySelector('.nav-item[data-view="dashboard"]');
+  if (!navBtn) return;
+  let badge = navBtn.querySelector('.pending-nav-badge');
+  if (count > 0) {
+    if (!badge) {
+      badge = document.createElement('span');
+      badge.className = 'pending-nav-badge';
+      badge.style.cssText = 'display:inline-block;margin-left:6px;background:#ef4444;color:#fff;border-radius:10px;padding:0 6px;font-size:10px;font-weight:700;line-height:16px;vertical-align:middle';
+      navBtn.appendChild(badge);
     }
-    // Sincronizar con _dashUsers para que el dashboard también lo tenga
-    _dashUsers = allUsers;
-  } catch(e) {
-    console.warn('loadAdminUsers: error leyendo usuarios:', e);
-    allUsers = _dashUsers.length ? _dashUsers : [{ ...AUTH.userProfile }];
+    badge.textContent = count;
+  } else if (badge) {
+    badge.remove();
   }
+}
 
-  const pending  = allUsers.filter(u => !u.approved && !u.blocked && u.role !== 'admin');
-  const approved = allUsers.filter(u =>  u.approved || u.role === 'admin');
+function _renderPendingTable(pending) {
+  const section = document.getElementById('pendingUsersSection');
+  const tbody   = document.getElementById('pendingUsersBody');
+  const label   = document.getElementById('pendingCountLabel');
+  if (!section || !tbody) return;
 
-  // ── Bloque de pendientes ────────────────────────────────
-  if (alertEl) alertEl.style.display = pending.length ? '' : 'none';
-  if (countEl) countEl.textContent   = pending.length;
-
-  // Actualizar badge de pendientes en el nav de configuración
-  const configNavEl = document.querySelector('.nav-item[data-view="config"]');
-  if (configNavEl) {
-    let badge = configNavEl.querySelector('.pending-badge');
-    if (pending.length && AUTH.userProfile?.role === 'admin') {
-      if (!badge) {
-        badge = document.createElement('span');
-        badge.className = 'pending-badge';
-        badge.style.cssText = 'margin-left:6px;background:var(--warning,#f59e0b);color:#1a1a1a;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700';
-        configNavEl.appendChild(badge);
-      }
-      badge.textContent = pending.length;
-    } else if (badge) {
-      badge.remove();
-    }
-  }
-  if (pendListEl) pendListEl.innerHTML = '';
-
-  if (approveAll) {
-    approveAll.onclick = async () => {
-      const ok = await showConfirm(`¿Aprobar a los ${pending.length} usuarios pendientes?`);
-      if (!ok) return;
-      for (const u of pending) {
-        await approveUser(u.uid).catch(() => {});
-        u.approved = true;
-      }
-      showToast(`✓ ${pending.length} usuarios aprobados.`);
-      loadAdminUsers();
-    };
-  }
+  section.style.display = pending.length ? '' : 'none';
+  if (label) label.textContent = `${pending.length} pendiente${pending.length !== 1 ? 's' : ''}`;
+  tbody.innerHTML = '';
 
   pending.forEach(u => {
     const fecha = u.creadoEn
-      ? new Date(u.creadoEn).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })
+      ? new Date(u.creadoEn).toLocaleString('es-CO', { dateStyle:'short', timeStyle:'short' })
       : '—';
-    const row = document.createElement('div');
-    row.className = 'admin-pending-row';
-    row.innerHTML = `
-      <div class="admin-pending-avatar">
-        ${(u.displayName||u.email||'?').slice(0,2).toUpperCase()}
-      </div>
-      <div class="admin-pending-info">
-        <div class="admin-pending-name">${u.displayName||'(sin nombre)'}</div>
-        <div class="admin-pending-meta">${u.email||'—'} &middot; ${fecha}</div>
-      </div>
-      <div class="admin-pending-btns">
-        <button class="btn-small btn-approve" data-approve="${u.uid}">✓ Aprobar</button>
-        <button class="btn-small btn-danger"  data-reject="${u.uid}">✕ Rechazar</button>
-      </div>`;
-    row.querySelector('[data-approve]').addEventListener('click', async () => {
-      await approveUser(u.uid);
-      u.approved = true;
-      showToast(`✓ ${u.displayName||u.email} aprobado.`);
-      loadAdminUsers();
+    // emailVerified no está en Firestore — lo inferimos: si aprobado=false y no bloqueado,
+    // no podemos saber si verificó. Mostramos la fecha de registro solamente.
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td>
+        <div class="dash-user-cell">
+          <div class="dash-avatar-initials" style="width:32px;height:32px;font-size:12px">
+            ${(u.displayName||u.email||'?').slice(0,2).toUpperCase()}
+          </div>
+          <div>
+            <div style="font-weight:600;font-size:13px">${u.displayName||'(sin nombre)'}</div>
+            <div style="font-size:11px;color:var(--text-muted)">${fecha}</div>
+          </div>
+        </div>
+      </td>
+      <td class="dash-email">${u.email||'—'}</td>
+      <td><span style="font-size:11px;background:var(--warning-light,#fef3c7);color:var(--warning-dark,#92400e);padding:2px 8px;border-radius:20px;font-weight:600">⏳ Pendiente</span></td>
+      <td>
+        <div style="display:flex;gap:6px">
+          <button class="btn-small" style="background:var(--success,#16a34a);color:#fff;border:none;border-radius:8px" data-approve="${u.uid}">✓ Aprobar</button>
+          <button class="btn-small btn-danger" data-reject="${u.uid}">✕ Rechazar</button>
+        </div>
+      </td>`;
+    tr.querySelector('[data-approve]').addEventListener('click', async () => {
+      await db.collection('users').doc(u.uid).update({ approved: true, blocked: false });
+      showToast(`✓ ${u.displayName||u.email} aprobado. Ya puede acceder.`);
+      // El listener actualizará la tabla automáticamente
     });
-    row.querySelector('[data-reject]').addEventListener('click', async () => {
+    tr.querySelector('[data-reject]').addEventListener('click', async () => {
       const ok = await showConfirm(`¿Rechazar y bloquear a ${u.displayName||u.email}?`);
       if (!ok) return;
-      await rejectUser(u.uid);
-      u.approved = false; u.blocked = true;
+      await db.collection('users').doc(u.uid).update({ approved: false, blocked: true });
       showToast('Usuario rechazado y bloqueado.');
-      loadAdminUsers();
     });
-    if (pendListEl) pendListEl.appendChild(row);
+    tbody.appendChild(tr);
   });
+}
 
-  // ── Bloque de aprobados ─────────────────────────────────
-  if (activeHdr)  activeHdr.style.display  = approved.length ? '' : 'none';
-  if (userListEl) userListEl.innerHTML = '';
+// ── Invitaciones ──────────────────────────────────────────────
+async function createInvitation() {
+  const emailEl = document.getElementById('inviteEmailInput');
+  const noteEl  = document.getElementById('inviteNoteInput');
+  const email   = emailEl ? emailEl.value.trim().toLowerCase() : '';
+  if (!email || !email.includes('@')) { showToast('Ingresa un correo válido.'); return; }
 
-  approved.forEach(u => {
-    const uid  = u.uid;
-    const isMe = uid === AUTH.userProfile.uid;
-    const row  = document.createElement('div');
-    row.className = 'admin-user-row' + (u.blocked ? ' admin-user-blocked' : '') + (isMe ? ' admin-user-me' : '');
-    row.innerHTML = `
-      <div class="admin-user-avatar" style="${u.blocked ? 'background:var(--danger)' : ''}">
-        ${(u.displayName||u.email||'?').slice(0,2).toUpperCase()}
-      </div>
-      <div class="admin-user-info">
-        <div class="admin-user-name">
-          ${u.displayName||'(sin nombre)'}
-          ${isMe ? '<span class="admin-user-you">tú</span>' : ''}
-          ${u.blocked ? '<span class="admin-user-blocked-badge">Bloqueado</span>' : ''}
-        </div>
-        <div class="admin-user-email">${u.email||''}</div>
-      </div>
-      <select class="role-select" data-uid="${uid}" ${isMe ? 'disabled' : ''}>
-        <option value="user"  ${u.role !== 'admin' ? 'selected' : ''}>👤 Usuario</option>
-        <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>👑 Admin</option>
-      </select>
-      ${!isMe ? `<button class="btn-small btn-danger admin-del-btn" data-uid="${uid}">✕</button>` : ''}`;
-    row.querySelector('.role-select')?.addEventListener('change', async e => {
-      await db.collection('users').doc(uid).update({ role: e.target.value });
-      showToast('Rol actualizado.');
-    });
-    row.querySelector('.admin-del-btn')?.addEventListener('click', async () => {
-      const ok = await showConfirm(`¿Eliminar a ${u.displayName||u.email}?`);
-      if (!ok) return;
-      await db.collection('users').doc(uid).delete();
-      showToast('Usuario eliminado.'); loadAdminUsers();
-    });
-    if (userListEl) userListEl.appendChild(row);
-  });
+  const code = Math.random().toString(36).slice(2, 10).toUpperCase();
+  const data = {
+    email,
+    note:      noteEl ? noteEl.value.trim() : '',
+    code,
+    createdBy: AUTH.userProfile.uid,
+    createdAt: new Date().toISOString(),
+    used:      false,
+    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
+  };
 
-  if (!pending.length && !approved.length && userListEl) {
-    userListEl.innerHTML =
-      '<p style="font-size:13px;color:var(--text-muted);text-align:center;padding:20px">No hay usuarios registrados.</p>';
+  const btn = document.getElementById('createInviteBtn');
+  if (btn) { btn.disabled = true; btn.textContent = 'Creando…'; }
+
+  try {
+    await db.collection('invitations').add(data);
+    if (emailEl) emailEl.value = '';
+    if (noteEl)  noteEl.value  = '';
+
+    const invLink = `https://zdraj-j.github.io/juritask/?invite=${code}`;
+    _showInviteResult(email, code, invLink);
+    showToast('✓ Invitación creada.');
+    loadInvitations();
+  } catch(e) {
+    showToast('Error: ' + (e.message || e.code));
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '＋ Crear invitación'; }
   }
+}
+
+function _showInviteResult(email, code, link) {
+  const el = document.getElementById('inviteResult');
+  if (!el) return;
+  el.style.display = '';
+  el.innerHTML = `
+    <div style="background:var(--success-light,#f0fdf4);border:1px solid var(--success,#16a34a);border-radius:10px;padding:14px 16px;margin-top:14px">
+      <div style="font-size:13px;font-weight:600;color:var(--success,#16a34a);margin-bottom:10px">✓ Invitación generada para <strong>${email}</strong></div>
+      <div style="display:flex;align-items:center;gap:8px">
+        <code style="flex:1;font-size:11px;background:var(--surface-2);padding:7px 10px;border-radius:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">${link}</code>
+        <button class="btn-small" onclick="navigator.clipboard.writeText('${link}').then(()=>showToast('✓ Link copiado'))">📋 Copiar</button>
+      </div>
+      <div style="font-size:11px;color:var(--text-muted);margin-top:6px">Código: <strong>${code}</strong> · Expira en 7 días · El usuario que use este link se aprueba automáticamente</div>
+    </div>`;
+}
+
+async function loadInvitations() {
+  const list = document.getElementById('invitationsList');
+  if (!list || AUTH.userProfile?.role !== 'admin') return;
+  list.innerHTML = '<p style="font-size:12px;color:var(--text-muted)">Cargando…</p>';
+  try {
+    const snap = await db.collection('invitations')
+      .orderBy('createdAt', 'desc').limit(15).get();
+    if (snap.empty) {
+      list.innerHTML = '<p style="font-size:13px;color:var(--text-muted);font-style:italic">No hay invitaciones creadas.</p>';
+      return;
+    }
+    list.innerHTML = '';
+    const now = new Date().toISOString();
+    snap.forEach(doc => {
+      const inv = { id: doc.id, ...doc.data() };
+      const expired = inv.expiresAt < now;
+      const st = inv.used ? { label:'✓ Usada', bg:'var(--success-light)', color:'var(--success)' }
+               : expired  ? { label:'Expirada', bg:'var(--danger-light)', color:'var(--danger)' }
+               : { label:'Pendiente', bg:'var(--accent-light)', color:'var(--accent)' };
+      const link = `https://zdraj-j.github.io/juritask/?invite=${inv.code}`;
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-light);flex-wrap:wrap';
+      row.innerHTML = `
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:600">${inv.email}</div>
+          <div style="font-size:11px;color:var(--text-muted)">
+            ${inv.note ? `"${inv.note}" · ` : ''}
+            Código: <strong>${inv.code}</strong> · 
+            ${new Date(inv.createdAt).toLocaleDateString('es-CO')}
+          </div>
+        </div>
+        <span style="font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600;background:${st.bg};color:${st.color}">${st.label}</span>
+        ${!inv.used ? `<button class="btn-small" onclick="navigator.clipboard.writeText('${link}').then(()=>showToast('✓ Copiado'))" title="Copiar link">📋</button>` : ''}
+        ${!inv.used ? `<button class="btn-small btn-danger" data-delinv="${doc.id}" title="Eliminar">✕</button>` : ''}`;
+      row.querySelector('[data-delinv]')?.addEventListener('click', async () => {
+        await db.collection('invitations').doc(inv.id).delete();
+        showToast('Invitación eliminada.'); loadInvitations();
+      });
+      list.appendChild(row);
+    });
+  } catch(e) {
+    list.innerHTML = `<p style="font-size:13px;color:var(--danger)">Error cargando invitaciones: ${e.code||e.message}</p>`;
+  }
+}
+
+// ── Función de compatibilidad (llamada desde config.js) ───────
+async function loadAdminUsers() {
+  // La gestión completa está en el dashboard.
+  // Esta función solo arranca el listener si no está activo.
+  if (AUTH.userProfile?.role === 'admin') startPendingListener();
 }
 
 // ============================================================
@@ -705,7 +749,9 @@ function openAdminTramitesModal(u) {
 const _originalSaveTramiteFS = typeof saveTramiteFS !== 'undefined' ? saveTramiteFS : null;
 
 function initDashboard() {
-  document.getElementById('dashRefreshBtn')?.addEventListener('click', renderDashboard);
+  document.getElementById('dashRefreshBtn')?.addEventListener('click', () => {
+    renderDashboard(); loadInvitations();
+  });
   document.getElementById('dashCreateTeamBtn')?.addEventListener('click', () => openTeamModal());
   document.getElementById('createTeamClose')?.addEventListener('click', closeTeamModal);
   document.getElementById('createTeamClose2')?.addEventListener('click', closeTeamModal);
@@ -713,7 +759,14 @@ function initDashboard() {
   document.getElementById('createTeamOverlay')?.addEventListener('click', e => {
     if (e.target === document.getElementById('createTeamOverlay')) closeTeamModal();
   });
+  document.getElementById('createInviteBtn')?.addEventListener('click', createInvitation);
 }
 
-// Alias para config.js
-function loadDashboardData() { renderDashboard(); }
+// Alias para config.js — al navegar al dashboard, arrancar listener y cargar invitaciones
+function loadDashboardData() {
+  renderDashboard();
+  if (AUTH.userProfile?.role === 'admin') {
+    startPendingListener();
+    loadInvitations();
+  }
+}
