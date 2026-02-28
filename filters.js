@@ -90,11 +90,22 @@ function updateAbogadoSelects() {
 
 function buildRespOptions(tipoTramite, abogadoKey, selectedValue) {
   const opts = [];
-  if (tipoTramite === 'abogado' && abogadoKey) {
-    const a = (STATE.config.abogados || []).find(x => x.key === abogadoKey);
-    if (a) opts.push({ value: a.key, label: a.nombre });
+  // Primero: miembros del equipo de Firestore
+  if (typeof _teamMembers !== 'undefined') {
+    _teamMembers.forEach(m => {
+      opts.push({ value: m.uid, label: m.displayName || m.email || m.uid });
+    });
   }
-  opts.push({ value:'yo', label:'Yo mismo' });
+  // Luego: colaboradores manuales de config (que no sean ya del equipo)
+  if (tipoTramite === 'abogado' && abogadoKey) {
+    const isTeamMember = (typeof _teamMembers !== 'undefined') && _teamMembers.find(m => m.uid === abogadoKey);
+    if (!isTeamMember) {
+      const a = (STATE.config.abogados || []).find(x => x.key === abogadoKey);
+      if (a) opts.push({ value: a.key, label: a.nombre });
+    }
+  }
+  // Siempre: yo mismo
+  opts.push({ value: 'yo', label: 'Yo mismo' });
   return opts.map(o => `<option value="${o.value}" ${o.value === selectedValue ? 'selected':''}>${o.label}</option>`).join('');
 }
 

@@ -121,30 +121,47 @@ async function renderDashboard() {
   // También agregar miembros de equipos por si acaso
   _dashEquipos.forEach(eq => (eq.members||[]).forEach(uid => knownUids.add(uid)));
 
-  // Leer cada perfil de usuario individualmente (permitido por reglas)
+  // Leer cada perfil de usuario individualmente + sus trámites
   _dashUsers = [];
+  let totalTramitesAll = 0;
+  let totalVencidosAll = 0;
   for (const uid of knownUids) {
     try {
       const uDoc = await db.collection('users').doc(uid).get();
-      if (uDoc.exists) {
-        _dashUsers.push({ uid, ...uDoc.data() });
-      } else if (uid === AUTH.userProfile.uid) {
-        // Fallback: al menos el propio admin
-        _dashUsers.push({ ...AUTH.userProfile });
+      let userData = uDoc.exists ? { uid, ...uDoc.data() } : (uid === AUTH.userProfile.uid ? { ...AUTH.userProfile } : null);
+      if (!userData) continue;
+      // Cargar conteo de trámites del usuario
+      try {
+        const tSnap = await db.collection('users').doc(uid).collection('tramites').get();
+        const uTramites = [];
+        tSnap.forEach(doc => uTramites.push({ id: doc.id, ...doc.data() }));
+        const uActivos   = uTramites.filter(t => !t.terminado);
+        const uVencidos  = uActivos.filter(t => t.fechaVencimiento && t.fechaVencimiento < hoy);
+        userData._tramitesActivos  = uActivos.length;
+        userData._tramitesTotal    = uTramites.length;
+        userData._tramitesVencidos = uVencidos.length;
+        userData._tramitesList     = uTramites; // para vista admin
+        totalTramitesAll += uActivos.length;
+        if (uid !== AUTH.userProfile.uid) totalVencidosAll += uVencidos.length;
+      } catch(e) {
+        userData._tramitesActivos  = uid === AUTH.userProfile.uid ? activos.length : '?';
+        userData._tramitesVencidos = uid === AUTH.userProfile.uid ? vencidos.length : '?';
+        userData._tramitesList     = uid === AUTH.userProfile.uid ? STATE.tramites : [];
       }
+      _dashUsers.push(userData);
     } catch(e) {
-      // Si falla leer un usuario, incluirlo con datos básicos si es el admin
-      if (uid === AUTH.userProfile.uid) _dashUsers.push({ ...AUTH.userProfile });
+      if (uid === AUTH.userProfile.uid) _dashUsers.push({ ...AUTH.userProfile, _tramitesActivos: activos.length, _tramitesVencidos: vencidos.length, _tramitesList: STATE.tramites });
     }
   }
   if (!_dashUsers.length) {
-    _dashUsers = [{ ...AUTH.userProfile }];
+    _dashUsers = [{ ...AUTH.userProfile, _tramitesActivos: activos.length, _tramitesVencidos: vencidos.length, _tramitesList: STATE.tramites }];
   }
+  totalVencidosAll += vencidos.length;
 
-  // KPIs
+  // KPIs — usar totales reales de todos los usuarios
   setText('kpiUsuarios',    knownUids.size);
-  setText('kpiTramites',    activos.length);
-  setText('kpiVencidos',    vencidos.length);
+  setText('kpiTramites',    totalTramitesAll || activos.length);
+  setText('kpiVencidos',    totalVencidosAll || vencidos.length);
   setText('kpiHoy',         hoyVenc.length);
   setText('kpiTerminados',  terminados.length);
   setText('kpiEquipos',     _dashEquipos.length);
@@ -159,16 +176,21 @@ async function renderDashboard() {
   if (tbody) {
     tbody.innerHTML = '';
     _dashUsers.forEach(u => {
-      const equipo = _dashEquipos.find(e => (e.members||[]).includes(u.uid));
-      const isMe   = u.uid === AUTH.userProfile.uid;
+      const equipo   = _dashEquipos.find(e => (e.members||[]).includes(u.uid));
+      const isMe     = u.uid === AUTH.userProfile.uid;
+      const nAct     = u._tramitesActivos  ?? '?';
+      const nVenc    = u._tramitesVencidos ?? '?';
+      const blocked  = u.blocked;
       const tr = document.createElement('tr');
-      tr.className = 'dash-user-row' + (isMe ? ' dash-self-row' : '');
+      tr.className = 'dash-user-row' + (isMe ? ' dash-self-row' : '') + (blocked ? ' dash-blocked-row' : '');
       tr.innerHTML = `
         <td>
           <div class="dash-user-cell">
-            <div class="dash-avatar-initials">${(u.displayName||u.email||'?').slice(0,2).toUpperCase()}</div>
+            <div class="dash-avatar-initials" style="${blocked?'background:var(--danger)':''}">
+              ${(u.displayName||u.email||'?').slice(0,2).toUpperCase()}
+            </div>
             <div>
-              <div style="font-weight:600;font-size:13px">${u.displayName||'—'}</div>
+              <div style="font-weight:600;font-size:13px">${u.displayName||'—'} ${blocked?'<span style="font-size:10px;background:var(--danger);color:#fff;padding:1px 5px;border-radius:6px">Bloqueado</span>':''}</div>
               ${isMe ? '<span class="dash-self-badge">Tú</span>' : ''}
             </div>
           </div>
@@ -183,14 +205,45 @@ async function renderDashboard() {
         <td>${equipo
           ? `<span style="font-size:12px;background:var(--accent-light);color:var(--accent);padding:2px 8px;border-radius:8px">${equipo.nombre}</span>`
           : '<span style="color:var(--text-muted);font-size:12px">Sin equipo</span>'}</td>
-        <td class="dash-num">${isMe ? activos.length : '—'}</td>
-        <td>${isMe ? '' : `<button class="btn-small btn-danger" data-deluser="${u.uid}">✕</button>`}</td>`;
+        <td class="dash-num" style="${nVenc>0?'color:var(--danger)':''}">
+          ${nAct} ${nVenc>0?`<span style="font-size:11px;color:var(--danger)">(${nVenc} venc.)</span>`:''}
+        </td>
+        <td>
+          <div style="display:flex;gap:4px;flex-wrap:wrap">
+            ${!isMe ? `<button class="btn-small" data-viewtramites="${u.uid}" title="Ver trámites">📋 Ver</button>` : ''}
+            ${!isMe ? `<button class="btn-small" data-resetpwd="${u.uid}" title="Enviar reset de contraseña">🔑</button>` : ''}
+            ${!isMe ? `<button class="btn-small ${blocked?'':'btn-warning'}" data-toggleblock="${u.uid}" data-blocked="${blocked?'1':'0'}" title="${blocked?'Desbloquear':'Bloquear'} usuario">${blocked?'🔓':'🔒'}</button>` : ''}
+            ${!isMe ? `<button class="btn-small btn-danger" data-deluser="${u.uid}" title="Eliminar usuario">✕</button>` : ''}
+          </div>
+        </td>`;
       tr.querySelector('.role-select')?.addEventListener('change', async e => {
         await db.collection('users').doc(u.uid).update({ role: e.target.value });
         showToast('Rol actualizado.'); u.role = e.target.value;
       });
+      tr.querySelector('[data-viewtramites]')?.addEventListener('click', () => {
+        openAdminTramitesModal(u);
+      });
+      tr.querySelector('[data-resetpwd]')?.addEventListener('click', async () => {
+        if (!u.email) { showToast('Este usuario no tiene email registrado.'); return; }
+        try {
+          await auth.sendPasswordResetEmail(u.email);
+          showToast(`✓ Email de recuperación enviado a ${u.email}`);
+        } catch(e) { showToast('Error enviando email: ' + (e.message||e.code)); }
+      });
+      tr.querySelector('[data-toggleblock]')?.addEventListener('click', async btn => {
+        const nowBlocked = !u.blocked;
+        const ok = await showConfirm(nowBlocked
+          ? `¿Bloquear a ${u.displayName||u.email}? No podrá iniciar sesión.`
+          : `¿Desbloquear a ${u.displayName||u.email}?`);
+        if (!ok) return;
+        await db.collection('users').doc(u.uid).update({ blocked: nowBlocked });
+        u.blocked = nowBlocked;
+        showToast(nowBlocked ? 'Usuario bloqueado.' : 'Usuario desbloqueado.');
+        renderDashboard();
+      });
       tr.querySelector('[data-deluser]')?.addEventListener('click', async () => {
-        if (!confirm(`¿Eliminar a ${u.displayName||u.email}?`)) return;
+        const ok = await showConfirm(`¿Eliminar permanentemente a ${u.displayName||u.email}? Esta acción no se puede deshacer.`);
+        if (!ok) return;
         await db.collection('users').doc(u.uid).delete();
         showToast('Usuario eliminado.'); renderDashboard();
       });
@@ -374,6 +427,7 @@ async function saveTeam() {
   const nombre = document.getElementById('newTeamName').value.trim();
   if (!nombre) { showToast('El nombre del equipo es obligatorio.'); return; }
   const members = [...document.querySelectorAll('#teamMemberList input:checked')].map(cb => cb.value);
+  if (members.length > 10) { showToast('El equipo puede tener máximo 10 miembros.'); return; }
   const id      = document.getElementById('editTeamId').value;
   const data    = { nombre, members, actualizadoEn: new Date().toISOString() };
   let teamId;
@@ -429,6 +483,94 @@ async function loadAdminUsers() {
 // ============================================================
 // INIT
 // ============================================================
+// ============================================================
+// ADMIN — VER/EDITAR TRÁMITES DE OTRO USUARIO
+// ============================================================
+let _adminViewUser = null;
+
+function openAdminTramitesModal(u) {
+  _adminViewUser = u;
+  let overlay = document.getElementById('adminTramitesOverlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.id = 'adminTramitesOverlay';
+    overlay.className = 'overlay';
+    overlay.innerHTML = `
+      <div class="modal modal-large" style="max-height:85vh">
+        <div class="modal-header">
+          <div>
+            <h2 id="adminTramitesTitle">Trámites del usuario</h2>
+            <div class="modal-subtitle" id="adminTramitesSubtitle"></div>
+          </div>
+          <button class="modal-close" id="adminTramitesClose">✕</button>
+        </div>
+        <div class="modal-body" style="padding:0">
+          <div id="adminTramitesList" style="padding:16px"></div>
+        </div>
+      </div>`;
+    document.body.appendChild(overlay);
+    document.getElementById('adminTramitesClose').addEventListener('click', () => {
+      overlay.classList.remove('open');
+    });
+    overlay.addEventListener('click', e => { if (e.target === overlay) overlay.classList.remove('open'); });
+  }
+
+  document.getElementById('adminTramitesTitle').textContent = `Trámites de ${u.displayName||u.email}`;
+  document.getElementById('adminTramitesSubtitle').textContent = `${u._tramitesActivos||0} activos · ${u._tramitesVencidos||0} vencidos`;
+
+  const list = document.getElementById('adminTramitesList');
+  const tramites = u._tramitesList || [];
+  if (!tramites.length) {
+    list.innerHTML = '<p style="color:var(--text-muted);font-style:italic;text-align:center;padding:32px">Este usuario no tiene trámites.</p>';
+  } else {
+    const hoy = today();
+    list.innerHTML = '';
+    const activos = tramites.filter(t => !t.terminado);
+    const terminados = tramites.filter(t => t.terminado);
+    [...activos, ...terminados].forEach(t => {
+      const venc = t.fechaVencimiento;
+      const isVenc = venc && venc < hoy && !t.terminado;
+      const row = document.createElement('div');
+      row.style.cssText = 'display:flex;align-items:center;gap:12px;padding:10px 12px;border-bottom:1px solid var(--border-light);cursor:pointer;transition:background .15s';
+      row.innerHTML = `
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
+            <span style="font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent)">#${t.numero||'—'}</span>
+            <span style="font-size:11px;background:var(--accent-light);color:var(--accent);padding:1px 6px;border-radius:8px">${t.modulo||''}</span>
+            ${t.terminado ? '<span style="font-size:11px;background:var(--success-light);color:var(--success);padding:1px 6px;border-radius:8px">✓ Terminado</span>' : ''}
+            ${isVenc ? '<span style="font-size:11px;background:var(--danger-light);color:var(--danger);padding:1px 6px;border-radius:8px">Vencido</span>' : ''}
+          </div>
+          <div style="font-size:13px;font-weight:500;color:var(--text-primary);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.descripcion||'Sin descripción'}</div>
+          ${venc ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px">Vence: ${formatDate(venc)}</div>` : ''}
+        </div>
+        <button class="btn-small" data-adminedit="${t.id}" style="flex-shrink:0">✎ Editar</button>`;
+      row.addEventListener('mouseenter', () => row.style.background = 'var(--surface-2)');
+      row.addEventListener('mouseleave', () => row.style.background = '');
+      row.querySelector('[data-adminedit]').addEventListener('click', async (e) => {
+        e.stopPropagation();
+        const ok = await showConfirm(`Vas a editar el trámite #${t.numero} de ${u.displayName||u.email}. Cualquier cambio se guardará en su cuenta.`);
+        if (!ok) return;
+        // Cargar el trámite en STATE temporalmente y abrir modal de edición
+        const existing = STATE.tramites.find(x => x.id === t.id);
+        if (!existing) STATE.tramites.push(t);
+        overlay.classList.remove('open');
+        if (typeof openModal === 'function') {
+          openModal(t);
+          // Cuando se guarde, también guardar en el uid del otro usuario
+          const origSave = window._adminSaveTarget;
+          window._adminSaveTarget = u.uid;
+        }
+      });
+      list.appendChild(row);
+    });
+  }
+
+  overlay.classList.add('open');
+}
+
+// Intercept saveTramiteFS para admin editing otro usuario
+const _originalSaveTramiteFS = typeof saveTramiteFS !== 'undefined' ? saveTramiteFS : null;
+
 function initDashboard() {
   document.getElementById('dashRefreshBtn')?.addEventListener('click', renderDashboard);
   document.getElementById('dashCreateTeamBtn')?.addEventListener('click', () => openTeamModal());

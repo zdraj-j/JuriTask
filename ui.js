@@ -972,17 +972,59 @@ function renderConfig() {
 
 function renderAbogadosList() {
   const list = document.getElementById('abogadosList'); if (!list) return; list.innerHTML = '';
-  (STATE.config.abogados||[]).forEach((a, i) => {
-    const row = document.createElement('div'); row.className='abogado-config-row';
-    const canDel = (STATE.config.abogados||[]).length > 1;
-    row.innerHTML = `<span class="abogado-num">${i+1}.</span><input type="text" class="ab-nombre" value="${escapeAttr(a.nombre)}" placeholder="Nombre"/><input type="color" class="color-picker ab-color" value="${a.color}" title="Color"/><span class="color-preview ab-preview" style="background:${a.color}"></span><button class="btn-icon btn-icon-danger ab-delete" title="Eliminar" ${canDel?'':'disabled style="opacity:.3;cursor:default"'}>✕</button>`;
-    row.querySelector('.ab-color').addEventListener('input', e => row.querySelector('.ab-preview').style.background = e.target.value);
-    if (canDel) row.querySelector('.ab-delete').addEventListener('click', async () => {
-      const ok = await showConfirm(`¿Eliminar al abogado "${a.nombre}"?\nLos trámites asignados quedarán sin abogado.`);
-      if (ok) { STATE.config.abogados.splice(i,1); saveAll(); applyCssColors(); updateAbogadoSelects(); renderAbogadosList(); renderAll(); showToast('Abogado eliminado.'); }
+  const members = (typeof _teamMembers !== 'undefined') ? _teamMembers : [];
+
+  if (members.length) {
+    const hdr = document.createElement('p');
+    hdr.style.cssText = 'font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;margin-top:4px';
+    hdr.textContent = 'Miembros del equipo';
+    list.appendChild(hdr);
+    members.forEach(m => {
+      const saved = (STATE.config.abogados||[]).find(x => x.key === m.uid);
+      const color = saved ? saved.color : '#6b7280';
+      const row = document.createElement('div'); row.className = 'abogado-config-row';
+      row.innerHTML = `<span class="abogado-num">👤</span>
+        <span style="flex:1;font-size:13px;color:var(--text-primary)">${escapeAttr(m.displayName||m.email||m.uid)}</span>
+        <input type="color" class="color-picker ab-color-team" value="${color}" title="Color" data-uid="${m.uid}"/>
+        <span class="color-preview ab-preview" style="background:${color}"></span>`;
+      const picker = row.querySelector('.ab-color-team');
+      const preview = row.querySelector('.ab-preview');
+      picker.addEventListener('input', e => {
+        preview.style.background = e.target.value;
+        let entry = (STATE.config.abogados||[]).find(x => x.key === m.uid);
+        if (entry) { entry.color = e.target.value; }
+        else { STATE.config.abogados.push({ key: m.uid, nombre: m.displayName||m.email, color: e.target.value }); }
+        saveAll(); applyCssColors();
+      });
+      list.appendChild(row);
     });
-    list.appendChild(row);
-  });
+  }
+
+  const manual = (STATE.config.abogados||[]).filter(a => !members.find(m => m.uid === a.key));
+  if (manual.length) {
+    const hdr2 = document.createElement('p');
+    hdr2.style.cssText = 'font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:8px;margin-top:12px';
+    hdr2.textContent = 'Colaboradores manuales';
+    list.appendChild(hdr2);
+    manual.forEach(a => {
+      const i = STATE.config.abogados.indexOf(a);
+      const row = document.createElement('div'); row.className = 'abogado-config-row';
+      row.innerHTML = `<input type="text" class="ab-nombre" value="${escapeAttr(a.nombre)}" placeholder="Nombre"/>
+        <input type="color" class="color-picker ab-color" value="${a.color}" title="Color"/>
+        <span class="color-preview ab-preview" style="background:${a.color}"></span>
+        <button class="btn-icon btn-icon-danger ab-delete" title="Eliminar">✕</button>`;
+      row.querySelector('.ab-color').addEventListener('input', e => row.querySelector('.ab-preview').style.background = e.target.value);
+      row.querySelector('.ab-delete').addEventListener('click', async () => {
+        const ok = await showConfirm(`¿Eliminar al colaborador "${a.nombre}"?`);
+        if (ok) { STATE.config.abogados.splice(i,1); saveAll(); applyCssColors(); updateAbogadoSelects(); renderAbogadosList(); renderAll(); showToast('Colaborador eliminado.'); }
+      });
+      list.appendChild(row);
+    });
+  }
+
+  if (!members.length && !manual.length) {
+    list.innerHTML = '<p style="font-size:13px;color:var(--text-muted);font-style:italic">No hay colaboradores configurados.</p>';
+  }
 }
 
 function syncAutoReqFields() {

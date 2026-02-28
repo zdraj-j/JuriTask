@@ -89,17 +89,26 @@ function escapeAttr(str) {
 
 function abogadoName(key) {
   if (!key || key === 'yo') return 'Yo mismo';
-  // Buscar primero en miembros del equipo (de Firestore)
   if (typeof _teamMembers !== 'undefined') {
     const m = _teamMembers.find(x => x.uid === key);
-    if (m) return m.displayName;
+    if (m) return m.displayName || m.email || key;
   }
-  // Fallback: colaboradores manuales de config
   const a = (STATE.config.abogados || []).find(x => x.key === key);
   return a ? a.nombre : key;
 }
 
 function abogadoColor(key) {
+  if (!key || key === 'yo') return '#6b7280';
+  // Para UIDs de Firestore (miembros de equipo), usar color guardado en config o generar uno consistente
+  if (typeof _teamMembers !== 'undefined' && _teamMembers.find(x => x.uid === key)) {
+    const saved = (STATE.config.abogados || []).find(x => x.key === key);
+    if (saved) return saved.color;
+    // Color determinista basado en el uid
+    let hash = 0;
+    for (let i = 0; i < key.length; i++) hash = key.charCodeAt(i) + ((hash << 5) - hash);
+    const hue = Math.abs(hash) % 360;
+    return `hsl(${hue},60%,40%)`;
+  }
   const a = (STATE.config.abogados || []).find(x => x.key === key);
   return a ? a.color : '#9333ea';
 }

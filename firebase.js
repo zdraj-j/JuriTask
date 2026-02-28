@@ -152,16 +152,45 @@ async function loadFromFirestore() {
 
 // ─── GUARDAR TRÁMITE ──────────────────────────────────────────
 function saveTramiteFS(tramite) {
-  if (!AUTH.userProfile?.uid) return;
+  if (!AUTH.userProfile?.uid) return Promise.resolve();
   const data = { ...tramite }; delete data.id;
-  userRef().collection('tramites').doc(tramite.id).set(data)
+
+  // Guardar en el propio Firestore
+  const own = userRef().collection('tramites').doc(tramite.id).set(data)
     .catch(e => console.error('Error guardando trámite:', e));
+
+  // Si es compartido con un miembro del equipo, sincronizar también a ellos
+  if (tramite._scope === 'team' && tramite.abogado) {
+    const isTeamMember = typeof _teamMembers !== 'undefined' && _teamMembers.find(m => m.uid === tramite.abogado);
+    const isSharedFrom = tramite._sharedFrom; // El trámite viene del otro lado
+    if (isTeamMember || isSharedFrom) {
+      const targetUid = isSharedFrom ? tramite._sharedFrom : tramite.abogado;
+      const sharedData = { ...data, _sharedFrom: AUTH.userProfile.uid, _sharedFromName: AUTH.userProfile.displayName || AUTH.userProfile.email };
+      db.collection('users').doc(targetUid).collection('tramites').doc(tramite.id).set(sharedData)
+        .catch(e => console.warn('Error sincronizando trámite compartido:', e.code));
+    }
+  }
+
+  return own;
 }
 
 function deleteTramiteFS(id) {
   if (!AUTH.userProfile?.uid) return;
+  const t = typeof getById === 'function' ? getById(id) : null;
   userRef().collection('tramites').doc(id).delete()
     .catch(e => console.error('Error eliminando trámite:', e));
+  // Si era compartido, eliminar del colaborador también
+  if (t && t._scope === 'team' && t.abogado) {
+    const isTeamMember = typeof _teamMembers !== 'undefined' && _teamMembers.find(m => m.uid === t.abogado);
+    if (isTeamMember) {
+      db.collection('users').doc(t.abogado).collection('tramites').doc(id).delete()
+        .catch(()=>{});
+    }
+  }
+  if (t && t._sharedFrom) {
+    db.collection('users').doc(t._sharedFrom).collection('tramites').doc(id).delete()
+      .catch(()=>{});
+  }
 }
 
 // ─── GUARDAR CONFIG + ORDER ───────────────────────────────────
@@ -200,6 +229,14 @@ auth.onAuthStateChanged(async user => {
       const uDoc = await db.collection('users').doc(user.uid).get();
       if (uDoc.exists) {
         const d = uDoc.data();
+        // Verificar si el usuario está bloqueado
+        if (d.blocked) {
+          await auth.signOut();
+          const msgEl = document.getElementById('authMessage');
+          if (msgEl) { msgEl.className = 'auth-message auth-error'; msgEl.textContent = 'Tu cuenta ha sido bloqueada. Contacta al administrador.'; msgEl.style.display = ''; }
+          if (loadingEl) loadingEl.style.display = 'none';
+          return;
+        }
         AUTH.userProfile.role        = d.role    || 'user';
         AUTH.userProfile.teamId      = d.teamId  || null;
         AUTH.userProfile.displayName = d.displayName || AUTH.userProfile.displayName;
