@@ -332,3 +332,6 @@ function initDashboard() {
     if (e.target === document.getElementById('createTeamOverlay')) closeTeamModal();
   });
 }
+
+// Alias para config.js que llama loadDashboardData()
+function loadDashboardData() { renderDashboard(); }

@@ -223,8 +223,137 @@
 
     <!-- DASHBOARD ADMIN -->
     <div class="view" id="view-dashboard">
-      <div class="view-header"><h2>🛡 Dashboard Administrador</h2></div>
-      <div id="dashboardContent"></div>
+      <div class="view-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
+        <h2>🛡 Dashboard Administrador</h2>
+        <button class="btn-small" id="dashRefreshBtn" style="font-size:12px">↺ Actualizar</button>
+      </div>
+
+      <!-- KPIs -->
+      <div class="dash-kpi-grid" id="dashKpiGrid">
+        <div class="dash-kpi">
+          <div class="dash-kpi-icon">👥</div>
+          <div class="dash-kpi-value" id="kpiUsuarios">—</div>
+          <div class="dash-kpi-label">Usuarios registrados</div>
+        </div>
+        <div class="dash-kpi">
+          <div class="dash-kpi-icon">📂</div>
+          <div class="dash-kpi-value" id="kpiTramites">—</div>
+          <div class="dash-kpi-label">Trámites activos</div>
+        </div>
+        <div class="dash-kpi dash-kpi-danger">
+          <div class="dash-kpi-icon">⚠️</div>
+          <div class="dash-kpi-value" id="kpiVencidos">—</div>
+          <div class="dash-kpi-label">Trámites vencidos</div>
+        </div>
+        <div class="dash-kpi dash-kpi-warning">
+          <div class="dash-kpi-icon">📅</div>
+          <div class="dash-kpi-value" id="kpiHoy">—</div>
+          <div class="dash-kpi-label">Vencen hoy</div>
+        </div>
+        <div class="dash-kpi">
+          <div class="dash-kpi-icon">✅</div>
+          <div class="dash-kpi-value" id="kpiTerminados">—</div>
+          <div class="dash-kpi-label">Terminados</div>
+        </div>
+        <div class="dash-kpi">
+          <div class="dash-kpi-icon">🏷️</div>
+          <div class="dash-kpi-value" id="kpiEquipos">—</div>
+          <div class="dash-kpi-label">Equipos</div>
+        </div>
+        <div class="dash-kpi dash-kpi-warning">
+          <div class="dash-kpi-icon">🔴</div>
+          <div class="dash-kpi-value" id="kpiUrgentes">—</div>
+          <div class="dash-kpi-label">Tareas urgentes</div>
+        </div>
+        <div class="dash-kpi">
+          <div class="dash-kpi-icon">👁️</div>
+          <div class="dash-kpi-value" id="kpiCompartidos">—</div>
+          <div class="dash-kpi-label">Trámites compartidos</div>
+        </div>
+      </div>
+
+      <!-- Usuarios -->
+      <div class="dash-section">
+        <div class="dash-section-header">
+          <h3>👤 Usuarios</h3>
+          <button class="btn-small" id="dashCreateTeamBtn">＋ Crear equipo</button>
+        </div>
+        <div class="dash-table-wrap">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>Nombre</th>
+                <th>Correo</th>
+                <th>Rol</th>
+                <th>Equipo</th>
+                <th>Trámites activos</th>
+                <th></th>
+              </tr>
+            </thead>
+            <tbody id="dashUsersBody">
+              <tr><td colspan="6" style="text-align:center;color:var(--text-muted);padding:24px">Cargando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Equipos -->
+      <div class="dash-section">
+        <div class="dash-section-header">
+          <h3>👥 Equipos</h3>
+        </div>
+        <div class="dash-teams-grid" id="dashTeamsGrid">
+          <p class="dash-empty">No hay equipos creados aún.</p>
+        </div>
+      </div>
+
+      <!-- Trámites vencidos globales -->
+      <div class="dash-section">
+        <div class="dash-section-header">
+          <h3>⚠️ Trámites vencidos (global)</h3>
+        </div>
+        <div class="dash-table-wrap">
+          <table class="dash-table">
+            <thead>
+              <tr>
+                <th>#</th>
+                <th>Descripción</th>
+                <th>Usuario</th>
+                <th>Vencimiento</th>
+                <th>Módulo</th>
+              </tr>
+            </thead>
+            <tbody id="dashVencidosBody">
+              <tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:24px">Cargando…</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Modal crear equipo -->
+      <div id="createTeamOverlay" class="overlay">
+        <div class="modal modal-sm">
+          <div class="modal-header">
+            <h2 id="createTeamTitle">Crear equipo</h2>
+            <button class="modal-close" id="createTeamClose">✕</button>
+          </div>
+          <div class="modal-body">
+            <input type="hidden" id="editTeamId" />
+            <div class="form-group" style="margin-bottom:16px">
+              <label>Nombre del equipo</label>
+              <input type="text" id="newTeamName" placeholder="Ej: Litigios" />
+            </div>
+            <div class="form-group">
+              <label>Miembros</label>
+              <div class="team-member-list" id="teamMemberList"></div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn-small" id="createTeamClose2">Cancelar</button>
+            <button class="btn btn-primary" id="confirmCreateTeamBtn">Guardar equipo</button>
+          </div>
+        </div>
+      </div>
     </div>
 
     <div class="view" id="view-config">
