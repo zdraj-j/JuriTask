@@ -2,12 +2,8 @@
  * JuriTask — auth.js
  * UI de autenticación: login, registro, recuperar contraseña,
  * modal de perfil, y logout.
- * Depende de firebase.js (AUTH, auth).
  */
 
-// ============================================================
-// TABS DE AUTH (Login / Registro)
-// ============================================================
 function initAuthUI() {
   // ── Tabs ────────────────────────────────────────────────
   document.querySelectorAll('.auth-tab').forEach(tab => {
@@ -30,7 +26,7 @@ function initAuthUI() {
     clearAuthError();
   });
 
-  // ── Formulario LOGIN ────────────────────────────────────
+  // ── LOGIN ────────────────────────────────────────────────
   document.getElementById('loginForm')?.addEventListener('submit', async e => {
     e.preventDefault();
     const email = document.getElementById('loginEmail').value.trim();
@@ -39,14 +35,13 @@ function initAuthUI() {
     setAuthLoading(true);
     try {
       await AUTH.loginEmail(email, pass);
-      // onAuthStateChanged en firebase.js se encarga del resto
-    } catch (err) {
+    } catch(err) {
       setAuthLoading(false);
       showAuthError(friendlyAuthError(err.code));
     }
   });
 
-  // ── Formulario REGISTRO ─────────────────────────────────
+  // ── REGISTRO ─────────────────────────────────────────────
   document.getElementById('registerForm')?.addEventListener('submit', async e => {
     e.preventDefault();
     const name  = document.getElementById('regName').value.trim();
@@ -55,35 +50,26 @@ function initAuthUI() {
     const pass2 = document.getElementById('regPass2').value;
 
     if (!name || !email || !pass || !pass2) { showAuthError('Completa todos los campos.'); return; }
-    if (pass !== pass2)                     { showAuthError('Las contraseñas no coinciden.'); return; }
-    if (pass.length < 6)                    { showAuthError('La contraseña debe tener al menos 6 caracteres.'); return; }
+    if (pass !== pass2)    { showAuthError('Las contraseñas no coinciden.'); return; }
+    if (pass.length < 6)   { showAuthError('La contraseña debe tener al menos 6 caracteres.'); return; }
 
     setAuthLoading(true);
     try {
       const cred = await AUTH.registerEmail(email, pass);
-      // Guardar nombre
       await cred.user.updateProfile({ displayName: name });
-
-      // El primer usuario registrado se convierte en admin
-      const usersSnap = await db.collection('users').get();
-      const isFirstUser = usersSnap.empty || (usersSnap.size === 1 && usersSnap.docs[0].id === cred.user.uid);
-      const role = isFirstUser ? 'admin' : 'user';
-
-      await db.collection('users').doc(cred.user.uid).set({
-        displayName: name,
-        email:       email,
-        role:        role,
-        creadoEn:    new Date().toISOString(),
-      });
-
+      // ensureUserProfile crea el doc y decide el rol
+      const role = await ensureUserProfile({ ...cred.user, displayName: name });
+      AUTH.userProfile = {
+        uid: cred.user.uid, displayName: name, email, role, photoURL: null, teamId: null,
+      };
       // onAuthStateChanged se encarga del resto
-    } catch (err) {
+    } catch(err) {
       setAuthLoading(false);
       showAuthError(friendlyAuthError(err.code));
     }
   });
 
-  // ── Formulario RESET ────────────────────────────────────
+  // ── RESET ────────────────────────────────────────────────
   document.getElementById('resetForm')?.addEventListener('submit', async e => {
     e.preventDefault();
     const email = document.getElementById('resetEmail').value.trim();
@@ -93,42 +79,33 @@ function initAuthUI() {
       await AUTH.resetPassword(email);
       setAuthLoading(false);
       showAuthError('✓ Enlace enviado. Revisa tu correo.', 'success');
-    } catch (err) {
+    } catch(err) {
       setAuthLoading(false);
       showAuthError(friendlyAuthError(err.code));
     }
   });
 
-  // ── Botón Google ────────────────────────────────────────
-  document.querySelector('.btn-google-login')?.addEventListener('click', async () => {
+  // ── GOOGLE ───────────────────────────────────────────────
+  // signInWithRedirect: navega a Google y vuelve a la app.
+  // El resultado lo captura getRedirectResult() en firebase.js.
+  // NO usar await aquí porque la página hace redirect antes de resolver.
+  document.querySelector('.btn-google-login')?.addEventListener('click', () => {
     setAuthLoading(true);
-    try {
-      // signInWithRedirect no devuelve promesa con resultado;
-      // el resultado se captura en firebase.js con getRedirectResult()
-      await AUTH.loginGoogle();
-      // La página hará redirect, el loading se queda visible intencionalmente
-    } catch (err) {
-      setAuthLoading(false);
-      if (err.code === 'auth/unauthorized-domain') {
-        showAuthError('Dominio no autorizado. Ve a Firebase Console → Authentication → Authorized domains y agrega tu dominio.');
-      } else {
-        showAuthError(friendlyAuthError(err.code));
-      }
-    }
+    AUTH.loginGoogle(); // dispara redirect, la página sale
   });
 }
 
-// ── Helper: mostrar/ocultar spinner de carga ──────────────
+// ── Loading ───────────────────────────────────────────────────
 function setAuthLoading(on) {
   const overlay = document.getElementById('authLoadingOverlay');
   if (overlay) overlay.style.display = on ? 'flex' : 'none';
 }
 
-// ── Helper: mensajes de error ─────────────────────────────
+// ── Mensajes ──────────────────────────────────────────────────
 function showAuthError(msg, type = 'error') {
   const el = document.getElementById('authError');
   if (!el) return;
-  el.textContent  = msg;
+  el.textContent   = msg;
   el.style.display = '';
   el.style.color   = type === 'success' ? 'var(--success, #16a34a)' : 'var(--danger, #dc2626)';
 }
@@ -140,30 +117,27 @@ function clearAuthError() {
 
 function friendlyAuthError(code) {
   const map = {
-    'auth/user-not-found':        'No existe una cuenta con ese correo.',
-    'auth/wrong-password':        'Contraseña incorrecta.',
-    'auth/email-already-in-use':  'Ya existe una cuenta con ese correo.',
-    'auth/invalid-email':         'El correo no es válido.',
-    'auth/weak-password':         'La contraseña es demasiado débil.',
-    'auth/too-many-requests':     'Demasiados intentos. Espera un momento.',
-    'auth/network-request-failed':'Sin conexión. Verifica tu internet.',
-    'auth/popup-blocked':         'El popup fue bloqueado. Permite popups para este sitio.',
-    'auth/invalid-credential':    'Correo o contraseña incorrectos.',
+    'auth/user-not-found':         'No existe una cuenta con ese correo.',
+    'auth/wrong-password':         'Contraseña incorrecta.',
+    'auth/email-already-in-use':   'Ya existe una cuenta con ese correo.',
+    'auth/invalid-email':          'El correo no es válido.',
+    'auth/weak-password':          'La contraseña es demasiado débil.',
+    'auth/too-many-requests':      'Demasiados intentos. Espera un momento.',
+    'auth/network-request-failed': 'Sin conexión. Verifica tu internet.',
+    'auth/popup-blocked':          'El popup fue bloqueado por el navegador.',
+    'auth/invalid-credential':     'Correo o contraseña incorrectos.',
+    'auth/unauthorized-domain':    'Dominio no autorizado en Firebase. Agrega tu dominio en Authentication → Authorized domains.',
   };
-  return map[code] || 'Error inesperado. Intenta de nuevo.';
+  return map[code] || `Error inesperado (${code || 'desconocido'}). Intenta de nuevo.`;
 }
 
-// ============================================================
-// LOGOUT
-// ============================================================
+// ── Logout ────────────────────────────────────────────────────
 function logout() {
   if (!confirm('¿Cerrar sesión?')) return;
   AUTH.logout().catch(console.error);
 }
 
-// ============================================================
-// MODAL DE PERFIL
-// ============================================================
+// ── Modal perfil ──────────────────────────────────────────────
 function openProfileModal() {
   const p = AUTH.userProfile;
   if (!p) return;
@@ -177,15 +151,12 @@ function closeProfileModal() {
   document.getElementById('profileOverlay').classList.remove('open');
 }
 
-// ── Inicializar listeners del modal de perfil ─────────────
 function initAuth() {
-  // Cerrar modal perfil
   document.getElementById('profileClose')?.addEventListener('click', closeProfileModal);
   document.getElementById('profileOverlay')?.addEventListener('click', e => {
     if (e.target === document.getElementById('profileOverlay')) closeProfileModal();
   });
 
-  // Guardar nombre
   document.getElementById('saveProfileBtn')?.addEventListener('click', async () => {
     const name = document.getElementById('profileName').value.trim();
     if (!name) { showToast('El nombre no puede estar vacío.'); return; }
@@ -194,18 +165,14 @@ function initAuth() {
       await db.collection('users').doc(AUTH.userProfile.uid).update({ displayName: name });
       AUTH.userProfile.displayName = name;
       syncConfigAccountUI();
-      // Actualizar avatar en topbar
       const avEl   = document.getElementById('userAvatar');
       const nameEl = document.getElementById('userNameDisplay');
       if (avEl)   avEl.textContent   = name.slice(0, 2).toUpperCase();
       if (nameEl) nameEl.textContent = name.split(' ')[0];
       showToast('Nombre actualizado.');
-    } catch (err) {
-      showToast('Error al guardar: ' + err.message);
-    }
+    } catch(err) { showToast('Error: ' + err.message); }
   });
 
-  // Cambiar contraseña
   document.getElementById('changePassBtn')?.addEventListener('click', async () => {
     const current  = document.getElementById('currentPass').value;
     const newPass  = document.getElementById('newPass').value;
@@ -220,11 +187,8 @@ function initAuth() {
       document.getElementById('newPass').value     = '';
       document.getElementById('confirmPass').value = '';
       showToast('Contraseña cambiada.');
-    } catch (err) {
-      showToast(friendlyAuthError(err.code));
-    }
+    } catch(err) { showToast(friendlyAuthError(err.code)); }
   });
 
-  // User avatar button → abrir perfil
   document.getElementById('userAvatarBtn')?.addEventListener('click', openProfileModal);
 }

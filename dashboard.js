@@ -110,11 +110,18 @@ async function renderDashboard() {
     eSnap.forEach(doc => _dashEquipos.push({ id: doc.id, ...doc.data() }));
   } catch(e) { console.warn('No se pudieron cargar equipos:', e); }
 
-  // Construir lista de UIDs conocidos: propio + miembros de equipos
+  // Leer todos los UIDs desde el índice global /meta/userIndex
   const knownUids = new Set([AUTH.userProfile.uid]);
+  try {
+    const idxDoc = await db.collection('meta').doc('userIndex').get();
+    if (idxDoc.exists) {
+      (idxDoc.data().uids || []).forEach(uid => knownUids.add(uid));
+    }
+  } catch(e) { console.warn('No se pudo leer userIndex:', e); }
+  // También agregar miembros de equipos por si acaso
   _dashEquipos.forEach(eq => (eq.members||[]).forEach(uid => knownUids.add(uid)));
 
-  // Leer cada usuario individualmente (esto sí está permitido por las reglas)
+  // Leer cada perfil de usuario individualmente (permitido por reglas)
   _dashUsers = [];
   for (const uid of knownUids) {
     try {
@@ -127,7 +134,6 @@ async function renderDashboard() {
       }
     } catch(_) {}
   }
-  // Fallback: al menos el admin mismo
   if (!_dashUsers.length) {
     _dashUsers = [{ ...AUTH.userProfile }];
   }

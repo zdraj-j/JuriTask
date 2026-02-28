@@ -1,10 +1,8 @@
 /**
  * JuriTask — firebase.js
  * Inicialización de Firebase, autenticación y sincronización con Firestore.
- * Debe cargarse DESPUÉS de storage.js y tramites.js, y ANTES de config.js.
  */
 
-// ─── CONFIGURACIÓN ────────────────────────────────────────────
 const firebaseConfig = {
   apiKey:            "AIzaSyBQ3T-6vaF-C74gcikCpDP3HXNbq_rYrYg",
   authDomain:        "juritask-5df51.firebaseapp.com",
@@ -19,13 +17,13 @@ firebase.initializeApp(firebaseConfig);
 const auth = firebase.auth();
 const db   = firebase.firestore();
 
-// ─── OBJETO AUTH (usado por ui.js / filters.js) ───────────────
+// ─── OBJETO AUTH ──────────────────────────────────────────────
 const AUTH = {
   userProfile: null,
 
   loginGoogle() {
     const provider = new firebase.auth.GoogleAuthProvider();
-    // Usar redirect en lugar de popup para evitar bloqueos en GitHub Pages y Safari
+    provider.setCustomParameters({ prompt: 'select_account' });
     return auth.signInWithRedirect(provider);
   },
 
@@ -37,63 +35,90 @@ const AUTH = {
     return auth.createUserWithEmailAndPassword(email, password);
   },
 
-  logout() {
-    return auth.signOut();
-  },
-
-  resetPassword(email) {
-    return auth.sendPasswordResetEmail(email);
-  },
-
-  updateDisplayName(name) {
-    return auth.currentUser?.updateProfile({ displayName: name });
-  },
-
-  updatePassword(newPassword) {
-    return auth.currentUser?.updatePassword(newPassword);
-  },
+  logout()                { return auth.signOut(); },
+  resetPassword(email)    { return auth.sendPasswordResetEmail(email); },
+  updateDisplayName(name) { return auth.currentUser?.updateProfile({ displayName: name }); },
+  updatePassword(pw)      { return auth.currentUser?.updatePassword(pw); },
 
   reauthenticate(currentPassword) {
-    const user       = auth.currentUser;
-    const credential = firebase.auth.EmailAuthProvider.credential(user.email, currentPassword);
-    return user.reauthenticateWithCredential(credential);
+    const user = auth.currentUser;
+    const cred = firebase.auth.EmailAuthProvider.credential(user.email, currentPassword);
+    return user.reauthenticateWithCredential(cred);
   },
 };
 
-// ─── RUTAS EN FIRESTORE ───────────────────────────────────────
-// /users/{uid}/tramites/{tramiteId}
-// /users/{uid}/meta/config
-// /users/{uid}/meta/order
-
+// ─── REFERENCIA AL DOC DEL USUARIO ───────────────────────────
 function userRef() {
   return db.collection('users').doc(AUTH.userProfile.uid);
 }
 
+// ─── ÍNDICE GLOBAL DE USUARIOS ────────────────────────────────
+// Como Firestore no permite listar /users/ desde el cliente,
+// mantenemos un documento /meta/userIndex con array de UIDs.
+// Esto permite al admin leer todos los perfiles individualmente.
+async function registerInUserIndex(uid) {
+  try {
+    await db.collection('meta').doc('userIndex').set(
+      { uids: firebase.firestore.FieldValue.arrayUnion(uid) },
+      { merge: true }
+    );
+  } catch(e) { console.warn('userIndex write failed:', e.code); }
+}
+
+async function removeFromUserIndex(uid) {
+  try {
+    await db.collection('meta').doc('userIndex').set(
+      { uids: firebase.firestore.FieldValue.arrayRemove(uid) },
+      { merge: true }
+    );
+  } catch(e) { console.warn('userIndex remove failed:', e.code); }
+}
+
+// ─── CREAR PERFIL EN FIRESTORE ────────────────────────────────
+async function ensureUserProfile(user) {
+  const uRef = db.collection('users').doc(user.uid);
+  const uDoc = await uRef.get();
+
+  if (!uDoc.exists) {
+    // Determinar si es el primer usuario leyendo el índice
+    let role = 'user';
+    try {
+      const idx = await db.collection('meta').doc('userIndex').get();
+      const uids = (idx.exists && idx.data().uids) ? idx.data().uids : [];
+      if (uids.length === 0) role = 'admin';
+    } catch(_) {}
+
+    await uRef.set({
+      displayName: user.displayName || '',
+      email:       user.email       || '',
+      role,
+      creadoEn:    new Date().toISOString(),
+    });
+    await registerInUserIndex(user.uid);
+    return role;
+  }
+
+  // Ya existe: asegurar que esté en el índice
+  await registerInUserIndex(user.uid);
+  return uDoc.data().role || 'user';
+}
+
 // ─── CARGAR DATOS DESDE FIRESTORE ────────────────────────────
 async function loadFromFirestore() {
-  const uid = AUTH.userProfile?.uid;
-  if (!uid) return;
+  if (!AUTH.userProfile?.uid) return;
 
   try {
-    // Config
     const metaDoc = await userRef().collection('meta').doc('config').get();
     if (metaDoc.exists) {
-      const saved = metaDoc.data();
       STATE.config = Object.assign(
-        {
-          ...DEFAULT_CONFIG,
-          abogados: DEFAULT_CONFIG.abogados.map(a => ({ ...a })),
-          modulos:  [...DEFAULT_CONFIG.modulos],
-        },
-        saved
+        { ...DEFAULT_CONFIG, abogados: DEFAULT_CONFIG.abogados.map(a=>({...a})), modulos:[...DEFAULT_CONFIG.modulos] },
+        metaDoc.data()
       );
     }
 
-    // Order
     const orderDoc = await userRef().collection('meta').doc('order').get();
     if (orderDoc.exists) STATE.order = orderDoc.data().order || [];
 
-    // Trámites
     const snap = await userRef().collection('tramites').get();
     STATE.tramites = [];
     snap.forEach(doc => {
@@ -107,73 +132,63 @@ async function loadFromFirestore() {
     if (typeof populateModuloSelects === 'function') populateModuloSelects();
     if (typeof updateAbogadoSelects  === 'function') updateAbogadoSelects();
 
-  } catch (e) {
-    console.error('Error cargando desde Firestore:', e);
+  } catch(e) {
+    console.error('Error cargando Firestore:', e);
     showToast('Error al cargar datos desde la nube.');
   }
 }
 
-// ─── GUARDAR TRÁMITE INDIVIDUAL ───────────────────────────────
+// ─── GUARDAR TRÁMITE ──────────────────────────────────────────
 function saveTramiteFS(tramite) {
   if (!AUTH.userProfile?.uid) return;
-  const data = { ...tramite };
-  delete data.id;
+  const data = { ...tramite }; delete data.id;
   userRef().collection('tramites').doc(tramite.id).set(data)
     .catch(e => console.error('Error guardando trámite:', e));
 }
 
-// ─── ELIMINAR TRÁMITE ─────────────────────────────────────────
 function deleteTramiteFS(id) {
   if (!AUTH.userProfile?.uid) return;
   userRef().collection('tramites').doc(id).delete()
     .catch(e => console.error('Error eliminando trámite:', e));
 }
 
-// ─── GUARDAR CONFIG + ORDER (con debounce 800ms) ──────────────
+// ─── GUARDAR CONFIG + ORDER ───────────────────────────────────
 let _fsConfigTimer = null;
 function saveConfigDebounced() {
   clearTimeout(_fsConfigTimer);
   _fsConfigTimer = setTimeout(() => {
     if (!AUTH.userProfile?.uid) return;
     userRef().collection('meta').doc('config').set(STATE.config)
-      .catch(e => console.error('Error guardando config:', e));
+      .catch(e => console.error('Error config:', e));
     userRef().collection('meta').doc('order').set({ order: STATE.order })
-      .catch(e => console.error('Error guardando order:', e));
+      .catch(e => console.error('Error order:', e));
     STATE.tramites.forEach(t => saveTramiteFS(t));
   }, 800);
 }
 
-// ─── MANEJAR RESULTADO DE REDIRECT DE GOOGLE ─────────────────
-auth.getRedirectResult().then(async result => {
-  if (!result || !result.user) return;
-  const user = result.user;
-  const uRef = db.collection('users').doc(user.uid);
-  const uDoc = await uRef.get();
-  if (!uDoc.exists) {
-    // Primer usuario: asignar rol. Si ya existe doc no hace nada.
-    // No podemos listar /users/ por permisos, así que el primer usuario
-    // registrado por email ya tiene su rol asignado en registerForm.
-    // Para Google, asignamos 'user' por defecto; el admin puede promoverlo.
-    await uRef.set({
-      displayName: user.displayName || '',
-      email:       user.email       || '',
-      role:        'user',
-      creadoEn:    new Date().toISOString(),
+// ─── RESULTADO DEL REDIRECT DE GOOGLE ────────────────────────
+// Se ejecuta al volver de la página de Google.
+// Si no hay redirect pendiente, result.user es null y no hace nada.
+auth.getRedirectResult()
+  .then(async result => {
+    if (!result || !result.user) return;
+    // onAuthStateChanged también se dispara; solo aseguramos el perfil aquí
+    await ensureUserProfile(result.user);
+  })
+  .catch(err => {
+    console.error('getRedirectResult:', err.code, err.message);
+    requestAnimationFrame(() => {
+      if (document.getElementById('authScreen')?.style.display !== 'none') {
+        if (typeof showAuthError  === 'function') showAuthError('Error con Google: ' + err.message);
+        if (typeof setAuthLoading === 'function') setAuthLoading(false);
+      }
     });
-  }
-}).catch(err => {
-  console.warn('getRedirectResult error:', err.code, err.message);
-  const authEl = document.getElementById('authScreen');
-  if (authEl && authEl.style.display !== 'none') {
-    if (typeof showAuthError  === 'function') showAuthError('Error con Google. Intenta de nuevo.');
-    if (typeof setAuthLoading === 'function') setAuthLoading(false);
-  }
-});
+  });
 
-// ─── ESCUCHAR CAMBIOS DE SESIÓN ───────────────────────────────
+// ─── CAMBIOS DE SESIÓN ────────────────────────────────────────
 auth.onAuthStateChanged(async user => {
-  const appEl    = document.getElementById('appContainer');
-  const authEl   = document.getElementById('authScreen');
+  const appEl     = document.getElementById('appContainer');
+  const authEl    = document.getElementById('authScreen');
   const loadingEl = document.getElementById('authLoadingOverlay');
 
   if (user) {
@@ -183,21 +198,25 @@ auth.onAuthStateChanged(async user => {
       email:       user.email       || '',
       photoURL:    user.photoURL    || null,
       role:        'user',
+      teamId:      null,
     };
 
-    // Verificar si es admin en Firestore
     try {
       const uDoc = await db.collection('users').doc(user.uid).get();
-      if (uDoc.exists && uDoc.data().role === 'admin') {
-        AUTH.userProfile.role = 'admin';
+      if (uDoc.exists) {
+        const d = uDoc.data();
+        AUTH.userProfile.role        = d.role    || 'user';
+        AUTH.userProfile.teamId      = d.teamId  || null;
+        AUTH.userProfile.displayName = d.displayName || AUTH.userProfile.displayName;
+      } else {
+        AUTH.userProfile.role = await ensureUserProfile(user);
       }
-    } catch (_) {}
+    } catch(_) {}
 
-    // Cargar datos y mostrar app
     await loadFromFirestore();
-    if (authEl)   authEl.style.display   = 'none';
+    if (authEl)    authEl.style.display    = 'none';
     if (loadingEl) loadingEl.style.display = 'none';
-    if (appEl)    appEl.style.display    = 'flex';
+    if (appEl)     appEl.style.display     = 'flex';
 
     if (typeof renderAll            === 'function') renderAll();
     if (typeof syncConfigAccountUI  === 'function') syncConfigAccountUI();
@@ -206,8 +225,8 @@ auth.onAuthStateChanged(async user => {
 
   } else {
     AUTH.userProfile = null;
-    if (appEl)    appEl.style.display    = 'none';
+    if (appEl)     appEl.style.display     = 'none';
     if (loadingEl) loadingEl.style.display = 'none';
-    if (authEl)   authEl.style.display   = '';
+    if (authEl)    authEl.style.display    = '';
   }
 });
