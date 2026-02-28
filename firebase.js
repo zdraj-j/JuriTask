@@ -144,27 +144,28 @@ function saveConfigDebounced() {
 }
 
 // ─── MANEJAR RESULTADO DE REDIRECT DE GOOGLE ─────────────────
-// signInWithRedirect vuelve a la misma página; capturamos el resultado aquí.
 auth.getRedirectResult().then(async result => {
-  if (!result || !result.user) return; // No hay redirect pendiente
+  if (!result || !result.user) return;
   const user = result.user;
   const uRef = db.collection('users').doc(user.uid);
   const uDoc = await uRef.get();
   if (!uDoc.exists) {
-    const usersSnap = await db.collection('users').get();
-    const isFirst   = usersSnap.empty || (usersSnap.size === 1 && usersSnap.docs[0].id === user.uid);
+    // Primer usuario: asignar rol. Si ya existe doc no hace nada.
+    // No podemos listar /users/ por permisos, así que el primer usuario
+    // registrado por email ya tiene su rol asignado en registerForm.
+    // Para Google, asignamos 'user' por defecto; el admin puede promoverlo.
     await uRef.set({
       displayName: user.displayName || '',
       email:       user.email       || '',
-      role:        isFirst ? 'admin' : 'user',
+      role:        'user',
       creadoEn:    new Date().toISOString(),
     });
   }
 }).catch(err => {
-  console.warn('getRedirectResult error:', err);
-  // Mostrar error en pantalla de auth si está visible
-  if (document.getElementById('authScreen')?.style.display !== 'none') {
-    if (typeof showAuthError === 'function') showAuthError('Error al iniciar con Google. Intenta de nuevo.');
+  console.warn('getRedirectResult error:', err.code, err.message);
+  const authEl = document.getElementById('authScreen');
+  if (authEl && authEl.style.display !== 'none') {
+    if (typeof showAuthError  === 'function') showAuthError('Error con Google. Intenta de nuevo.');
     if (typeof setAuthLoading === 'function') setAuthLoading(false);
   }
 });

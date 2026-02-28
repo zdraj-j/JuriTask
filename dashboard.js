@@ -1,6 +1,13 @@
 /**
  * JuriTask — dashboard.js
- * Dashboard admin: KPIs globales, gestión de usuarios, equipos, backups.
+ * Dashboard admin: KPIs, gestión de usuarios, equipos, backups.
+ *
+ * NOTA DE PERMISOS:
+ * Firestore no permite listar /users/ completa desde el cliente aunque el
+ * usuario sea admin (las reglas de seguridad no soportan "list" en colecciones
+ * donde cada doc tiene regla individual sin un índice de colección global).
+ * Solución: el dashboard usa STATE.tramites (ya en memoria) para métricas propias,
+ * y lee usuarios individualmente solo de los que conoce (propio uid + miembros de equipos).
  */
 
 // ============================================================
@@ -52,7 +59,7 @@ async function restoreBackup(id, b) {
   if (b.config)   STATE.config   = Object.assign({...DEFAULT_CONFIG}, b.config);
   saveAll(true); applyCssColors(); applyTheme(STATE.config.theme||'claro');
   populateModuloSelects(); updateAbogadoSelects(); renderAll();
-  showToast('✓ Backup restaurado.');
+  showToast('Backup restaurado.');
 }
 
 async function deleteBackup(id) {
@@ -75,85 +82,100 @@ function startAutoBackup() {
 }
 
 // ============================================================
-// DASHBOARD — cargar datos globales y renderizar
+// DASHBOARD
 // ============================================================
-let _dashUsers = [];
+let _dashUsers   = [];
+let _dashEquipos = [];
 
 async function renderDashboard() {
   if (AUTH.userProfile?.role !== 'admin') return;
 
-  let usersSnap;
-  try {
-    usersSnap = await db.collection('users').get();
-  } catch(e) {
-    showToast('Error de permisos. Actualiza las reglas de Firestore.');
-    return;
-  }
+  // Indicador de carga en KPIs
+  ['kpiUsuarios','kpiTramites','kpiVencidos','kpiHoy','kpiTerminados','kpiEquipos','kpiUrgentes','kpiCompartidos']
+    .forEach(id => setText(id, '…'));
 
-  _dashUsers = [];
-  usersSnap.forEach(doc => {
-    if (doc.data().email) _dashUsers.push({ uid: doc.id, ...doc.data() });
-  });
+  const hoy        = today();
+  const tramites   = STATE.tramites;
+  const activos    = tramites.filter(t => !t.terminado);
+  const terminados = tramites.filter(t =>  t.terminado);
+  const vencidos   = activos.filter(t => t.fechaVencimiento && t.fechaVencimiento < hoy && !t.gestion?.cumplimiento);
+  const hoyVenc    = activos.filter(t => t.fechaVencimiento === hoy && !t.gestion?.cumplimiento);
+  const urgentes   = activos.filter(t => (t.seguimiento||[]).some(s => s.urgente && s.estado === 'pendiente'));
+  const compartidos= activos.filter(t => t._scope === 'team');
 
-  let allTramites = [];
-  let tramitesByUser = {};
-  for (const u of _dashUsers) {
-    try {
-      const tSnap = await db.collection('users').doc(u.uid).collection('tramites').get();
-      const ut = [];
-      tSnap.forEach(doc => ut.push({ id: doc.id, ...doc.data(), _ownerUid: u.uid, _ownerName: u.displayName || u.email }));
-      tramitesByUser[u.uid] = ut;
-      allTramites = allTramites.concat(ut);
-    } catch(_) {}
-  }
-
-  let equipos = [];
+  // Leer equipos (usuarios autenticados pueden leerlos)
+  _dashEquipos = [];
   try {
     const eSnap = await db.collection('teams').get();
-    eSnap.forEach(doc => equipos.push({ id: doc.id, ...doc.data() }));
-  } catch(_) {}
+    eSnap.forEach(doc => _dashEquipos.push({ id: doc.id, ...doc.data() }));
+  } catch(e) { console.warn('No se pudieron cargar equipos:', e); }
 
-  const hoy = today();
-  const activos     = allTramites.filter(t => !t.terminado);
-  const terminados  = allTramites.filter(t => t.terminado);
-  const vencidos    = activos.filter(t => t.fechaVencimiento && t.fechaVencimiento < hoy && !t.gestion?.cumplimiento);
-  const hoyVenc     = activos.filter(t => t.fechaVencimiento === hoy && !t.gestion?.cumplimiento);
-  const urgentes    = activos.filter(t => (t.seguimiento||[]).some(s => s.urgente && s.estado === 'pendiente'));
-  const compartidos = activos.filter(t => t._scope === 'team');
+  // Construir lista de UIDs conocidos: propio + miembros de equipos
+  const knownUids = new Set([AUTH.userProfile.uid]);
+  _dashEquipos.forEach(eq => (eq.members||[]).forEach(uid => knownUids.add(uid)));
 
-  setText('kpiUsuarios',   _dashUsers.length);
-  setText('kpiTramites',   activos.length);
-  setText('kpiVencidos',   vencidos.length);
-  setText('kpiHoy',        hoyVenc.length);
-  setText('kpiTerminados', terminados.length);
-  setText('kpiEquipos',    equipos.length);
-  setText('kpiUrgentes',   urgentes.length);
-  setText('kpiCompartidos',compartidos.length);
+  // Leer cada usuario individualmente (esto sí está permitido por las reglas)
+  _dashUsers = [];
+  for (const uid of knownUids) {
+    try {
+      const uDoc = await db.collection('users').doc(uid).get();
+      if (uDoc.exists) {
+        const data = uDoc.data();
+        if (data.email || uid === AUTH.userProfile.uid) {
+          _dashUsers.push({ uid, ...data });
+        }
+      }
+    } catch(_) {}
+  }
+  // Fallback: al menos el admin mismo
+  if (!_dashUsers.length) {
+    _dashUsers = [{ ...AUTH.userProfile }];
+  }
+
+  // KPIs
+  setText('kpiUsuarios',    knownUids.size);
+  setText('kpiTramites',    activos.length);
+  setText('kpiVencidos',    vencidos.length);
+  setText('kpiHoy',         hoyVenc.length);
+  setText('kpiTerminados',  terminados.length);
+  setText('kpiEquipos',     _dashEquipos.length);
+  setText('kpiUrgentes',    urgentes.length);
+  setText('kpiCompartidos', compartidos.length);
+
+  // Métricas visuales
+  renderDashMetrics(activos, vencidos);
 
   // Tabla usuarios
   const tbody = document.getElementById('dashUsersBody');
   if (tbody) {
     tbody.innerHTML = '';
     _dashUsers.forEach(u => {
-      const count  = (tramitesByUser[u.uid]||[]).filter(t => !t.terminado).length;
-      const equipo = equipos.find(e => (e.members||[]).includes(u.uid));
+      const equipo = _dashEquipos.find(e => (e.members||[]).includes(u.uid));
       const isMe   = u.uid === AUTH.userProfile.uid;
       const tr = document.createElement('tr');
-      tr.className = 'dash-user-row';
+      tr.className = 'dash-user-row' + (isMe ? ' dash-self-row' : '');
       tr.innerHTML = `
-        <td><strong>${u.displayName||'—'}</strong>${isMe?' <span style="color:var(--text-muted);font-size:11px">(tú)</span>':''}</td>
-        <td>${u.email}</td>
+        <td>
+          <div class="dash-user-cell">
+            <div class="dash-avatar-initials">${(u.displayName||u.email||'?').slice(0,2).toUpperCase()}</div>
+            <div>
+              <div style="font-weight:600;font-size:13px">${u.displayName||'—'}</div>
+              ${isMe ? '<span class="dash-self-badge">Tú</span>' : ''}
+            </div>
+          </div>
+        </td>
+        <td class="dash-email">${u.email||'—'}</td>
         <td>
           <select class="role-select" data-uid="${u.uid}" ${isMe?'disabled':''} style="font-size:12px;padding:3px 6px;border-radius:6px;border:1px solid var(--border)">
             <option value="user"  ${u.role!=='admin'?'selected':''}>👤 Usuario</option>
             <option value="admin" ${u.role==='admin'?'selected':''}>👑 Admin</option>
           </select>
         </td>
-        <td>${equipo ? equipo.nombre : '<span style="color:var(--text-muted)">Sin equipo</span>'}</td>
-        <td>${count}</td>
-        <td>${isMe?'':
-          `<button class="btn-small btn-danger" data-deluser="${u.uid}">✕</button>`
-        }</td>`;
+        <td>${equipo
+          ? `<span style="font-size:12px;background:var(--accent-light);color:var(--accent);padding:2px 8px;border-radius:8px">${equipo.nombre}</span>`
+          : '<span style="color:var(--text-muted);font-size:12px">Sin equipo</span>'}</td>
+        <td class="dash-num">${isMe ? activos.length : '—'}</td>
+        <td>${isMe ? '' : `<button class="btn-small btn-danger" data-deluser="${u.uid}">✕</button>`}</td>`;
       tr.querySelector('.role-select')?.addEventListener('change', async e => {
         await db.collection('users').doc(u.uid).update({ role: e.target.value });
         showToast('Rol actualizado.'); u.role = e.target.value;
@@ -167,23 +189,114 @@ async function renderDashboard() {
     });
   }
 
-  renderTeamsGrid(equipos);
+  renderTeamsGrid(_dashEquipos);
 
-  // Vencidos globales
+  // Vencidos
   const vbody = document.getElementById('dashVencidosBody');
   if (vbody) {
     vbody.innerHTML = '';
     if (!vencidos.length) {
-      vbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px">No hay trámites vencidos 🎉</td></tr>';
+      vbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px">¡No hay trámites vencidos! 🎉</td></tr>';
     } else {
-      vencidos.sort((a,b) => (a.fechaVencimiento||'').localeCompare(b.fechaVencimiento||'')).forEach(t => {
+      vencidos.sort((a,b)=>(a.fechaVencimiento||'').localeCompare(b.fechaVencimiento||'')).forEach(t => {
         const tr = document.createElement('tr');
-        tr.innerHTML = `<td>#${t.numero}</td><td>${t.descripcion||'—'}</td><td>${t._ownerName}</td>
-          <td style="color:var(--danger)">${formatDate(t.fechaVencimiento)}</td><td>${t.modulo||'—'}</td>`;
+        tr.innerHTML = `
+          <td class="dash-num">#${t.numero}</td>
+          <td>${t.descripcion||'—'}</td>
+          <td>${AUTH.userProfile.displayName||AUTH.userProfile.email}</td>
+          <td class="dash-danger">${formatDate(t.fechaVencimiento)}</td>
+          <td>${t.modulo||'—'}</td>`;
         vbody.appendChild(tr);
       });
     }
   }
+}
+
+// ── Métricas visuales ─────────────────────────────────────────
+function renderDashMetrics(activos, vencidos) {
+  const el = document.getElementById('dashMetricsRow');
+  if (!el) return;
+
+  const hoy = today();
+
+  // Por módulo
+  const byModulo = {};
+  activos.forEach(t => { const m = t.modulo||'Sin módulo'; byModulo[m]=(byModulo[m]||0)+1; });
+  const moduloEntries = Object.entries(byModulo).sort((a,b)=>b[1]-a[1]).slice(0,5);
+  const maxMod = moduloEntries[0]?.[1] || 1;
+
+  // Por abogado
+  const byAbogado = {};
+  activos.forEach(t => { const a = abogadoName(t.abogado||'yo'); byAbogado[a]=(byAbogado[a]||0)+1; });
+  const abogadoEntries = Object.entries(byAbogado).sort((a,b)=>b[1]-a[1]);
+  const maxAb = abogadoEntries[0]?.[1] || 1;
+
+  // Tareas
+  let tareasPend=0, tareasComp=0;
+  activos.forEach(t => (t.seguimiento||[]).forEach(s => {
+    if(s.estado==='pendiente') tareasPend++; else tareasComp++;
+  }));
+  const totalT = tareasPend+tareasComp;
+  const pctComp = totalT ? Math.round(tareasComp/totalT*100) : 0;
+  const pctVenc = activos.length ? Math.round(vencidos.length/activos.length*100) : 0;
+
+  el.innerHTML = `
+    <div class="dash-metric-card">
+      <div class="dash-metric-title">📊 Trámites por módulo</div>
+      ${moduloEntries.length
+        ? moduloEntries.map(([m,n])=>`
+          <div class="dash-metric-bar-row">
+            <span class="dash-metric-bar-label" title="${m}">${m.length>12?m.slice(0,11)+'…':m}</span>
+            <div class="dash-metric-bar-track">
+              <div class="dash-metric-bar-fill" style="width:${Math.round(n/maxMod*100)}%;background:var(--accent)"></div>
+            </div>
+            <span class="dash-metric-bar-val">${n}</span>
+          </div>`).join('')
+        : '<p style="color:var(--text-muted);font-size:13px;margin-top:8px">Sin datos todavía</p>'}
+    </div>
+
+    <div class="dash-metric-card">
+      <div class="dash-metric-title">⚖️ Trámites por abogado</div>
+      ${abogadoEntries.length
+        ? abogadoEntries.map(([a,n])=>`
+          <div class="dash-metric-bar-row">
+            <span class="dash-metric-bar-label">${a}</span>
+            <div class="dash-metric-bar-track">
+              <div class="dash-metric-bar-fill" style="width:${Math.round(n/maxAb*100)}%;background:var(--color-abogado1)"></div>
+            </div>
+            <span class="dash-metric-bar-val">${n}</span>
+          </div>`).join('')
+        : '<p style="color:var(--text-muted);font-size:13px;margin-top:8px">Sin datos todavía</p>'}
+    </div>
+
+    <div class="dash-metric-card">
+      <div class="dash-metric-title">✅ Estado de tareas</div>
+      <div style="display:flex;gap:20px;align-items:center;margin-top:8px">
+        <div style="text-align:center">
+          <div style="font-size:28px;font-weight:700;color:var(--warning)">${tareasPend}</div>
+          <div style="font-size:12px;color:var(--text-muted)">Pendientes</div>
+        </div>
+        <div style="text-align:center">
+          <div style="font-size:28px;font-weight:700;color:var(--success)">${tareasComp}</div>
+          <div style="font-size:12px;color:var(--text-muted)">Completadas</div>
+        </div>
+        <div style="flex:1">
+          <div style="height:8px;border-radius:4px;background:var(--border);overflow:hidden">
+            <div style="height:100%;width:${pctComp}%;background:var(--success);transition:width .5s"></div>
+          </div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:4px">${pctComp}% completadas</div>
+        </div>
+      </div>
+      <div style="margin-top:14px;padding-top:12px;border-top:1px solid var(--border-light)">
+        <div style="display:flex;justify-content:space-between;font-size:13px;margin-bottom:6px">
+          <span style="color:var(--text-secondary)">Tasa de vencimiento</span>
+          <span style="font-weight:700;color:${pctVenc>20?'var(--danger)':pctVenc>5?'var(--warning)':'var(--success)'}">${pctVenc}%</span>
+        </div>
+        <div style="height:6px;border-radius:3px;background:var(--border);overflow:hidden">
+          <div style="height:100%;width:${pctVenc}%;background:${pctVenc>20?'var(--danger)':pctVenc>5?'var(--warning)':'var(--success)'};transition:width .5s"></div>
+        </div>
+      </div>
+    </div>`;
 }
 
 function setText(id, val) {
@@ -254,73 +367,58 @@ async function saveTeam() {
   const members = [...document.querySelectorAll('#teamMemberList input:checked')].map(cb => cb.value);
   const id      = document.getElementById('editTeamId').value;
   const data    = { nombre, members, actualizadoEn: new Date().toISOString() };
-
   let teamId;
   if (id) {
-    await db.collection('teams').doc(id).update(data);
-    teamId = id;
+    await db.collection('teams').doc(id).update(data); teamId = id;
   } else {
     data.creadoEn = new Date().toISOString();
-    const ref = await db.collection('teams').add(data);
-    teamId = ref.id;
+    const ref = await db.collection('teams').add(data); teamId = ref.id;
   }
-
-  // Actualizar teamId en usuarios
   for (const u of _dashUsers) {
-    const enEquipo = members.includes(u.uid);
-    await db.collection('users').doc(u.uid).update({ teamId: enEquipo ? teamId : null }).catch(()=>{});
+    const en = members.includes(u.uid);
+    await db.collection('users').doc(u.uid).update({ teamId: en ? teamId : null }).catch(()=>{});
   }
-
   showToast(`✓ Equipo "${nombre}" guardado.`);
-  closeTeamModal();
-  renderDashboard();
+  closeTeamModal(); renderDashboard();
 }
 
 // ============================================================
-// GESTIÓN DE USUARIOS (en vista configuración)
+// GESTIÓN USUARIOS (vista config)
 // ============================================================
 async function loadAdminUsers() {
   const el = document.getElementById('adminUserList');
   if (!el || AUTH.userProfile?.role !== 'admin') return;
-  el.innerHTML = '<p style="font-size:13px;color:var(--text-muted)">Cargando usuarios…</p>';
-  try {
-    const snap = await db.collection('users').get();
-    if (snap.empty) { el.innerHTML = '<p style="font-size:13px;color:var(--text-muted)">No hay usuarios.</p>'; return; }
-    el.innerHTML = '';
-    snap.forEach(doc => {
-      const u = doc.data(); const uid = doc.id;
-      if (!u.email) return;
-      const isMe = uid === AUTH.userProfile.uid;
-      const row = document.createElement('div');
-      row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-light);flex-wrap:wrap';
-      row.innerHTML = `
-        <div style="flex:1;min-width:0">
-          <div style="font-weight:600;font-size:13px">${u.displayName||'(sin nombre)'} ${isMe?'<span style="color:var(--text-muted)">(tú)</span>':''}</div>
-          <div style="font-size:12px;color:var(--text-secondary)">${u.email}</div>
-        </div>
-        <select class="role-select" data-uid="${uid}" ${isMe?'disabled':''} style="font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--border)">
-          <option value="user"  ${u.role!=='admin'?'selected':''}>👤 Usuario</option>
-          <option value="admin" ${u.role==='admin'?'selected':''}>👑 Admin</option>
-        </select>
-        ${!isMe?`<button class="btn-small btn-danger del-user-btn" data-uid="${uid}">✕</button>`:''}`;
-      row.querySelector('.role-select')?.addEventListener('change', async e => {
-        await db.collection('users').doc(uid).update({ role: e.target.value });
-        showToast('Rol actualizado.');
-      });
-      row.querySelector('.del-user-btn')?.addEventListener('click', async () => {
-        if (!confirm(`¿Eliminar a ${u.displayName||u.email}?`)) return;
-        await db.collection('users').doc(uid).delete();
-        loadAdminUsers(); showToast('Usuario eliminado.');
-      });
-      el.appendChild(row);
+  const users = _dashUsers.length ? _dashUsers : [{ ...AUTH.userProfile }];
+  el.innerHTML = '';
+  users.forEach(u => {
+    const uid = u.uid; const isMe = uid === AUTH.userProfile.uid;
+    const row = document.createElement('div');
+    row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-light);flex-wrap:wrap';
+    row.innerHTML = `
+      <div style="flex:1;min-width:0">
+        <div style="font-weight:600;font-size:13px">${u.displayName||'(sin nombre)'} ${isMe?'<span style="color:var(--text-muted)">(tú)</span>':''}</div>
+        <div style="font-size:12px;color:var(--text-secondary)">${u.email||''}</div>
+      </div>
+      <select class="role-select" data-uid="${uid}" ${isMe?'disabled':''} style="font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--border)">
+        <option value="user"  ${u.role!=='admin'?'selected':''}>👤 Usuario</option>
+        <option value="admin" ${u.role==='admin'?'selected':''}>👑 Admin</option>
+      </select>
+      ${!isMe?`<button class="btn-small btn-danger del-user-btn" data-uid="${uid}">✕</button>`:''}`;
+    row.querySelector('.role-select')?.addEventListener('change', async e => {
+      await db.collection('users').doc(uid).update({ role: e.target.value });
+      showToast('Rol actualizado.');
     });
-  } catch(e) {
-    el.innerHTML = '<p style="font-size:13px;color:var(--danger)">Error de permisos. Actualiza las reglas de Firestore.</p>';
-  }
+    row.querySelector('.del-user-btn')?.addEventListener('click', async () => {
+      if (!confirm(`¿Eliminar a ${u.displayName||u.email}?`)) return;
+      await db.collection('users').doc(uid).delete();
+      loadAdminUsers(); showToast('Usuario eliminado.');
+    });
+    el.appendChild(row);
+  });
 }
 
 // ============================================================
-// INICIALIZAR EVENTOS
+// INIT
 // ============================================================
 function initDashboard() {
   document.getElementById('dashRefreshBtn')?.addEventListener('click', renderDashboard);
@@ -333,5 +431,5 @@ function initDashboard() {
   });
 }
 
-// Alias para config.js que llama loadDashboardData()
+// Alias para config.js
 function loadDashboardData() { renderDashboard(); }
