@@ -25,7 +25,8 @@ const AUTH = {
 
   loginGoogle() {
     const provider = new firebase.auth.GoogleAuthProvider();
-    return auth.signInWithPopup(provider);
+    // Usar redirect en lugar de popup para evitar bloqueos en GitHub Pages y Safari
+    return auth.signInWithRedirect(provider);
   },
 
   loginEmail(email, password) {
@@ -141,6 +142,32 @@ function saveConfigDebounced() {
     STATE.tramites.forEach(t => saveTramiteFS(t));
   }, 800);
 }
+
+// ─── MANEJAR RESULTADO DE REDIRECT DE GOOGLE ─────────────────
+// signInWithRedirect vuelve a la misma página; capturamos el resultado aquí.
+auth.getRedirectResult().then(async result => {
+  if (!result || !result.user) return; // No hay redirect pendiente
+  const user = result.user;
+  const uRef = db.collection('users').doc(user.uid);
+  const uDoc = await uRef.get();
+  if (!uDoc.exists) {
+    const usersSnap = await db.collection('users').get();
+    const isFirst   = usersSnap.empty || (usersSnap.size === 1 && usersSnap.docs[0].id === user.uid);
+    await uRef.set({
+      displayName: user.displayName || '',
+      email:       user.email       || '',
+      role:        isFirst ? 'admin' : 'user',
+      creadoEn:    new Date().toISOString(),
+    });
+  }
+}).catch(err => {
+  console.warn('getRedirectResult error:', err);
+  // Mostrar error en pantalla de auth si está visible
+  if (document.getElementById('authScreen')?.style.display !== 'none') {
+    if (typeof showAuthError === 'function') showAuthError('Error al iniciar con Google. Intenta de nuevo.');
+    if (typeof setAuthLoading === 'function') setAuthLoading(false);
+  }
+});
 
 // ─── ESCUCHAR CAMBIOS DE SESIÓN ───────────────────────────────
 auth.onAuthStateChanged(async user => {
