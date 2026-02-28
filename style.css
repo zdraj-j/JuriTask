@@ -186,6 +186,7 @@ body {
 .btn-clear-filters:hover { background: var(--danger-light); color: var(--danger); border-color: var(--danger); }
 
 /* ==================== APP LAYOUT ==================== */
+#appContainer { display: flex; width: 100%; height: 100vh; overflow: hidden; }
 .app-layout { margin-left: var(--sidebar-w); width: calc(100% - var(--sidebar-w)); display: flex; flex-direction: column; height: 100vh; overflow: hidden; transition: margin-left var(--transition), width var(--transition); }
 .app-layout.expanded { margin-left: 0; width: 100%; }
 

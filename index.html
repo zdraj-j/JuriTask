@@ -18,7 +18,10 @@
 <div id="authScreen">
   <div class="auth-bg"></div>
   <div class="auth-card">
-    <div class="auth-logo">⚖ <strong>JuriTask</strong></div>
+    <div class="auth-logo">
+      <img src="logo.png" alt="JuriTask" style="height:48px;object-fit:contain;" onerror="this.style.display='none';this.nextElementSibling.style.display='block'" />
+      <span style="display:none">⚖ <strong>JuriTask</strong></span>
+    </div>
     <p class="auth-tagline">Gestión de trámites inteligente</p>
 
     <div class="auth-tabs">
@@ -551,13 +554,10 @@
 <script src="calendar.js"></script>
 <script src="ui.js"></script>
 
-<!-- 3. Firebase: inicialización + firestore -->
+<!-- 3. Firebase: inicialización + auth + firestore -->
 <script src="firebase.js"></script>
 
-<!-- 4. Auth UI: login, registro, perfil, logout -->
-<script src="auth.js"></script>
-
-<!-- 5. Orquestador general (debe ir de último) -->
+<!-- 4. Orquestador general (debe ir de último) -->
 <script src="config.js"></script>
 
 </body>
