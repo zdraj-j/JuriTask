@@ -167,9 +167,9 @@ auth.onAuthStateChanged(async user => {
 
     // Cargar datos y mostrar app
     await loadFromFirestore();
-    if (authEl) authEl.style.display  = 'flex';
+    if (authEl)   authEl.style.display   = 'none';
     if (loadingEl) loadingEl.style.display = 'none';
-    if (appEl)  appEl.style.display   = '';
+    if (appEl)    appEl.style.display    = 'flex';
 
     if (typeof renderAll            === 'function') renderAll();
     if (typeof syncConfigAccountUI  === 'function') syncConfigAccountUI();
@@ -178,8 +178,8 @@ auth.onAuthStateChanged(async user => {
 
   } else {
     AUTH.userProfile = null;
-    if (appEl)  appEl.style.display  = 'flex';
+    if (appEl)    appEl.style.display    = 'none';
     if (loadingEl) loadingEl.style.display = 'none';
-    if (authEl) authEl.style.display = '';
+    if (authEl)   authEl.style.display   = '';
   }
 });

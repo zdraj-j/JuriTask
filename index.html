@@ -18,7 +18,10 @@
 <div id="authScreen">
   <div class="auth-bg"></div>
   <div class="auth-card">
-    <div class="auth-logo">⚖ <strong>JuriTask</strong></div>
+    <div class="auth-logo">
+      <img src="logo.png" alt="JuriTask" style="height:48px;object-fit:contain;" onerror="this.style.display='none';this.nextElementSibling.style.display='block'" />
+      <span style="display:none">⚖ <strong>JuriTask</strong></span>
+    </div>
     <p class="auth-tagline">Gestión de trámites inteligente</p>
 
     <div class="auth-tabs">
@@ -512,46 +515,9 @@
   </div>
 </div>
 
-<!-- MODAL BACKUPS -->
-<div id="backupOverlay" class="overlay">
-  <div class="modal modal-sm">
-    <div class="modal-header">
-      <h2>💾 Backups automáticos</h2>
-      <button class="modal-close" id="backupClose">✕</button>
-    </div>
-    <div class="modal-body">
-      <p class="backup-desc">Se crean automáticamente cada 2 horas y se eliminan después de 24h. Se guardan en la nube y localmente.</p>
-      <button class="btn-small" id="backupNowBtn" style="margin-bottom:14px">⬆ Crear backup ahora</button>
-      <div id="backupList"></div>
-    </div>
-  </div>
-</div>
 
-<!-- DASHBOARD: Invitar usuario -->
-<div id="inviteOverlay" class="overlay">
-  <div class="modal modal-sm">
-    <div class="modal-header"><h2>✉ Invitar usuario</h2><button class="modal-close" id="inviteClose">✕</button></div>
-    <div class="modal-body">
-      <div class="form-group"><label>Correo electrónico</label><input type="email" id="inviteEmail" placeholder="correo@ejemplo.com" /></div>
-      <div class="form-group"><label>Rol</label>
-        <select id="inviteRole"><option value="user">Usuario</option><option value="admin">Administrador</option></select>
-      </div>
-      <button class="btn btn-primary" id="sendInviteBtn">Enviar invitación</button>
-    </div>
-  </div>
-</div>
 
-<!-- DASHBOARD: Crear equipo -->
-<div id="createTeamOverlay" class="overlay">
-  <div class="modal modal-sm">
-    <div class="modal-header"><h2>👥 Crear equipo</h2><button class="modal-close" id="createTeamClose">✕</button></div>
-    <div class="modal-body">
-      <div class="form-group"><label>Nombre del equipo</label><input type="text" id="newTeamName" placeholder="Ej: Litigios" /></div>
-      <div class="form-group"><label>Miembros</label><div id="teamMemberList" class="team-member-list"></div></div>
-      <button class="btn btn-primary" id="confirmCreateTeamBtn">Crear equipo</button>
-    </div>
-  </div>
-</div>
+
 
 <!-- ==================== SCRIPTS ==================== -->
 
