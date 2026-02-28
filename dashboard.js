@@ -448,6 +448,17 @@ async function saveTeam() {
 // ============================================================
 // GESTIÓN USUARIOS (vista config)
 // ============================================================
+
+async function approveUser(uid) {
+  await db.collection('users').doc(uid).update({ approved: true, blocked: false });
+  // Notificar en el dashboard si está activo
+  showToast(`✓ Usuario aprobado.`);
+}
+
+async function rejectUser(uid) {
+  await db.collection('users').doc(uid).update({ approved: false, blocked: true });
+}
+
 async function loadAdminUsers() {
   const alertEl    = document.getElementById('adminPendingAlert');
   const pendListEl = document.getElementById('adminPendingList');
@@ -490,6 +501,23 @@ async function loadAdminUsers() {
   // ── Bloque de pendientes ────────────────────────────────
   if (alertEl) alertEl.style.display = pending.length ? '' : 'none';
   if (countEl) countEl.textContent   = pending.length;
+
+  // Actualizar badge de pendientes en el nav de configuración
+  const configNavEl = document.querySelector('.nav-item[data-view="config"]');
+  if (configNavEl) {
+    let badge = configNavEl.querySelector('.pending-badge');
+    if (pending.length && AUTH.userProfile?.role === 'admin') {
+      if (!badge) {
+        badge = document.createElement('span');
+        badge.className = 'pending-badge';
+        badge.style.cssText = 'margin-left:6px;background:var(--warning,#f59e0b);color:#1a1a1a;border-radius:10px;padding:1px 6px;font-size:10px;font-weight:700';
+        configNavEl.appendChild(badge);
+      }
+      badge.textContent = pending.length;
+    } else if (badge) {
+      badge.remove();
+    }
+  }
   if (pendListEl) pendListEl.innerHTML = '';
 
   if (approveAll) {

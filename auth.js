@@ -57,12 +57,30 @@ function initAuthUI() {
     try {
       const cred = await AUTH.registerEmail(email, pass);
       await cred.user.updateProfile({ displayName: name });
-      // ensureUserProfile crea el doc y decide el rol
+
+      // ensureUserProfile crea el doc en Firestore y decide el rol
       const role = await ensureUserProfile({ ...cred.user, displayName: name });
+
+      // Enviar correo de verificación (excepto si ya es admin por ser el primero)
+      if (role !== 'admin' && !cred.user.emailVerified) {
+        try { await cred.user.sendEmailVerification(); } catch(_) {}
+      }
+
       AUTH.userProfile = {
         uid: cred.user.uid, displayName: name, email, role, photoURL: null, teamId: null,
       };
-      // onAuthStateChanged se encarga del resto
+
+      setAuthLoading(false);
+
+      if (role === 'admin') {
+        // Primer usuario: accede directamente sin verificación adicional
+        // onAuthStateChanged se encargará de cargar la app
+      } else {
+        // Mostrar pantalla de "verifica tu correo"
+        if (typeof showPendingScreen === 'function') {
+          showPendingScreen('unverified', cred.user);
+        }
+      }
     } catch(err) {
       setAuthLoading(false);
       showAuthError(friendlyAuthError(err.code));

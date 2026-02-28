@@ -95,6 +95,20 @@
 </div>
 
 <!-- ============================================================
+     PANTALLA DE ESPERA (correo no verificado / cuenta pendiente)
+     ============================================================ -->
+<div id="pendingScreen" style="display:none; position:fixed; inset:0; background:var(--bg,#f0f2f7); z-index:9999; flex-direction:column; align-items:center; justify-content:center; padding:24px; font-family:var(--font,'Inter',sans-serif)">
+  <div style="background:var(--surface,#fff); border-radius:16px; padding:36px 32px; max-width:440px; width:100%; text-align:center; box-shadow:0 8px 40px rgba(0,0,0,.12)">
+    <div id="pendingIcon" style="font-size:48px; margin-bottom:16px">📧</div>
+    <h2 id="pendingTitle" style="font-size:20px; font-weight:700; color:var(--text-primary,#111827); margin-bottom:10px">Verifica tu correo</h2>
+    <p id="pendingMsg" style="font-size:14px; color:var(--text-secondary,#4b5563); line-height:1.6; margin-bottom:24px"></p>
+    <button id="reloadStatusBtn" style="width:100%; padding:11px; background:var(--accent,#3d5af1); color:#fff; border:none; border-radius:10px; font-size:14px; font-weight:600; cursor:pointer; margin-bottom:10px">↺ Ya verifiqué mi correo</button>
+    <button id="resendVerificationBtn" style="width:100%; padding:11px; background:none; border:1px solid var(--border,#e2e4ea); border-radius:10px; font-size:14px; color:var(--text-secondary,#4b5563); cursor:pointer; margin-bottom:10px">↺ Reenviar correo de verificación</button>
+    <button id="logoutPendingBtn" style="width:100%; padding:9px; background:none; border:none; font-size:13px; color:var(--text-muted,#9ca3af); cursor:pointer; text-decoration:underline">← Cerrar sesión</button>
+  </div>
+</div>
+
+<!-- ============================================================
      APP PRINCIPAL
      ============================================================ -->
 <div id="appContainer" style="display:none">
@@ -513,16 +527,16 @@
           <h3>🛡 Administración de usuarios</h3>
 
           <!-- Cuentas pendientes de aprobación -->
-          <div id="adminPendingWrap" style="display:none;margin-bottom:20px">
-            <div style="display:flex;align-items:center;gap:10px;margin-bottom:10px">
-              <span style="font-size:13px;font-weight:700;color:var(--warning-dark,#92400e)">⏳ Cuentas pendientes de aprobación</span>
-              <span id="adminPendingCount" style="font-size:11px;background:var(--warning,#f59e0b);color:#1a1a1a;padding:2px 8px;border-radius:20px;font-weight:700;display:none"></span>
+          <div id="adminPendingAlert" style="display:none;margin-bottom:20px;background:var(--warning-light,#fef3c7);border:1px solid var(--warning,#f59e0b);border-radius:10px;padding:14px 16px">
+            <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:10px;flex-wrap:wrap;gap:8px">
+              <span style="font-size:13px;font-weight:700;color:var(--warning-dark,#92400e)">⏳ Cuentas pendientes de aprobación: <span id="adminPendingCount"></span></span>
+              <button id="adminApproveAllBtn" class="btn-small" style="background:var(--success,#16a34a);color:#fff;border:none">✓ Aprobar todos</button>
             </div>
             <div id="adminPendingList"></div>
           </div>
 
           <!-- Usuarios activos -->
-          <p style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">Usuarios activos</p>
+          <p id="adminActiveHeader" style="display:none;font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px">Usuarios activos</p>
           <div id="adminUserList" style="margin-bottom:16px"></div>
           <button class="btn btn-primary" id="adminRefreshBtn">↺ Actualizar lista</button>
         </div>

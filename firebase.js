@@ -82,28 +82,50 @@ async function ensureUserProfile(user) {
   const uDoc = await uRef.get();
 
   if (!uDoc.exists) {
-    // Nuevo usuario: determinar rol
-    let role     = 'user';
-    let approved = false;
+    // Verificar si ya existe un primer admin en el sistema
+    let isFirstUser = false;
     try {
-      const idx  = await db.collection('meta').doc('userIndex').get();
-      const uids = (idx.exists && idx.data().uids) ? idx.data().uids : [];
-      // Primer usuario del sistema → admin aprobado automáticamente
-      if (uids.length === 0) { role = 'admin'; approved = true; }
+      const firstAdminDoc = await db.collection('meta').doc('firstAdminCreated').get();
+      if (!firstAdminDoc.exists) {
+        // Verificar también el userIndex para mayor seguridad
+        const idx  = await db.collection('meta').doc('userIndex').get();
+        const uids = (idx.exists && idx.data().uids) ? idx.data().uids : [];
+        if (uids.length === 0) isFirstUser = true;
+      }
     } catch(_) {}
 
-    // IMPORTANTE: approved y blocked deben estar presentes explícitamente
-    // para que las Firestore Rules de "create" los validen correctamente.
+    // Paso 1: crear perfil con los campos que las reglas permiten (role=user, approved=false)
     await uRef.set({
       displayName: user.displayName || '',
       email:       user.email       || '',
-      role,
-      approved,
+      role:        'user',
+      approved:    false,
       blocked:     false,
       creadoEn:    new Date().toISOString(),
     });
     await registerInUserIndex(user.uid);
-    return role;
+
+    if (isFirstUser) {
+      // Paso 2: promover al primer usuario a admin.
+      // Las reglas permiten este update cuando /meta/firstAdminCreated no existe.
+      try {
+        await uRef.update({ role: 'admin', approved: true });
+        // Marcar que ya existe un primer admin (impide que otro usuario se auto-promueva)
+        await db.collection('meta').doc('firstAdminCreated').set({
+          uid:       user.uid,
+          email:     user.email || '',
+          creadoEn:  new Date().toISOString(),
+        });
+        return 'admin';
+      } catch(e) {
+        console.warn('Error auto-promoviendo primer admin:', e.code);
+        // Si falla (ej: reglas estrictas en deploy inicial), intentar con set+merge
+        await uRef.set({ role: 'admin', approved: true }, { merge: true }).catch(console.warn);
+        return 'user'; // seguirá como user pendiente si todo falla
+      }
+    }
+
+    return 'user'; // nuevo usuario normal, pendiente de aprobación
   }
 
   // Ya existe: completar campos faltantes
@@ -113,7 +135,7 @@ async function ensureUserProfile(user) {
   if (!existing.displayName && user.displayName) patch.displayName = user.displayName;
   if (!existing.creadoEn)                        patch.creadoEn    = new Date().toISOString();
   // Migración: añadir approved/blocked si no existen (usuarios anteriores a esta versión)
-  if (existing.approved === undefined) patch.approved = true;  // usuarios pre-existentes → aprobados
+  if (existing.approved === undefined) patch.approved = true;
   if (existing.blocked  === undefined) patch.blocked  = false;
   if (Object.keys(patch).length) {
     await uRef.update(patch).catch(() => uRef.set(patch, { merge: true }));
@@ -219,6 +241,78 @@ function saveConfigDebounced() {
 
 // (sin redirect — se usa signInWithPopup)
 
+// ─── PANTALLA DE ESPERA (correo no verificado / cuenta pendiente) ──
+function showPendingScreen(reason, user) {
+  const authEl    = document.getElementById('authScreen');
+  const pendingEl = document.getElementById('pendingScreen');
+
+  if (!pendingEl) {
+    // Si no existe el elemento, al menos mostrar la pantalla de login
+    if (authEl) authEl.style.display = '';
+    return;
+  }
+
+  // Ocultar app y login
+  const appEl = document.getElementById('appContainer');
+  if (appEl)  appEl.style.display  = 'none';
+  if (authEl) authEl.style.display = 'none';
+
+  // Configurar mensaje según razón
+  const icon  = pendingEl.querySelector('#pendingIcon');
+  const title = pendingEl.querySelector('#pendingTitle');
+  const msg   = pendingEl.querySelector('#pendingMsg');
+  const resendBtn = pendingEl.querySelector('#resendVerificationBtn');
+  const logoutPendingBtn = pendingEl.querySelector('#logoutPendingBtn');
+
+  if (reason === 'unverified') {
+    if (icon)  icon.textContent  = '📧';
+    if (title) title.textContent = 'Verifica tu correo electrónico';
+    if (msg)   msg.textContent   = `Enviamos un enlace de verificación a ${user?.email || 'tu correo'}. Haz clic en el enlace y luego vuelve aquí para continuar.`;
+    if (resendBtn) {
+      resendBtn.style.display = '';
+      resendBtn.onclick = async () => {
+        try {
+          await auth.currentUser?.sendEmailVerification();
+          resendBtn.textContent = '✓ Enviado';
+          setTimeout(() => { resendBtn.textContent = '↺ Reenviar correo'; }, 3000);
+        } catch(e) { showToast('Error: ' + (e.message || e.code)); }
+      };
+    }
+  } else if (reason === 'unapproved') {
+    if (icon)  icon.textContent  = '⏳';
+    if (title) title.textContent = 'Cuenta pendiente de aprobación';
+    if (msg)   msg.textContent   = 'Tu correo ya fue verificado. Un administrador revisará tu solicitud y te dará acceso pronto.';
+    if (resendBtn) resendBtn.style.display = 'none';
+  } else if (reason === 'blocked') {
+    if (icon)  icon.textContent  = '🚫';
+    if (title) title.textContent = 'Cuenta bloqueada';
+    if (msg)   msg.textContent   = 'Tu cuenta ha sido bloqueada. Contacta al administrador para más información.';
+    if (resendBtn) resendBtn.style.display = 'none';
+  }
+
+  // Botón "Actualizar / recargar" para que el usuario vuelva a intentar después de verificar
+  const reloadBtn = pendingEl.querySelector('#reloadStatusBtn');
+  if (reloadBtn) {
+    reloadBtn.onclick = async () => {
+      reloadBtn.disabled = true; reloadBtn.textContent = 'Verificando…';
+      try {
+        await auth.currentUser?.reload();
+        // onAuthStateChanged se dispara de nuevo con los datos actualizados
+        auth.onAuthStateChanged(() => {}); // forzar re-evaluación
+        location.reload();
+      } catch(e) {
+        reloadBtn.disabled = false; reloadBtn.textContent = '↺ Ya verifiqué mi correo';
+      }
+    };
+  }
+
+  if (logoutPendingBtn) {
+    logoutPendingBtn.onclick = () => { auth.signOut(); };
+  }
+
+  pendingEl.style.display = 'flex';
+}
+
 // ─── CAMBIOS DE SESIÓN ────────────────────────────────────────
 auth.onAuthStateChanged(async user => {
   const appEl     = document.getElementById('appContainer');
@@ -239,21 +333,45 @@ auth.onAuthStateChanged(async user => {
       const uDoc = await db.collection('users').doc(user.uid).get();
       if (uDoc.exists) {
         const d = uDoc.data();
-        // Verificar si el usuario está bloqueado
+
+        // 1. Usuario bloqueado
         if (d.blocked) {
           await auth.signOut();
-          const msgEl = document.getElementById('authMessage');
-          if (msgEl) { msgEl.className = 'auth-message auth-error'; msgEl.textContent = 'Tu cuenta ha sido bloqueada. Contacta al administrador.'; msgEl.style.display = ''; }
           if (loadingEl) loadingEl.style.display = 'none';
+          showPendingScreen('blocked');
           return;
         }
+
+        // 2. Correo no verificado (solo para cuentas email+pass, no Google)
+        if (!user.emailVerified && user.providerData?.[0]?.providerId === 'password') {
+          if (loadingEl) loadingEl.style.display = 'none';
+          showPendingScreen('unverified', user);
+          return;
+        }
+
+        // 3. Cuenta no aprobada por admin
+        if (!d.approved && d.role !== 'admin') {
+          if (loadingEl) loadingEl.style.display = 'none';
+          showPendingScreen('unapproved');
+          return;
+        }
+
         AUTH.userProfile.role        = d.role    || 'user';
         AUTH.userProfile.teamId      = d.teamId  || null;
         AUTH.userProfile.displayName = d.displayName || AUTH.userProfile.displayName;
       } else {
         AUTH.userProfile.role = await ensureUserProfile(user);
+        // Recién creado: enviar verificación de correo si es email+pass
+        if (user.providerData?.[0]?.providerId === 'password' && !user.emailVerified) {
+          try { await user.sendEmailVerification(); } catch(_) {}
+          if (loadingEl) loadingEl.style.display = 'none';
+          showPendingScreen('unverified', user);
+          return;
+        }
       }
-    } catch(_) {}
+    } catch(e) {
+      console.warn('Error cargando perfil:', e);
+    }
 
     await loadFromFirestore();
 
@@ -279,6 +397,9 @@ auth.onAuthStateChanged(async user => {
     AUTH.userProfile = null;
     if (appEl)     appEl.style.display     = 'none';
     if (loadingEl) loadingEl.style.display = 'none';
-    if (authEl)    authEl.style.display    = '';
+    // Ocultar pantalla de espera si estaba visible
+    const pendEl = document.getElementById('pendingScreen');
+    if (pendEl) pendEl.style.display = 'none';
+    if (authEl) authEl.style.display = '';
   }
 });
