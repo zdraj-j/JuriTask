@@ -81,171 +81,6 @@ function startAutoBackup() {
   }, 2*60*60*1000);
 }
 
-
-// ============================================================
-// APROBACIÓN DE CUENTAS PENDIENTES
-// ============================================================
-
-/**
- * Aprueba una cuenta de usuario.
- */
-async function approveUserAction(uid, displayName, btn) {
-  if (btn) { btn.disabled = true; btn.textContent = '…'; }
-  try {
-    await db.collection('users').doc(uid).update({ approved: true });
-    showToast(`✓ Cuenta de ${displayName} aprobada.`);
-    const u = _dashUsers.find(x => x.uid === uid);
-    if (u) u.approved = true;
-    await renderPendingUsersPanel();
-    await loadAdminUsers();
-    _updatePendingBadge();
-  } catch(e) {
-    showToast('Error al aprobar: ' + (e.message || e.code));
-    if (btn) { btn.disabled = false; btn.textContent = '✓ Aprobar'; }
-  }
-}
-
-/**
- * Rechaza y bloquea una cuenta pendiente.
- */
-async function rejectUserAction(uid, displayName, btn) {
-  const ok = await showConfirm(`¿Rechazar y bloquear la cuenta de ${displayName}?\nNo podrá iniciar sesión.`);
-  if (!ok) return;
-  if (btn) { btn.disabled = true; btn.textContent = '…'; }
-  try {
-    await db.collection('users').doc(uid).update({ approved: false, blocked: true });
-    showToast(`Cuenta de ${displayName} bloqueada.`);
-    const u = _dashUsers.find(x => x.uid === uid);
-    if (u) { u.approved = false; u.blocked = true; }
-    await renderPendingUsersPanel();
-    await loadAdminUsers();
-    _updatePendingBadge();
-  } catch(e) {
-    showToast('Error al rechazar: ' + (e.message || e.code));
-    if (btn) { btn.disabled = false; btn.textContent = '✕ Rechazar'; }
-  }
-}
-
-/**
- * Renderiza el panel de cuentas pendientes en el dashboard y en config.
- */
-async function renderPendingUsersPanel() {
-  let pendingUsers = [];
-  try {
-    const idx  = await db.collection('meta').doc('userIndex').get();
-    const uids = idx.exists ? (idx.data().uids || []) : [];
-    for (const uid of uids) {
-      try {
-        const doc = await db.collection('users').doc(uid).get();
-        if (doc.exists) {
-          const d = doc.data();
-          if (!d.approved && !d.blocked && d.role !== 'admin') {
-            pendingUsers.push({ uid, ...d });
-          }
-        }
-      } catch(_) {}
-    }
-  } catch(e) { console.warn('Error leyendo pendientes:', e); }
-
-  // ── Dashboard ──────────────────────────────────────────────
-  const dashSection = document.getElementById('pendingUsersSection');
-  const dashBody    = document.getElementById('pendingUsersBody');
-  if (dashSection && dashBody) {
-    dashSection.style.display = pendingUsers.length ? '' : 'none';
-    if (pendingUsers.length) {
-      dashBody.innerHTML = '';
-      pendingUsers.forEach(u => _buildPendingRow(u, dashBody));
-    }
-  }
-
-  // ── Configuración ──────────────────────────────────────────
-  const cfgWrap = document.getElementById('adminPendingWrap');
-  const cfgList = document.getElementById('adminPendingList');
-  if (cfgWrap && cfgList) {
-    cfgWrap.style.display = pendingUsers.length ? '' : 'none';
-    if (pendingUsers.length) {
-      cfgList.innerHTML = '';
-      pendingUsers.forEach(u => _buildPendingCard(u, cfgList));
-    }
-  }
-  return pendingUsers;
-}
-
-function _buildPendingRow(u, tbody) {
-  const tr = document.createElement('tr');
-  tr.innerHTML = `
-    <td>
-      <div class="dash-user-cell">
-        <div class="dash-avatar-initials" style="background:var(--warning,#f59e0b);color:#1a1a1a">
-          ${(u.displayName||u.email||'?').slice(0,2).toUpperCase()}
-        </div>
-        <div>
-          <div style="font-weight:600;font-size:13px">${u.displayName||'(sin nombre)'}</div>
-          <div style="font-size:11px;color:var(--text-muted)">${u.creadoEn ? new Date(u.creadoEn).toLocaleDateString('es-CO') : ''}</div>
-        </div>
-      </div>
-    </td>
-    <td class="dash-email">${u.email||'—'}</td>
-    <td><span class="pending-badge">⏳ Pendiente de aprobación</span></td>
-    <td>
-      <div style="display:flex;gap:6px;flex-wrap:wrap">
-        <button class="btn-small btn-success" data-approve="${u.uid}">✓ Aprobar</button>
-        <button class="btn-small btn-danger"  data-reject="${u.uid}">✕ Rechazar</button>
-      </div>
-    </td>`;
-  tr.querySelector('[data-approve]').addEventListener('click', e => approveUserAction(u.uid, u.displayName||u.email, e.currentTarget));
-  tr.querySelector('[data-reject]').addEventListener('click',  e => rejectUserAction(u.uid,  u.displayName||u.email, e.currentTarget));
-  tbody.appendChild(tr);
-}
-
-function _buildPendingCard(u, container) {
-  const card = document.createElement('div');
-  card.className = 'pending-user-card';
-  card.innerHTML = `
-    <div class="pending-user-avatar">${(u.displayName||u.email||'?').slice(0,2).toUpperCase()}</div>
-    <div class="pending-user-info">
-      <div class="pending-user-name">${u.displayName||'(sin nombre)'}</div>
-      <div class="pending-user-email">${u.email||''}</div>
-      <div class="pending-user-date">Solicitud: ${u.creadoEn ? new Date(u.creadoEn).toLocaleString('es-CO',{dateStyle:'short',timeStyle:'short'}) : '—'}</div>
-    </div>
-    <div class="pending-user-actions">
-      <button class="btn-small btn-success" data-approve="${u.uid}">✓ Aprobar</button>
-      <button class="btn-small btn-danger"  data-reject="${u.uid}">✕ Rechazar</button>
-    </div>`;
-  card.querySelector('[data-approve]').addEventListener('click', e => approveUserAction(u.uid, u.displayName||u.email, e.currentTarget));
-  card.querySelector('[data-reject]').addEventListener('click',  e => rejectUserAction(u.uid,  u.displayName||u.email, e.currentTarget));
-  container.appendChild(card);
-}
-
-async function _updatePendingBadge() {
-  try {
-    const idx  = await db.collection('meta').doc('userIndex').get();
-    const uids = idx.exists ? (idx.data().uids || []) : [];
-    let count  = 0;
-    for (const uid of uids) {
-      try {
-        const doc = await db.collection('users').doc(uid).get();
-        if (doc.exists) { const d = doc.data(); if (!d.approved && !d.blocked && d.role !== 'admin') count++; }
-      } catch(_) {}
-    }
-    let badge = document.getElementById('pendingApprovalBadge');
-    if (!badge) {
-      const navBtn = document.querySelector('[data-view="dashboard"]');
-      if (navBtn) {
-        badge = document.createElement('span');
-        badge.id = 'pendingApprovalBadge';
-        badge.className = 'badge';
-        badge.style.cssText = 'background:var(--warning,#f59e0b);color:#1a1a1a;margin-left:auto';
-        navBtn.appendChild(badge);
-      }
-    }
-    if (badge) { badge.textContent = count||''; badge.style.display = count ? '' : 'none'; }
-    setText('kpiPendientes', count);
-    const cfgBadge = document.getElementById('adminPendingCount');
-    if (cfgBadge) { cfgBadge.textContent = count ? `${count} pendiente${count!==1?'s':''}` : ''; cfgBadge.style.display = count ? '' : 'none'; }
-  } catch(_) {}
-}
-
 // ============================================================
 // DASHBOARD
 // ============================================================
@@ -325,7 +160,6 @@ async function renderDashboard() {
 
   // KPIs — usar totales reales de todos los usuarios
   setText('kpiUsuarios',    knownUids.size);
-  // kpiPendientes se actualiza en _updatePendingBadge()
   setText('kpiTramites',    totalTramitesAll || activos.length);
   setText('kpiVencidos',    totalVencidosAll || vencidos.length);
   setText('kpiHoy',         hoyVenc.length);
@@ -337,16 +171,11 @@ async function renderDashboard() {
   // Métricas visuales
   renderDashMetrics(activos, vencidos);
 
-  // ── Pendientes ──────────────────────────────────────────────
-  await renderPendingUsersPanel();
-  await _updatePendingBadge();
-
-  // Tabla usuarios (solo aprobados)
+  // Tabla usuarios
   const tbody = document.getElementById('dashUsersBody');
   if (tbody) {
     tbody.innerHTML = '';
-    const approvedUsers = _dashUsers.filter(u => u.approved !== false || u.role === 'admin' || u.uid === AUTH.userProfile.uid);
-    approvedUsers.forEach(u => {
+    _dashUsers.forEach(u => {
       const equipo   = _dashEquipos.find(e => (e.members||[]).includes(u.uid));
       const isMe     = u.uid === AUTH.userProfile.uid;
       const nAct     = u._tramitesActivos  ?? '?';
@@ -620,38 +449,140 @@ async function saveTeam() {
 // GESTIÓN USUARIOS (vista config)
 // ============================================================
 async function loadAdminUsers() {
-  const el = document.getElementById('adminUserList');
-  if (!el || AUTH.userProfile?.role !== 'admin') return;
-  // Refresh pending panel in config view
-  await renderPendingUsersPanel();
-  const users = _dashUsers.length ? _dashUsers : [{ ...AUTH.userProfile }];
-  const activeUsers = users.filter(u => u.approved !== false || u.role === 'admin' || u.uid === AUTH.userProfile.uid);
-  el.innerHTML = '';
-  activeUsers.forEach(u => {
-    const uid = u.uid; const isMe = uid === AUTH.userProfile.uid;
+  const alertEl    = document.getElementById('adminPendingAlert');
+  const pendListEl = document.getElementById('adminPendingList');
+  const countEl    = document.getElementById('adminPendingCount');
+  const userListEl = document.getElementById('adminUserList');
+  const activeHdr  = document.getElementById('adminActiveHeader');
+  const approveAll = document.getElementById('adminApproveAllBtn');
+
+  if (AUTH.userProfile?.role !== 'admin') return;
+
+  // Mostrar estado de carga
+  if (userListEl) userListEl.innerHTML =
+    '<p style="font-size:13px;color:var(--text-muted);padding:12px 0">Cargando usuarios…</p>';
+
+  // ── Cargar usuarios directamente desde Firestore ──────────
+  // No dependemos de _dashUsers para que funcione sin pasar por el dashboard.
+  let allUsers = [];
+  try {
+    const idxDoc = await db.collection('meta').doc('userIndex').get();
+    const uids   = idxDoc.exists ? (idxDoc.data().uids || []) : [AUTH.userProfile.uid];
+    for (const uid of uids) {
+      try {
+        const uDoc = await db.collection('users').doc(uid).get();
+        if (uDoc.exists) allUsers.push({ uid, ...uDoc.data() });
+        else if (uid === AUTH.userProfile.uid) allUsers.push({ ...AUTH.userProfile });
+      } catch(_) {
+        if (uid === AUTH.userProfile.uid) allUsers.push({ ...AUTH.userProfile });
+      }
+    }
+    // Sincronizar con _dashUsers para que el dashboard también lo tenga
+    _dashUsers = allUsers;
+  } catch(e) {
+    console.warn('loadAdminUsers: error leyendo usuarios:', e);
+    allUsers = _dashUsers.length ? _dashUsers : [{ ...AUTH.userProfile }];
+  }
+
+  const pending  = allUsers.filter(u => !u.approved && !u.blocked && u.role !== 'admin');
+  const approved = allUsers.filter(u =>  u.approved || u.role === 'admin');
+
+  // ── Bloque de pendientes ────────────────────────────────
+  if (alertEl) alertEl.style.display = pending.length ? '' : 'none';
+  if (countEl) countEl.textContent   = pending.length;
+  if (pendListEl) pendListEl.innerHTML = '';
+
+  if (approveAll) {
+    approveAll.onclick = async () => {
+      const ok = await showConfirm(`¿Aprobar a los ${pending.length} usuarios pendientes?`);
+      if (!ok) return;
+      for (const u of pending) {
+        await approveUser(u.uid).catch(() => {});
+        u.approved = true;
+      }
+      showToast(`✓ ${pending.length} usuarios aprobados.`);
+      loadAdminUsers();
+    };
+  }
+
+  pending.forEach(u => {
+    const fecha = u.creadoEn
+      ? new Date(u.creadoEn).toLocaleString('es-CO', { dateStyle: 'short', timeStyle: 'short' })
+      : '—';
     const row = document.createElement('div');
-    row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-light);flex-wrap:wrap';
+    row.className = 'admin-pending-row';
     row.innerHTML = `
-      <div style="flex:1;min-width:0">
-        <div style="font-weight:600;font-size:13px">${u.displayName||'(sin nombre)'} ${isMe?'<span style="color:var(--text-muted)">(tú)</span>':''}</div>
-        <div style="font-size:12px;color:var(--text-secondary)">${u.email||''}</div>
+      <div class="admin-pending-avatar">
+        ${(u.displayName||u.email||'?').slice(0,2).toUpperCase()}
       </div>
-      <select class="role-select" data-uid="${uid}" ${isMe?'disabled':''} style="font-size:12px;padding:4px 8px;border-radius:6px;border:1px solid var(--border)">
-        <option value="user"  ${u.role!=='admin'?'selected':''}>👤 Usuario</option>
-        <option value="admin" ${u.role==='admin'?'selected':''}>👑 Admin</option>
+      <div class="admin-pending-info">
+        <div class="admin-pending-name">${u.displayName||'(sin nombre)'}</div>
+        <div class="admin-pending-meta">${u.email||'—'} &middot; ${fecha}</div>
+      </div>
+      <div class="admin-pending-btns">
+        <button class="btn-small btn-approve" data-approve="${u.uid}">✓ Aprobar</button>
+        <button class="btn-small btn-danger"  data-reject="${u.uid}">✕ Rechazar</button>
+      </div>`;
+    row.querySelector('[data-approve]').addEventListener('click', async () => {
+      await approveUser(u.uid);
+      u.approved = true;
+      showToast(`✓ ${u.displayName||u.email} aprobado.`);
+      loadAdminUsers();
+    });
+    row.querySelector('[data-reject]').addEventListener('click', async () => {
+      const ok = await showConfirm(`¿Rechazar y bloquear a ${u.displayName||u.email}?`);
+      if (!ok) return;
+      await rejectUser(u.uid);
+      u.approved = false; u.blocked = true;
+      showToast('Usuario rechazado y bloqueado.');
+      loadAdminUsers();
+    });
+    if (pendListEl) pendListEl.appendChild(row);
+  });
+
+  // ── Bloque de aprobados ─────────────────────────────────
+  if (activeHdr)  activeHdr.style.display  = approved.length ? '' : 'none';
+  if (userListEl) userListEl.innerHTML = '';
+
+  approved.forEach(u => {
+    const uid  = u.uid;
+    const isMe = uid === AUTH.userProfile.uid;
+    const row  = document.createElement('div');
+    row.className = 'admin-user-row' + (u.blocked ? ' admin-user-blocked' : '') + (isMe ? ' admin-user-me' : '');
+    row.innerHTML = `
+      <div class="admin-user-avatar" style="${u.blocked ? 'background:var(--danger)' : ''}">
+        ${(u.displayName||u.email||'?').slice(0,2).toUpperCase()}
+      </div>
+      <div class="admin-user-info">
+        <div class="admin-user-name">
+          ${u.displayName||'(sin nombre)'}
+          ${isMe ? '<span class="admin-user-you">tú</span>' : ''}
+          ${u.blocked ? '<span class="admin-user-blocked-badge">Bloqueado</span>' : ''}
+        </div>
+        <div class="admin-user-email">${u.email||''}</div>
+      </div>
+      <select class="role-select" data-uid="${uid}" ${isMe ? 'disabled' : ''}>
+        <option value="user"  ${u.role !== 'admin' ? 'selected' : ''}>👤 Usuario</option>
+        <option value="admin" ${u.role === 'admin' ? 'selected' : ''}>👑 Admin</option>
       </select>
-      ${!isMe?`<button class="btn-small btn-danger del-user-btn" data-uid="${uid}">✕</button>`:''}`;
+      ${!isMe ? `<button class="btn-small btn-danger admin-del-btn" data-uid="${uid}">✕</button>` : ''}`;
     row.querySelector('.role-select')?.addEventListener('change', async e => {
       await db.collection('users').doc(uid).update({ role: e.target.value });
       showToast('Rol actualizado.');
     });
-    row.querySelector('.del-user-btn')?.addEventListener('click', async () => {
-      if (!confirm(`¿Eliminar a ${u.displayName||u.email}?`)) return;
+    row.querySelector('.admin-del-btn')?.addEventListener('click', async () => {
+      const ok = await showConfirm(`¿Eliminar a ${u.displayName||u.email}?`);
+      if (!ok) return;
       await db.collection('users').doc(uid).delete();
-      loadAdminUsers(); showToast('Usuario eliminado.');
+      showToast('Usuario eliminado.'); loadAdminUsers();
     });
-    el.appendChild(row);
+    if (userListEl) userListEl.appendChild(row);
   });
+
+  if (!pending.length && !approved.length && userListEl) {
+    userListEl.innerHTML =
+      '<p style="font-size:13px;color:var(--text-muted);text-align:center;padding:20px">No hay usuarios registrados.</p>';
+  }
 }
 
 // ============================================================
