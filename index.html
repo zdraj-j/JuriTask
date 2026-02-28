@@ -18,10 +18,7 @@
 <div id="authScreen">
   <div class="auth-bg"></div>
   <div class="auth-card">
-    <div class="auth-logo">
-      <img src="logo.png" alt="JuriTask" style="height:48px;object-fit:contain;" onerror="this.style.display='none';this.nextElementSibling.style.display='block'" />
-      <span style="display:none">⚖ <strong>JuriTask</strong></span>
-    </div>
+    <div class="auth-logo">⚖ <strong>JuriTask</strong></div>
     <p class="auth-tagline">Gestión de trámites inteligente</p>
 
     <div class="auth-tabs">
@@ -137,11 +134,13 @@
   <header class="topbar">
     <button class="menu-btn" id="menuBtn">☰</button>
     <div class="topbar-title" id="topbarTitle">Todos los trámites</div>
-    <div class="topbar-right">
+    <div class="topbar-center">
       <div class="search-wrap">
         <input type="text" id="searchInput" placeholder="Buscar…" />
         <span class="search-icon">⌕</span>
       </div>
+    </div>
+    <div class="topbar-right">
       <div class="sort-wrap" id="sortWrap">
         <select id="sortSelect" title="Ordenar por…">
           <option value="vencimiento">↑ Vencimiento</option>
@@ -157,8 +156,7 @@
         <button class="col-btn" data-cols="3">⊞</button>
       </div>
       <button class="btn-icon" id="reportBtn" title="Reporte de hoy">📋</button>
-      <button class="btn-icon" id="backupBtn" title="Backups automáticos">💾</button>
-      <button class="btn-icon mob-opts-btn" id="mobOptsBtn">⋮</button>
+      <button class="btn-icon mob-opts-btn" id="mobOptsBtn" style="display:none">⋮</button>
       <!-- User button -->
       <button class="user-avatar-btn" id="userAvatarBtn">
         <div class="user-avatar" id="userAvatar">?</div>
@@ -175,7 +173,7 @@
         <h2>Todos los trámites</h2>
         <button class="btn btn-primary" id="newTramiteBtn">+ Nuevo trámite</button>
       </div>
-      <div class="tramite-grid" id="tramiteList"></div>
+      <div class="tramite-list" id="tramiteList"></div>
       <div class="empty-state" id="emptyAll">
         <div class="empty-icon">📂</div><p>No hay trámites activos.</p>
         <button class="btn btn-primary" id="newTramiteBtnEmpty">+ Crear primer trámite</button>
@@ -184,7 +182,7 @@
 
     <div class="view" id="view-today">
       <div class="view-header"><h2>Hoy / Vencidos</h2></div>
-      <div class="tramite-grid" id="todayList"></div>
+      <div class="tramite-list" id="todayList"></div>
       <div class="empty-state" id="emptyToday">
         <div class="empty-icon">🎉</div><p>¡Sin pendientes urgentes!</p>
       </div>
@@ -214,7 +212,7 @@
 
     <div class="view" id="view-finished">
       <div class="view-header"><h2>Terminados</h2></div>
-      <div class="tramite-grid" id="finishedList"></div>
+      <div class="tramite-list" id="finishedList"></div>
       <div class="empty-state" id="emptyFinished">
         <div class="empty-icon">✓</div><p>No hay trámites terminados.</p>
       </div>
@@ -317,6 +315,21 @@
             <button class="btn-small" id="importBtn">⬆ Importar JSON</button>
             <input type="file" id="importFile" accept=".json" style="display:none" />
           </div>
+        </div>
+
+        <div class="config-section">
+          <h3>💾 Backups automáticos</h3>
+          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Se crean automáticamente cada 2 horas. Se eliminan después de 24h.</p>
+          <div class="config-btns-row" style="margin-bottom:14px">
+            <button class="btn btn-primary" id="backupNowBtn">⬆ Crear backup ahora</button>
+          </div>
+          <div id="backupList"></div>
+        </div>
+
+        <div class="config-section admin-only-section" id="adminSection" style="display:none">
+          <h3>🛡 Administración de usuarios</h3>
+          <div id="adminUserList" style="margin-bottom:16px"></div>
+          <button class="btn btn-primary" id="adminRefreshBtn">↺ Actualizar lista</button>
         </div>
 
         <div class="config-section config-danger-zone">
@@ -554,10 +567,16 @@
 <script src="calendar.js"></script>
 <script src="ui.js"></script>
 
-<!-- 3. Firebase: inicialización + auth + firestore -->
+<!-- 3. Firebase: inicialización + firestore -->
 <script src="firebase.js"></script>
 
-<!-- 4. Orquestador general (debe ir de último) -->
+<!-- 4. Auth UI: login, registro, perfil, logout -->
+<script src="auth.js"></script>
+
+<!-- 5. Dashboard: backups + admin -->
+<script src="dashboard.js"></script>
+
+<!-- 6. Orquestador general (debe ir de último) -->
 <script src="config.js"></script>
 
 </body>

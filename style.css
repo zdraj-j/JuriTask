@@ -186,12 +186,14 @@ body {
 .btn-clear-filters:hover { background: var(--danger-light); color: var(--danger); border-color: var(--danger); }
 
 /* ==================== APP LAYOUT ==================== */
-#appContainer { display: flex; width: 100%; height: 100vh; overflow: hidden; }
 .app-layout { margin-left: var(--sidebar-w); width: calc(100% - var(--sidebar-w)); display: flex; flex-direction: column; height: 100vh; overflow: hidden; transition: margin-left var(--transition), width var(--transition); }
 .app-layout.expanded { margin-left: 0; width: 100%; }
 
 /* ==================== TOPBAR ==================== */
 .topbar { height: var(--topbar-h); background: var(--surface); border-bottom: 1px solid var(--border); display: flex; align-items: center; padding: 0 16px; gap: 8px; position: relative; z-index: 100; box-shadow: var(--shadow-sm); flex-shrink: 0; }
+.topbar-center { flex: 1; display: flex; justify-content: center; padding: 0 12px; }
+.topbar-center .search-wrap { width: 100%; max-width: 480px; }
+.mob-opts-btn { display: none !important; }
 .menu-btn { background: none; border: none; cursor: pointer; font-size: 20px; color: var(--text-secondary); padding: 6px; border-radius: 8px; transition: all var(--transition); flex-shrink: 0; }
 .menu-btn:hover { background: var(--bg); color: var(--text-primary); }
 .topbar-title { font-size: 16px; font-weight: 600; color: var(--text-primary); flex: 1; min-width: 0; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
@@ -414,8 +416,8 @@ body {
 .empty-state p { font-size: 14px; }
 
 /* ==================== MODAL ==================== */
-.modal-overlay, .overlay { position: fixed; inset: 0; background: var(--overlay-bg); z-index: 500; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity var(--transition); }
-.modal-overlay.open, .overlay.open { opacity: 1; pointer-events: all; }
+.modal-overlay { position: fixed; inset: 0; background: var(--overlay-bg); z-index: 500; display: flex; align-items: center; justify-content: center; opacity: 0; pointer-events: none; transition: opacity var(--transition); }
+.modal-overlay.open { opacity: 1; pointer-events: all; }
 .modal { background: var(--surface); border-radius: var(--radius); box-shadow: var(--shadow-lg); width: 560px; max-width: 95vw; max-height: 90vh; display: flex; flex-direction: column; transform: translateY(20px); transition: transform var(--transition); overflow: hidden; border: 1px solid var(--border); }
 .modal-overlay.open .modal { transform: translateY(0); }
 .modal.draggable-active { position: fixed; transform: none !important; transition: none; margin: 0; }
@@ -585,10 +587,11 @@ body {
   .app-layout { margin-left: 0; width: 100%; height: 100dvh; }
   .topbar { padding: 0 10px; gap: 6px; height: 56px; }
   .topbar-title { font-size: 14px; }
+  .topbar-center { display: none; }
   .search-wrap input { width: 100px; }
   .search-wrap input:focus { width: 130px; }
   .sort-wrap, .col-switcher, .btn-report { display: none; }
-  .mob-opts-btn { display: flex; }
+  .mob-opts-btn { display: flex !important; }
   .main-content { padding: 10px; }
   .tramite-list.cols-2, .tramite-list.cols-3 { flex-direction: column; }
   .tramite-list.cols-2 .tramite-col, .tramite-list.cols-3 .tramite-col { display: flex !important; }

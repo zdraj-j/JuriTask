@@ -144,7 +144,23 @@ function syncConfigAccountUI() {
     if (p.photoURL) avEl.innerHTML = `<img src="${p.photoURL}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" />`;
     else avEl.textContent = (p.displayName || p.email || '?').slice(0, 2).toUpperCase();
   }
+
+  // Actualizar avatar y nombre en topbar
+  const topAvEl   = el('userAvatar');
+  const topNameEl = el('userNameDisplay');
+  const badgeEl   = el('adminBadge');
+  if (topAvEl) {
+    if (p.photoURL) topAvEl.innerHTML = `<img src="${p.photoURL}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" />`;
+    else topAvEl.textContent = (p.displayName || p.email || '?').slice(0, 2).toUpperCase();
+  }
+  if (topNameEl) topNameEl.textContent = (p.displayName || '').split(' ')[0];
+  if (badgeEl)   badgeEl.style.display = p.role === 'admin' ? '' : 'none';
+
   // Mostrar filtro de scope solo si tiene equipo
-  const sw = document.getElementById('filterScopeWrap');
+  const sw = el('filterScopeWrap');
   if (sw) sw.style.display = p.teamId ? '' : 'none';
+
+  // Mostrar nav de dashboard solo si es admin
+  const dashNav = document.querySelector('.dash-nav-item');
+  if (dashNav) dashNav.style.display = p.role === 'admin' ? '' : 'none';
 }

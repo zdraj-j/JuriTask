@@ -296,23 +296,29 @@ function init() {
   });
 
   // ── Backup ───────────────────────────────────────────────
-  document.getElementById('backupBtn')?.addEventListener('click',   () => { if (typeof openBackupModal  === 'function') openBackupModal(); });
-  document.getElementById('backupClose')?.addEventListener('click', () => { if (typeof closeBackupModal === 'function') closeBackupModal(); });
-  document.getElementById('backupOverlay')?.addEventListener('click', e => {
-    if (e.target === document.getElementById('backupOverlay') && typeof closeBackupModal === 'function') closeBackupModal();
-  });
   document.getElementById('backupNowBtn')?.addEventListener('click', () => {
-    if (typeof createBackup === 'function') createBackup().then(() => showToast('✓ Backup creado.'));
+    if (typeof createBackup === 'function') {
+      createBackup().then(() => { showToast('✓ Backup creado.'); renderBackupList(); });
+    } else {
+      // Fallback: exportar JSON como backup
+      exportData();
+    }
   });
 
   // ── Auth UI ──────────────────────────────────────────────
-  if (typeof initAuthUI          === 'function') initAuthUI();
-  if (typeof initAuth            === 'function') initAuth();
-  if (typeof initDashboardModals === 'function') initDashboardModals();
+  if (typeof initAuthUI === 'function') initAuthUI();
+  if (typeof initAuth   === 'function') initAuth();
 
-  // ── Logout (acceso desde config también) ─────────────────
+  // ── Logout ───────────────────────────────────────────────
   document.getElementById('logoutBtn')?.addEventListener('click', () => {
-    if (typeof logout === 'function') logout();
+    if (typeof AUTH !== 'undefined' && AUTH.logout) {
+      if (confirm('¿Cerrar sesión?')) AUTH.logout();
+    }
+  });
+
+  // ── Admin: gestión de usuarios ───────────────────────────
+  document.getElementById('adminRefreshBtn')?.addEventListener('click', () => {
+    if (typeof loadAdminUsers === 'function') loadAdminUsers();
   });
 
   // ── ESC + Ctrl+Z ─────────────────────────────────────────

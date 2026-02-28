@@ -941,6 +941,15 @@ function renderConfig() {
   const arD=document.getElementById('autoReqDias');   if(arD) arD.value=STATE.config.autoReqDias??7;
   syncAutoReqFields();
   const drT=document.getElementById('diasRestantesToggle'); if(drT) drT.checked=!!(STATE.config.diasRestantes);
+
+  // Mostrar sección admin solo si el usuario es admin
+  const isAdmin = (typeof AUTH !== 'undefined') && AUTH.userProfile?.role === 'admin';
+  const adminSec = document.getElementById('adminSection');
+  if (adminSec) adminSec.style.display = isAdmin ? '' : 'none';
+  if (isAdmin && typeof loadAdminUsers === 'function') loadAdminUsers();
+
+  // Cargar lista de backups
+  if (typeof renderBackupList === 'function') renderBackupList();
 }
 
 function renderAbogadosList() {

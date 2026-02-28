@@ -167,17 +167,18 @@ auth.onAuthStateChanged(async user => {
 
     // Cargar datos y mostrar app
     await loadFromFirestore();
-    if (authEl) authEl.style.display       = 'none';
+    if (authEl) authEl.style.display  = 'none';
     if (loadingEl) loadingEl.style.display = 'none';
-    if (appEl)  appEl.style.display        = 'flex'; // flex para que sidebar + app-layout queden lado a lado
+    if (appEl)  appEl.style.display   = '';
 
     if (typeof renderAll            === 'function') renderAll();
     if (typeof syncConfigAccountUI  === 'function') syncConfigAccountUI();
     if (typeof purgeExpiredFinished === 'function') purgeExpiredFinished();
+    if (typeof startAutoBackup      === 'function') startAutoBackup();
 
   } else {
     AUTH.userProfile = null;
-    if (appEl)  appEl.style.display  = 'flex';
+    if (appEl)  appEl.style.display  = 'none';
     if (loadingEl) loadingEl.style.display = 'none';
     if (authEl) authEl.style.display = '';
   }
