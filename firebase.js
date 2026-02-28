@@ -1,6 +1,14 @@
 /**
  * JuriTask — firebase.js
  * Inicialización de Firebase, autenticación y sincronización con Firestore.
+ *
+ * SEGURIDAD (doble capa):
+ *   1. emailVerified  — Firebase verifica que el correo le pertenece al usuario.
+ *   2. approved       — El admin activa la cuenta desde el panel de administración.
+ *      Los usuarios que inician sesión con Google se consideran con correo
+ *      verificado pero igualmente quedan pendientes de aprobación del admin
+ *      (excepto el primer usuario que crea el sistema, que se convierte en admin
+ *      y se aprueba automáticamente).
  */
 
 const firebaseConfig = {
@@ -24,8 +32,6 @@ const AUTH = {
   loginGoogle() {
     const provider = new firebase.auth.GoogleAuthProvider();
     provider.setCustomParameters({ prompt: 'select_account' });
-    // signInWithPopup funciona en GitHub Pages cuando el dominio está autorizado
-    // en Firebase Console → Authentication → Authorized domains
     return auth.signInWithPopup(provider);
   },
 
@@ -55,9 +61,6 @@ function userRef() {
 }
 
 // ─── ÍNDICE GLOBAL DE USUARIOS ────────────────────────────────
-// Como Firestore no permite listar /users/ desde el cliente,
-// mantenemos un documento /meta/userIndex con array de UIDs.
-// Esto permite al admin leer todos los perfiles individualmente.
 async function registerInUserIndex(uid) {
   try {
     await db.collection('meta').doc('userIndex').set(
@@ -77,42 +80,113 @@ async function removeFromUserIndex(uid) {
 }
 
 // ─── CREAR/COMPLETAR PERFIL EN FIRESTORE ─────────────────────
+/**
+ * Crea o actualiza el perfil del usuario en Firestore.
+ *
+ * Campos clave para el sistema de seguridad:
+ *   - approved {boolean}  — false por defecto; el admin lo pone en true.
+ *   - role     {string}   — 'admin' para el primer usuario, 'user' para el resto.
+ *   - blocked  {boolean}  — true si el admin bloqueó la cuenta.
+ *
+ * El primer usuario que se registra en el sistema se convierte automáticamente
+ * en admin y se marca como approved:true. Todos los demás arrancan con
+ * approved:false y deben ser activados por el admin.
+ */
 async function ensureUserProfile(user) {
   const uRef = db.collection('users').doc(user.uid);
   const uDoc = await uRef.get();
 
   if (!uDoc.exists) {
-    // Nuevo usuario: determinar rol
-    let role = 'user';
+    // ── Nuevo usuario: decidir rol ──────────────────────
+    let role     = 'user';
+    let approved = false;
+
     try {
       const idx  = await db.collection('meta').doc('userIndex').get();
       const uids = (idx.exists && idx.data().uids) ? idx.data().uids : [];
-      if (uids.length === 0) role = 'admin';
+      if (uids.length === 0) {
+        // Primer usuario del sistema → admin aprobado automáticamente
+        role     = 'admin';
+        approved = true;
+      }
     } catch(_) {}
 
     await uRef.set({
       displayName: user.displayName || '',
       email:       user.email       || '',
       role,
+      approved,
+      blocked:     false,
       creadoEn:    new Date().toISOString(),
     });
     await registerInUserIndex(user.uid);
     return role;
   }
 
-  // Ya existe: completar campos faltantes (ej: admin que solo tiene "role")
+  // ── Ya existe: completar campos faltantes ───────────────
   const existing = uDoc.data();
   const patch = {};
   if (!existing.email       && user.email)       patch.email       = user.email;
   if (!existing.displayName && user.displayName) patch.displayName = user.displayName;
   if (!existing.creadoEn)                        patch.creadoEn    = new Date().toISOString();
+  // Garantizar que el campo approved exista en registros previos a esta versión
+  if (existing.approved === undefined) {
+    // Los admin existentes se aprueban automáticamente;
+    // los usuarios existentes también (migración no disruptiva).
+    patch.approved = true;
+  }
+  if (existing.blocked === undefined) patch.blocked = false;
   if (Object.keys(patch).length) {
     await uRef.update(patch).catch(() => uRef.set(patch, { merge: true }));
   }
 
-  // Asegurar que esté en el índice (idempotente)
   await registerInUserIndex(user.uid);
   return existing.role || 'user';
+}
+
+// ─── PANEL DE APROBACIÓN (solo admin) ────────────────────────
+/**
+ * Devuelve todos los usuarios pendientes de aprobación.
+ * Solo ejecutable con el rol admin (las reglas de Firestore lo refuerzan).
+ */
+async function getPendingUsers() {
+  try {
+    const idx = await db.collection('meta').doc('userIndex').get();
+    if (!idx.exists) return [];
+    const uids = idx.data().uids || [];
+    const pending = [];
+    for (const uid of uids) {
+      try {
+        const doc = await db.collection('users').doc(uid).get();
+        if (doc.exists) {
+          const d = doc.data();
+          if (!d.approved && !d.blocked && d.role !== 'admin') {
+            pending.push({ uid, ...d });
+          }
+        }
+      } catch(_) {}
+    }
+    return pending;
+  } catch(e) {
+    console.error('Error obteniendo pendientes:', e);
+    return [];
+  }
+}
+
+/**
+ * Aprueba una cuenta de usuario. El admin llama a esta función.
+ * @param {string} uid
+ */
+async function approveUser(uid) {
+  await db.collection('users').doc(uid).update({ approved: true });
+}
+
+/**
+ * Rechaza/bloquea una cuenta de usuario.
+ * @param {string} uid
+ */
+async function rejectUser(uid) {
+  await db.collection('users').doc(uid).update({ approved: false, blocked: true });
 }
 
 // ─── CARGAR DATOS DESDE FIRESTORE ────────────────────────────
@@ -137,7 +211,6 @@ async function loadFromFirestore() {
       const t = { id: doc.id, ...doc.data() };
       migrateTramite(t);
       STATE.tramites.push(t);
-      // Poblar caché de nombres desde trámites compartidos
       if (t._sharedFrom && t._sharedFromName) cacheUidName(t._sharedFrom, t._sharedFromName);
     });
 
@@ -157,16 +230,14 @@ function saveTramiteFS(tramite) {
   if (!AUTH.userProfile?.uid) return Promise.resolve();
   const data = { ...tramite }; delete data.id;
 
-  // Guardar en el propio Firestore
   const own = userRef().collection('tramites').doc(tramite.id).set(data)
     .catch(e => console.error('Error guardando trámite:', e));
 
-  // Si es compartido con un miembro del equipo, sincronizar también a ellos
   if (tramite._scope === 'team' && tramite.abogado) {
     const isTeamMember = typeof _teamMembers !== 'undefined' && _teamMembers.find(m => m.uid === tramite.abogado);
-    const isSharedFrom = tramite._sharedFrom; // El trámite viene del otro lado
+    const isSharedFrom = tramite._sharedFrom;
     if (isTeamMember || isSharedFrom) {
-      const targetUid = isSharedFrom ? tramite._sharedFrom : tramite.abogado;
+      const targetUid  = isSharedFrom ? tramite._sharedFrom : tramite.abogado;
       const sharedData = { ...data, _sharedFrom: AUTH.userProfile.uid, _sharedFromName: AUTH.userProfile.displayName || AUTH.userProfile.email };
       db.collection('users').doc(targetUid).collection('tramites').doc(tramite.id).set(sharedData)
         .catch(e => console.warn('Error sincronizando trámite compartido:', e.code));
@@ -181,7 +252,6 @@ function deleteTramiteFS(id) {
   const t = typeof getById === 'function' ? getById(id) : null;
   userRef().collection('tramites').doc(id).delete()
     .catch(e => console.error('Error eliminando trámite:', e));
-  // Si era compartido, eliminar del colaborador también
   if (t && t._scope === 'team' && t.abogado) {
     const isTeamMember = typeof _teamMembers !== 'undefined' && _teamMembers.find(m => m.uid === t.abogado);
     if (isTeamMember) {
@@ -209,8 +279,6 @@ function saveConfigDebounced() {
   }, 800);
 }
 
-// (sin redirect — se usa signInWithPopup)
-
 // ─── CAMBIOS DE SESIÓN ────────────────────────────────────────
 auth.onAuthStateChanged(async user => {
   const appEl     = document.getElementById('appContainer');
@@ -218,57 +286,28 @@ auth.onAuthStateChanged(async user => {
   const loadingEl = document.getElementById('authLoadingOverlay');
 
   if (user) {
-    AUTH.userProfile = {
-      uid:         user.uid,
-      displayName: user.displayName || '',
-      email:       user.email       || '',
-      photoURL:    user.photoURL    || null,
-      role:        'user',
-      teamId:      null,
-    };
+    // ── CAPA 1: Verificación de email ───────────────────
+    // Los usuarios de Google siempre tienen emailVerified = true.
+    // Los usuarios de email/contraseña deben verificar antes de continuar.
+    if (!user.emailVerified) {
+      // Puede que el usuario esté en la pantalla de "verifica tu correo".
+      // No hacemos nada aquí; el sondeo de auth.js se encarga.
+      if (loadingEl) loadingEl.style.display = 'none';
+      return;
+    }
 
-    try {
-      const uDoc = await db.collection('users').doc(user.uid).get();
-      if (uDoc.exists) {
-        const d = uDoc.data();
-        // Verificar si el usuario está bloqueado
-        if (d.blocked) {
-          await auth.signOut();
-          const msgEl = document.getElementById('authMessage');
-          if (msgEl) { msgEl.className = 'auth-message auth-error'; msgEl.textContent = 'Tu cuenta ha sido bloqueada. Contacta al administrador.'; msgEl.style.display = ''; }
-          if (loadingEl) loadingEl.style.display = 'none';
-          return;
-        }
-        AUTH.userProfile.role        = d.role    || 'user';
-        AUTH.userProfile.teamId      = d.teamId  || null;
-        AUTH.userProfile.displayName = d.displayName || AUTH.userProfile.displayName;
-      } else {
-        AUTH.userProfile.role = await ensureUserProfile(user);
-      }
-    } catch(_) {}
-
-    await loadFromFirestore();
-
-    // Sincronizar botones de columna con el valor guardado en Firestore
-    const savedCols = STATE.config.columns || 1;
-    document.querySelectorAll('.col-btn').forEach(b =>
-      b.classList.toggle('active', parseInt(b.dataset.cols) === savedCols));
-    document.querySelectorAll('.mob-col-btn').forEach(b =>
-      b.classList.toggle('active', parseInt(b.dataset.cols) === savedCols));
-
-    if (authEl)    authEl.style.display    = 'none';
-    if (loadingEl) loadingEl.style.display = 'none';
-    if (appEl)     appEl.style.display     = 'flex';
-
-    if (typeof renderAll            === 'function') renderAll();
-    if (typeof syncConfigAccountUI  === 'function') syncConfigAccountUI();
-    if (typeof showView             === 'function') showView('all'); // Siempre iniciar en Todos los trámites
-    if (typeof purgeExpiredFinished === 'function') purgeExpiredFinished();
-    if (typeof startAutoBackup      === 'function') startAutoBackup();
-    if (typeof loadTeamMembers      === 'function') loadTeamMembers();
+    // ── CAPA 2 + carga de app ───────────────────────────
+    // handleVerifiedUser está definido en auth.js y aplica
+    // el chequeo de aprobación + blocked antes de abrir la app.
+    if (typeof handleVerifiedUser === 'function') {
+      await handleVerifiedUser(user);
+    }
 
   } else {
+    // Sesión cerrada
     AUTH.userProfile = null;
+    if (typeof stopVerifyPolling === 'function') stopVerifyPolling();
+    if (typeof hideVerifyEmailScreen === 'function') hideVerifyEmailScreen();
     if (appEl)     appEl.style.display     = 'none';
     if (loadingEl) loadingEl.style.display = 'none';
     if (authEl)    authEl.style.display    = '';
