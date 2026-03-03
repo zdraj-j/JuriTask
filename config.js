@@ -208,20 +208,42 @@ function init() {
 
   // ── Config: abogados ─────────────────────────────────────
   document.getElementById('saveAbogadosBtn').addEventListener('click', () => {
-    const rows  = document.querySelectorAll('#abogadosList .abogado-config-row');
-    let valid   = true;
-    rows.forEach((row, i) => {
-      const nombre = row.querySelector('.ab-nombre').value.trim();
-      const color  = row.querySelector('.ab-color').value;
+    // Guardar colores de miembros del equipo
+    document.querySelectorAll('#abogadosList .ab-color-team').forEach(picker => {
+      const uid = picker.dataset.uid;
+      if (!uid) return;
+      let entry = (STATE.config.abogados || []).find(x => x.key === uid);
+      if (entry) {
+        entry.color = picker.value;
+      } else {
+        const members = (typeof _teamMembers !== 'undefined') ? _teamMembers : [];
+        const m = members.find(x => x.uid === uid);
+        STATE.config.abogados.push({ key: uid, nombre: m?.displayName || m?.email || uid, color: picker.value });
+      }
+    });
+
+    // Guardar nombres y colores de colaboradores manuales
+    const manualRows = document.querySelectorAll('#abogadosList .abogado-config-row');
+    let valid = true;
+    manualRows.forEach(row => {
+      const nombreInput = row.querySelector('.ab-nombre');
+      const colorInput = row.querySelector('.ab-color');
+      if (!nombreInput || !colorInput) return; // Es fila de equipo, no manual
+      const nombre = nombreInput.value.trim();
+      const color = colorInput.value;
       if (!nombre) { valid = false; return; }
-      if (STATE.config.abogados[i]) {
-        STATE.config.abogados[i].nombre = sentenceCase(nombre);
-        STATE.config.abogados[i].color  = color;
+      // Buscar por el key del abogado (basado en la posición en la lista de manuales)
+      const members = (typeof _teamMembers !== 'undefined') ? _teamMembers : [];
+      const manualAbogados = (STATE.config.abogados || []).filter(a => !members.find(m => m.uid === a.key));
+      const idx = [...document.querySelectorAll('#abogadosList .abogado-config-row')].filter(r => r.querySelector('.ab-nombre')).indexOf(row);
+      if (idx >= 0 && manualAbogados[idx]) {
+        manualAbogados[idx].nombre = sentenceCase(nombre);
+        manualAbogados[idx].color = color;
       }
     });
     if (!valid) { showToast('Los nombres no pueden estar vacíos.'); return; }
     saveAll(); applyCssColors(); updateAbogadoSelects(); renderAbogadosList(); renderAll();
-    showToast('Abogados guardados.');
+    showToast('Colaboradores guardados.');
   });
   document.getElementById('addAbogadoBtn').addEventListener('click', () => {
     const inp    = document.getElementById('newAbNombre');

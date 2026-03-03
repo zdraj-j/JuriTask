@@ -923,10 +923,14 @@ function renderReport() {
     sec.innerHTML = `<div class="report-section-title ${cls}">${titulo} (${gItems.length})</div>`;
     gItems.forEach(item => {
       const el = document.createElement('div'); el.className = `report-item ${item.cls}${item.urgente?' report-urgente':''}`;
+      // Para vencimiento, no repetir "Fecha de vencimiento" sino solo la fecha
+      const tareaText = item.tipo === 'vencimiento'
+        ? `Vence: ${formatDate(item.fecha)}`
+        : escapeHtml(item.tarea);
       el.innerHTML = `<div class="report-item-num">${item.urgente?'🔴 ':''}#${item.t.numero}</div>
         <div class="report-item-body">
           <div class="report-item-desc">${escapeHtml(item.t.descripcion)}</div>
-          <div class="report-item-tarea"><span class="tarea-label">${tipoLabel[item.tipo]||'📌'} — ${escapeHtml(item.tarea)}</span></div>
+          <div class="report-item-tarea"><span class="tarea-label">${tipoLabel[item.tipo]||'📌'} — ${tareaText}</span></div>
           <div class="report-item-meta"><span class="report-item-resp">${item.t.modulo||''}</span>${item.resp?`<span class="report-item-resp">${abogadoName(item.resp)}</span>`:''}</div>
         </div>`;
       sec.appendChild(el);

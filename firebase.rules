@@ -1,0 +1,135 @@
+rules_version = '2';
+
+// ╔══════════════════════════════════════════════════════════════╗
+// ║  JuriTask — Firestore Security Rules (v3)                   ║
+// ║                                                              ║
+// ║  Doble capa de seguridad:                                    ║
+// ║  1. emailVerified — requerido para acceder a DATOS           ║
+// ║  2. approved      — requerido para acceder a DATOS           ║
+// ║                                                              ║
+// ║  Excepción deliberada: crear/leer el propio perfil NO        ║
+// ║  requiere emailVerified, porque el registro con email+pass   ║
+// ║  nunca tiene el correo verificado en ese primer instante.    ║
+// ╚══════════════════════════════════════════════════════════════╝
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // ── Helpers ────────────────────────────────────────────────
+
+    function userDoc() {
+      return get(/databases/$(database)/documents/users/$(request.auth.uid));
+    }
+
+    // Autenticado (cualquier usuario logueado, sin importar verified)
+    function isAuthed() {
+      return request.auth != null;
+    }
+
+    // Autenticado con correo verificado
+    function isVerified() {
+      return request.auth != null
+          && request.auth.token.email_verified == true;
+    }
+
+    // Aprobado por el admin y no bloqueado (requiere correo verificado)
+    function isApproved() {
+      return isVerified()
+          && exists(/databases/$(database)/documents/users/$(request.auth.uid))
+          && userDoc().data.approved == true
+          && userDoc().data.blocked  != true;
+    }
+
+    // Admin aprobado
+    function isAdmin() {
+      return isApproved()
+          && userDoc().data.role == 'admin';
+    }
+
+    // Es el propio usuario
+    function isSelf(uid) {
+      return request.auth != null && request.auth.uid == uid;
+    }
+
+    // ── /users/{uid} ───────────────────────────────────────────
+    match /users/{uid} {
+
+      // LEER el propio perfil: solo necesita estar autenticado
+      // (necesario para que onAuthStateChanged compruebe approved/blocked
+      //  antes de que el correo esté verificado)
+      allow read: if isSelf(uid) || isAdmin();
+
+      // CREAR el propio perfil: solo necesita estar autenticado
+      // (el correo aún no está verificado cuando se registra con email+pass)
+      // No puede asignarse rol admin ni approved:true por sí mismo.
+      allow create: if isSelf(uid)
+                    && isAuthed()
+                    && (!('role'     in request.resource.data) || request.resource.data.role     == 'user')
+                    && (!('approved' in request.resource.data) || request.resource.data.approved == false)
+                    && (!('blocked'  in request.resource.data) || request.resource.data.blocked  == false);
+
+      // ACTUALIZAR: el admin puede todo; el usuario solo sus campos no sensibles.
+      // Excepción: un usuario puede aprobarse a sí mismo (approved: false → true)
+      // solo si no cambia otros campos sensibles — esto ocurre cuando usa una invitación válida.
+      allow update: if isAdmin()
+                    || (isSelf(uid)
+                        && isAuthed()
+                        && !request.resource.data.diff(resource.data).affectedKeys()
+                            .hasAny(['role', 'blocked']))
+                    || (isSelf(uid)
+                        && isAuthed()
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                            .hasOnly(['approved'])
+                        && resource.data.approved == false
+                        && request.resource.data.approved == true);
+
+      allow delete: if isAdmin();
+
+      // Subcolecciones: solo con correo verificado y cuenta aprobada
+      match /tramites/{tramiteId} {
+        allow read, write: if isApproved() && (isSelf(uid) || isAdmin());
+      }
+      match /meta/{docId} {
+        allow read, write: if isApproved() && isSelf(uid);
+      }
+      match /backups/{backupId} {
+        allow read, write: if isApproved() && isSelf(uid);
+      }
+    }
+
+    // ── /meta/userIndex ────────────────────────────────────────
+    // Cualquier usuario autenticado puede añadir su UID al registrarse
+    // (antes de tener el correo verificado).
+    match /meta/userIndex {
+      allow read:   if isAdmin();
+      allow create: if isAuthed();
+      allow update: if isAuthed();
+      allow delete: if isAdmin();
+    }
+
+    // ── /teams/{teamId} ────────────────────────────────────────
+    match /teams/{teamId} {
+      allow read:  if isApproved();
+      allow write: if isAdmin();
+    }
+
+    // ── /invitations/{invId} ──────────────────────────────────
+    // Admin puede crear, leer y eliminar.
+    // Cualquier usuario autenticado puede leer (para validar su código al registrarse).
+    // El write de "used" al marcar como usada lo hace el usuario al registrarse.
+    match /invitations/{invId} {
+      allow read:   if isAuthed();
+      allow create: if isAdmin();
+      allow update: if isAdmin()
+                    || (isAuthed()
+                        && request.resource.data.diff(resource.data).affectedKeys()
+                            .hasOnly(['used', 'usedBy', 'usedAt']));
+      allow delete: if isAdmin();
+    }
+
+    // ── Bloquear todo lo demás ─────────────────────────────────
+    match /{document=**} {
+      allow read, write: if false;
+    }
+  }
+}

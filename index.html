@@ -2,7 +2,7 @@
 <html lang="es" data-theme="claro">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>JuriTask</title>
   <link rel="icon" type="image/png" href="favicon.png" />
   <link rel="stylesheet" href="style.css" />
@@ -13,9 +13,18 @@
 <body>
 
 <!-- ============================================================
+     SPLASH SCREEN (mientras se determina sesión)
+     ============================================================ -->
+<div id="splashScreen" style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:linear-gradient(140deg, #0a1428 0%, #13204a 55%, #0e1835 100%);flex-direction:column;gap:16px">
+  <img src="logo.png" alt="JuriTask" style="height:56px;object-fit:contain;opacity:.9" onerror="this.style.display='none'" />
+  <div style="width:32px;height:32px;border:3px solid rgba(255,255,255,.15);border-top-color:#6e8efb;border-radius:50%;animation:spin .7s linear infinite"></div>
+  <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
+</div>
+
+<!-- ============================================================
      PANTALLA DE AUTENTICACIÓN
      ============================================================ -->
-<div id="authScreen">
+<div id="authScreen" style="display:none">
   <div class="auth-bg"></div>
   <div class="auth-card">
     <div class="auth-logo">
@@ -191,9 +200,6 @@
   <main class="main-content">
 
     <div class="view active" id="view-all">
-      <div class="view-header">
-        <h2>Todos los trámites</h2>
-      </div>
       <div class="tramite-list" id="tramiteList"></div>
       <div class="empty-state" id="emptyAll">
         <div class="empty-icon">📂</div><p>No hay trámites activos.</p>
@@ -202,7 +208,6 @@
     </div>
 
     <div class="view" id="view-today">
-      <div class="view-header"><h2>Hoy / Vencidos</h2></div>
       <div class="tramite-list" id="todayList"></div>
       <div class="empty-state" id="emptyToday">
         <div class="empty-icon">🎉</div><p>¡Sin pendientes urgentes!</p>
@@ -210,7 +215,6 @@
     </div>
 
     <div class="view" id="view-calendar">
-      <div class="view-header"><h2>Calendario</h2></div>
       <div class="calendar-container">
         <div class="cal-toolbar">
           <button class="btn-icon cal-nav" id="calPrev">‹</button>
@@ -232,7 +236,6 @@
     </div>
 
     <div class="view" id="view-finished">
-      <div class="view-header"><h2>Terminados</h2></div>
       <div class="tramite-list" id="finishedList"></div>
       <div class="empty-state" id="emptyFinished">
         <div class="empty-icon">✓</div><p>No hay trámites terminados.</p>
@@ -241,8 +244,7 @@
 
     <!-- DASHBOARD ADMIN -->
     <div class="view" id="view-dashboard">
-      <div class="view-header" style="display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px">
-        <h2>🛡 Dashboard Administrador</h2>
+      <div style="display:flex;align-items:center;justify-content:flex-end;flex-wrap:wrap;gap:10px;margin-bottom:16px">
         <button class="btn-small" id="dashRefreshBtn" style="font-size:12px">↺ Actualizar</button>
       </div>
 
@@ -424,7 +426,6 @@
     </div>
 
     <div class="view" id="view-config">
-      <div class="view-header"><h2>Configuración</h2></div>
       <div class="config-content">
 
         <div class="config-section">
@@ -505,9 +506,9 @@
         <div class="config-section">
           <h3>Colores de progreso</h3>
           <div class="bar-color-grid">
-            <div class="bar-color-row"><span class="bar-color-preview" id="barPreview1"></span><label>Etapa 1</label><input type="color" id="colorBar1" class="color-picker" /></div>
-            <div class="bar-color-row"><span class="bar-color-preview" id="barPreview2"></span><label>Etapa 2</label><input type="color" id="colorBar2" class="color-picker" /></div>
-            <div class="bar-color-row"><span class="bar-color-preview" id="barPreview3"></span><label>Etapa 3</label><input type="color" id="colorBar3" class="color-picker" /></div>
+            <div class="bar-color-row"><span class="bar-color-preview" id="barPreview1"></span><label>Análisis</label><input type="color" id="colorBar1" class="color-picker" /></div>
+            <div class="bar-color-row"><span class="bar-color-preview" id="barPreview2"></span><label>Cumplimiento</label><input type="color" id="colorBar2" class="color-picker" /></div>
+            <div class="bar-color-row"><span class="bar-color-preview" id="barPreview3"></span><label>Terminado</label><input type="color" id="colorBar3" class="color-picker" /></div>
           </div>
           <div class="config-btns-row">
             <button class="btn btn-primary" id="saveBarColorsBtn">Guardar colores</button>
@@ -521,7 +522,7 @@
             <label class="switch"><input type="checkbox" id="autoReqToggle" /><span class="slider"></span></label>
           </div>
           <div id="autoReqFields">
-            <div class="form-grid">
+            <div class="form-grid" style="margin-bottom:12px">
               <div class="form-group"><label>Texto de la tarea</label><input type="text" id="autoReqTexto" /></div>
               <div class="form-group"><label>Días a partir de hoy</label><input type="number" id="autoReqDias" min="1" max="365" /></div>
             </div>

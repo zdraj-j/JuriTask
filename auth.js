@@ -155,8 +155,48 @@ function initAuthUI() {
   document.querySelector('.btn-google-login')?.addEventListener('click', async () => {
     setAuthLoading(true);
     try {
+      // Verificar si hay código de invitación en URL o campo
+      const urlInvite = new URLSearchParams(window.location.search).get('invite');
+      const fieldInvite = (document.getElementById('regInviteCode')?.value || '').trim().toUpperCase();
+      const code = urlInvite?.toUpperCase() || fieldInvite || '';
+
+      let hasValidInvite = false;
+      let inviteDocId = null;
+
+      if (code) {
+        try {
+          const now = new Date().toISOString();
+          const invSnap = await db.collection('invitations')
+            .where('code', '==', code)
+            .where('used', '==', false)
+            .limit(1).get();
+          if (!invSnap.empty) {
+            const invDoc = invSnap.docs[0];
+            if (invDoc.data().expiresAt > now) {
+              inviteDocId = invDoc.id;
+              hasValidInvite = true;
+            }
+          }
+        } catch(e) { console.warn('Error validating invite for Google:', e); }
+      }
+
       const cred = await AUTH.loginGoogle();
-      await ensureUserProfile(cred.user, false);
+      await ensureUserProfile(cred.user, hasValidInvite);
+
+      // Marcar invitación como usada
+      if (inviteDocId) {
+        db.collection('invitations').doc(inviteDocId).update({
+          used: true, usedBy: cred.user.uid, usedAt: new Date().toISOString(),
+        }).catch(() => {});
+      }
+
+      // Si tiene invitación válida y el perfil ya existe pero no está aprobado, aprobarlo
+      if (hasValidInvite) {
+        try {
+          await db.collection('users').doc(cred.user.uid).update({ approved: true });
+        } catch(_) {}
+      }
+
       // onAuthStateChanged se encarga
     } catch(err) {
       setAuthLoading(false);

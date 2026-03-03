@@ -18,7 +18,7 @@ const auth = firebase.auth();
 const db   = firebase.firestore();
 
 // URL de la app (para continueUrl en correos de verificación)
-const APP_URL = 'https://zdraj-j.github.io/juritask/';
+const APP_URL = 'https://zdraj-j.github.io/JuriTask/';
 
 // ─── OBJETO AUTH ──────────────────────────────────────────────
 const AUTH = {
@@ -126,11 +126,13 @@ function showWaitScreen(type, extraData) {
   const authEl  = document.getElementById('authScreen');
   const appEl   = document.getElementById('appContainer');
   const waitEl  = document.getElementById('waitScreen');
+  const splashEl = document.getElementById('splashScreen');
 
   if (!waitEl) return;
 
-  if (authEl) authEl.style.display = 'none';
-  if (appEl)  appEl.style.display  = 'none';
+  if (authEl)   authEl.style.display  = 'none';
+  if (appEl)    appEl.style.display   = 'none';
+  if (splashEl) splashEl.style.display = 'none';
   waitEl.style.display = 'flex';
 
   const iconEl    = document.getElementById('waitIcon');
@@ -296,6 +298,10 @@ auth.onAuthStateChanged(async user => {
   const appEl     = document.getElementById('appContainer');
   const authEl    = document.getElementById('authScreen');
   const loadingEl = document.getElementById('authLoadingOverlay');
+  const splashEl  = document.getElementById('splashScreen');
+
+  // Helper para ocultar splash
+  const hideSplash = () => { if (splashEl) splashEl.style.display = 'none'; };
 
   if (user) {
     if (loadingEl) loadingEl.style.display = 'none';
@@ -356,6 +362,7 @@ auth.onAuthStateChanged(async user => {
 
     // ── Usuario OK: cargar la app ─────────────────────────
     hideWaitScreen();
+    hideSplash();
     await loadFromFirestore();
 
     const savedCols = STATE.config.columns || 1;
@@ -382,6 +389,7 @@ auth.onAuthStateChanged(async user => {
     // Sin sesión
     AUTH.userProfile = null;
     hideWaitScreen();
+    hideSplash();
     if (appEl)     appEl.style.display     = 'none';
     if (loadingEl) loadingEl.style.display = 'none';
     if (authEl)    authEl.style.display    = '';

@@ -121,15 +121,16 @@ async function renderDashboard() {
   // También agregar miembros de equipos por si acaso
   _dashEquipos.forEach(eq => (eq.members||[]).forEach(uid => knownUids.add(uid)));
 
-  // Leer cada perfil de usuario individualmente + sus trámites
+  // Leer cada perfil de usuario individualmente + sus trámites (en paralelo)
   _dashUsers = [];
   let totalTramitesAll = 0;
   let totalVencidosAll = 0;
-  for (const uid of knownUids) {
+
+  const userPromises = [...knownUids].map(async (uid) => {
     try {
       const uDoc = await db.collection('users').doc(uid).get();
       let userData = uDoc.exists ? { uid, ...uDoc.data() } : (uid === AUTH.userProfile.uid ? { ...AUTH.userProfile } : null);
-      if (!userData) continue;
+      if (!userData) return null;
       // Cargar conteo de trámites del usuario
       try {
         const tSnap = await db.collection('users').doc(uid).collection('tramites').get();
@@ -140,18 +141,35 @@ async function renderDashboard() {
         userData._tramitesActivos  = uActivos.length;
         userData._tramitesTotal    = uTramites.length;
         userData._tramitesVencidos = uVencidos.length;
-        userData._tramitesList     = uTramites; // para vista admin
-        totalTramitesAll += uActivos.length;
-        if (uid !== AUTH.userProfile.uid) totalVencidosAll += uVencidos.length;
+        userData._tramitesList     = uTramites;
+        return { userData, activosCount: uActivos.length, vencidosCount: uVencidos.length, isSelf: uid === AUTH.userProfile.uid };
       } catch(e) {
         userData._tramitesActivos  = uid === AUTH.userProfile.uid ? activos.length : '?';
         userData._tramitesVencidos = uid === AUTH.userProfile.uid ? vencidos.length : '?';
         userData._tramitesList     = uid === AUTH.userProfile.uid ? STATE.tramites : [];
+        return { userData, activosCount: uid === AUTH.userProfile.uid ? activos.length : 0, vencidosCount: uid === AUTH.userProfile.uid ? vencidos.length : 0, isSelf: uid === AUTH.userProfile.uid };
       }
-      _dashUsers.push(userData);
     } catch(e) {
-      if (uid === AUTH.userProfile.uid) _dashUsers.push({ ...AUTH.userProfile, _tramitesActivos: activos.length, _tramitesVencidos: vencidos.length, _tramitesList: STATE.tramites });
+      if (uid === AUTH.userProfile.uid) {
+        return { userData: { ...AUTH.userProfile, _tramitesActivos: activos.length, _tramitesVencidos: vencidos.length, _tramitesList: STATE.tramites }, activosCount: activos.length, vencidosCount: vencidos.length, isSelf: true };
+      }
+      return null;
     }
+  });
+
+  const results = await Promise.all(userPromises);
+  results.forEach(r => {
+    if (!r) return;
+    _dashUsers.push(r.userData);
+    totalTramitesAll += r.activosCount;
+    if (!r.isSelf) totalVencidosAll += r.vencidosCount;
+  });
+
+  // Determinar el admin original (primer admin registrado basado en fecha de creación)
+  const admins = _dashUsers.filter(u => u.role === 'admin');
+  if (admins.length) {
+    admins.sort((a, b) => (a.creadoEn || '9999').localeCompare(b.creadoEn || '9999'));
+    admins[0]._isOriginalAdmin = true;
   }
   if (!_dashUsers.length) {
     _dashUsers = [{ ...AUTH.userProfile, _tramitesActivos: activos.length, _tramitesVencidos: vencidos.length, _tramitesList: STATE.tramites }];
@@ -182,6 +200,11 @@ async function renderDashboard() {
       const nVenc    = u._tramitesVencidos ?? '?';
       const blocked  = u.blocked;
       const tr = document.createElement('tr');
+      // Determinar si el usuario es el admin original (primer administrador)
+      const isOriginalAdmin = u.role === 'admin' && u._isOriginalAdmin;
+      const canChangeRole = !isMe && !isOriginalAdmin;
+      const canBlock = !isMe && !isOriginalAdmin;
+      const canDelete = !isMe && !isOriginalAdmin;
       tr.className = 'dash-user-row' + (isMe ? ' dash-self-row' : '') + (blocked ? ' dash-blocked-row' : '');
       tr.innerHTML = `
         <td>
@@ -190,14 +213,14 @@ async function renderDashboard() {
               ${(u.displayName||u.email||'?').slice(0,2).toUpperCase()}
             </div>
             <div>
-              <div style="font-weight:600;font-size:13px">${u.displayName||'—'} ${blocked?'<span style="font-size:10px;background:var(--danger);color:#fff;padding:1px 5px;border-radius:6px">Bloqueado</span>':''}</div>
+              <div style="font-weight:600;font-size:13px">${u.displayName||'—'} ${blocked?'<span style="font-size:10px;background:var(--danger);color:#fff;padding:1px 5px;border-radius:6px">Bloqueado</span>':''}${isOriginalAdmin?'<span style="font-size:10px;background:var(--accent);color:#fff;padding:1px 5px;border-radius:6px;margin-left:4px">Admin principal</span>':''}</div>
               ${isMe ? '<span class="dash-self-badge">Tú</span>' : ''}
             </div>
           </div>
         </td>
         <td class="dash-email">${u.email||'—'}</td>
         <td>
-          <select class="role-select" data-uid="${u.uid}" ${isMe?'disabled':''} style="font-size:12px;padding:3px 6px;border-radius:6px;border:1px solid var(--border)">
+          <select class="role-select" data-uid="${u.uid}" ${!canChangeRole?'disabled':''} style="font-size:12px;padding:3px 6px;border-radius:6px;border:1px solid var(--border)${!canChangeRole?';opacity:.6':''}">
             <option value="user"  ${u.role!=='admin'?'selected':''}>👤 Usuario</option>
             <option value="admin" ${u.role==='admin'?'selected':''}>👑 Admin</option>
           </select>
@@ -212,13 +235,23 @@ async function renderDashboard() {
           <div style="display:flex;gap:4px;flex-wrap:wrap">
             ${!isMe ? `<button class="btn-small" data-viewtramites="${u.uid}" title="Ver trámites">📋 Ver</button>` : ''}
             ${!isMe ? `<button class="btn-small" data-resetpwd="${u.uid}" title="Enviar reset de contraseña">🔑</button>` : ''}
-            ${!isMe ? `<button class="btn-small ${blocked?'':'btn-warning'}" data-toggleblock="${u.uid}" data-blocked="${blocked?'1':'0'}" title="${blocked?'Desbloquear':'Bloquear'} usuario">${blocked?'🔓':'🔒'}</button>` : ''}
-            ${!isMe ? `<button class="btn-small btn-danger" data-deluser="${u.uid}" title="Eliminar usuario">✕</button>` : ''}
+            ${canBlock ? `<button class="btn-small ${blocked?'':'btn-warning'}" data-toggleblock="${u.uid}" data-blocked="${blocked?'1':'0'}" title="${blocked?'Desbloquear':'Bloquear'} usuario">${blocked?'🔓':'🔒'}</button>` : ''}
+            ${canDelete ? `<button class="btn-small btn-danger" data-deluser="${u.uid}" title="Eliminar usuario">✕</button>` : ''}
           </div>
         </td>`;
       tr.querySelector('.role-select')?.addEventListener('change', async e => {
-        await db.collection('users').doc(u.uid).update({ role: e.target.value });
-        showToast('Rol actualizado.'); u.role = e.target.value;
+        if (isOriginalAdmin) {
+          e.target.value = u.role;
+          showToast('No puedes cambiar el rol del administrador principal.');
+          return;
+        }
+        const newRole = e.target.value;
+        if (newRole === 'admin') {
+          const ok = await showConfirm(`¿Convertir a ${u.displayName||u.email} en administrador? Tendrá acceso al panel de administración, pero NO podrá modificar al administrador principal.`);
+          if (!ok) { e.target.value = u.role; return; }
+        }
+        await db.collection('users').doc(u.uid).update({ role: newRole });
+        showToast('Rol actualizado.'); u.role = newRole;
       });
       tr.querySelector('[data-viewtramites]')?.addEventListener('click', () => {
         openAdminTramitesModal(u);
@@ -579,7 +612,7 @@ async function createInvitation() {
     if (emailEl) emailEl.value = '';
     if (noteEl)  noteEl.value  = '';
 
-    const invLink = `https://zdraj-j.github.io/juritask/?invite=${code}`;
+    const invLink = `https://zdraj-j.github.io/JuriTask/?invite=${code}`;
     _showInviteResult(email, code, invLink);
     showToast('✓ Invitación creada.');
     loadInvitations();
@@ -624,7 +657,7 @@ async function loadInvitations() {
       const st = inv.used ? { label:'✓ Usada', bg:'var(--success-light)', color:'var(--success)' }
                : expired  ? { label:'Expirada', bg:'var(--danger-light)', color:'var(--danger)' }
                : { label:'Pendiente', bg:'var(--accent-light)', color:'var(--accent)' };
-      const link = `https://zdraj-j.github.io/juritask/?invite=${inv.code}`;
+      const link = `https://zdraj-j.github.io/JuriTask/?invite=${inv.code}`;
       const row = document.createElement('div');
       row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-light);flex-wrap:wrap';
       row.innerHTML = `

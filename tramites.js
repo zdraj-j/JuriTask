@@ -157,9 +157,14 @@ function proximaFechaSeguimiento(t) {
 
 function esHoyOVencido(t) {
   const hoy = today();
+  // Vencimiento
   if (t.fechaVencimiento && !t.gestion?.cumplimiento && t.fechaVencimiento <= hoy) return true;
+  // Tareas de seguimiento pendientes para hoy o vencidas
   const pf = proximaFechaSeguimiento(t);
-  return !!(pf && pf <= hoy);
+  if (pf && pf <= hoy) return true;
+  // Pendientes de análisis (no propios, sin análisis marcado)
+  if (!esPropio(t) && !t.gestion?.analisis) return true;
+  return false;
 }
 
 function getById(id) {
@@ -287,8 +292,31 @@ function _detailAction(cmd) {
 // EXPORT / IMPORT
 // ============================================================
 function exportData() {
+  const exportPayload = {
+    tramites: STATE.tramites,
+    order: STATE.order,
+    config: {
+      ...STATE.config,
+      // Asegurar que se incluyen explícitamente todas las preferencias
+      abogados: STATE.config.abogados || [],
+      modulos: STATE.config.modulos || [],
+      colorBar1: STATE.config.colorBar1 || DEFAULT_CONFIG.colorBar1,
+      colorBar2: STATE.config.colorBar2 || DEFAULT_CONFIG.colorBar2,
+      colorBar3: STATE.config.colorBar3 || DEFAULT_CONFIG.colorBar3,
+      theme: STATE.config.theme || 'claro',
+      columns: STATE.config.columns || 1,
+      detailMode: STATE.config.detailMode || 'expand',
+      sortBy: STATE.config.sortBy || 'vencimiento',
+      autoReq: STATE.config.autoReq !== false,
+      autoReqTexto: STATE.config.autoReqTexto || '1er req',
+      autoReqDias: STATE.config.autoReqDias ?? 7,
+      diasRestantes: !!STATE.config.diasRestantes,
+    },
+    exportedAt: new Date().toISOString(),
+    version: '2.0',
+  };
   const blob = new Blob(
-    [JSON.stringify({ tramites: STATE.tramites, order: STATE.order, config: STATE.config }, null, 2)],
+    [JSON.stringify(exportPayload, null, 2)],
     { type: 'application/json' }
   );
   const url = URL.createObjectURL(blob);
