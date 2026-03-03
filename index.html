@@ -15,7 +15,7 @@
 <!-- ============================================================
      SPLASH SCREEN (mientras se determina sesión)
      ============================================================ -->
-<div id="splashScreen" style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:linear-gradient(140deg, #0a1428 0%, #13204a 55%, #0e1835 100%);flex-direction:column;gap:16px">
+<div id="splashScreen" style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:linear-gradient(135deg, #0f1115 0%, #1c1d24 60%, #13141a 100%);flex-direction:column;gap:16px">
   <img src="logo.png" alt="JuriTask" style="height:56px;object-fit:contain;opacity:.9" onerror="this.style.display='none'" />
   <div style="width:32px;height:32px;border:3px solid rgba(255,255,255,.15);border-top-color:#6e8efb;border-radius:50%;animation:spin .7s linear infinite"></div>
   <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
@@ -89,6 +89,11 @@
     </form>
 
     <div class="auth-divider"><span>o</span></div>
+    <div id="googleInviteWrap" style="margin-bottom:8px">
+      <input type="text" id="googleInviteCode" placeholder="Código de invitación (si tienes)"
+             autocomplete="off"
+             style="text-transform:uppercase;letter-spacing:2px;width:100%;padding:9px 12px;border:1px solid var(--border,#dde1eb);border-radius:8px;font-size:13px;background:var(--surface-2,#f7f8fb);color:var(--text-primary,#111827);box-sizing:border-box;outline:none" />
+    </div>
     <button class="btn-google-login" type="button">
       <svg width="18" height="18" viewBox="0 0 48 48">
         <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.2l6.7-6.7C35.8 2.5 30.3 0 24 0 14.6 0 6.6 5.4 2.5 13.3l7.8 6C12.1 13.2 17.6 9.5 24 9.5z"/>
@@ -143,7 +148,10 @@
     <button class="nav-item"         data-view="config">   <span class="nav-icon">◫</span> Configuración</button>
   </nav>
   <div class="sidebar-filters" id="sidebarFilters">
-    <p class="filter-label">Filtros</p>
+    <button class="filter-toggle-btn" id="filtersToggle">
+      Filtros <span class="filter-arrow" id="filterArrow">▾</span>
+    </button>
+    <div class="filter-body" id="filterBody">
     <div class="filter-group"><label>Tipo</label>
       <select id="filterTipo"><option value="">Todos</option><option value="abogado">Compartidos</option><option value="propio">Solo yo</option></select>
     </div>
@@ -157,6 +165,14 @@
       <select id="filterScope"><option value="">Todos</option><option value="private">Mis trámites</option><option value="team">Equipo</option></select>
     </div>
     <button class="btn-clear-filters" id="clearFilters">Limpiar filtros</button>
+    </div><!-- /.filter-body -->
+  </div>
+  <div class="sidebar-footer">
+    <button class="user-avatar-btn" id="userAvatarBtn">
+      <div class="user-avatar" id="userAvatar">?</div>
+      <span class="user-name-display" id="userNameDisplay"></span>
+      <span class="admin-badge" id="adminBadge" style="display:none">Admin</span>
+    </button>
   </div>
 </aside>
 
@@ -188,12 +204,6 @@
       <button class="btn-icon" id="reportBtn" title="Reporte de hoy">📋</button>
       <button class="btn btn-primary" id="newTramiteBtn" style="font-size:13px;padding:7px 14px">+ Nuevo trámite</button>
       <button class="btn-icon mob-opts-btn" id="mobOptsBtn" style="display:none">⋮</button>
-      <!-- User button -->
-      <button class="user-avatar-btn" id="userAvatarBtn">
-        <div class="user-avatar" id="userAvatar">?</div>
-        <span class="user-name-display" id="userNameDisplay"></span>
-        <span class="admin-badge" id="adminBadge" style="display:none">Admin</span>
-      </button>
     </div>
   </header>
 
@@ -565,9 +575,9 @@
 
 <div id="toast" class="toast"></div>
 
-<div id="confirmOverlay" class="overlay">
-  <div class="confirm-dialog">
-    <p id="confirmMsg"></p>
+<div id="confirmOverlay" class="confirm-overlay">
+  <div class="confirm-box">
+    <p id="confirmMsg" class="confirm-msg"></p>
     <div class="confirm-btns">
       <button class="btn btn-primary" id="confirmOk">Confirmar</button>
       <button class="btn-small" id="confirmCancel">Cancelar</button>

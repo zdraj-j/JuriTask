@@ -141,10 +141,25 @@ function init() {
     btn.addEventListener('click', () => { setColumns(parseInt(btn.dataset.cols)); closeMobSheet(); })
   );
 
+  // ── Toggle filtros ───────────────────────────────────────
+  document.getElementById('filtersToggle')?.addEventListener('click', () => {
+    const body  = document.getElementById('filterBody');
+    const arrow = document.getElementById('filterArrow');
+    body.classList.toggle('collapsed');
+    arrow.classList.toggle('collapsed');
+  });
+
   // ── Filtros ──────────────────────────────────────────────
   ['filterTipo','filterAbogado','filterModulo','filterResponsable','filterEtapa','filterScope']
     .forEach(id => document.getElementById(id)?.addEventListener('change', renderAll));
-  document.getElementById('searchInput').addEventListener('input', renderAll);
+  document.getElementById('searchInput').addEventListener('input', () => {
+    const q = document.getElementById('searchInput').value.trim();
+    if (q && currentView !== 'all' && currentView !== 'finished') {
+      switchView('all');
+      document.getElementById('searchInput').value = q; // restore after switchView clears it
+    }
+    renderAll();
+  });
   document.getElementById('clearFilters').addEventListener('click', () => {
     ['filterTipo','filterAbogado','filterModulo','filterResponsable','filterEtapa','filterScope']
       .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });

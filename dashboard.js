@@ -660,17 +660,19 @@ async function loadInvitations() {
       const link = `https://zdraj-j.github.io/JuriTask/?invite=${inv.code}`;
       const row = document.createElement('div');
       row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-light);flex-wrap:wrap';
+      const usedByText = inv.used && inv.usedBy ? `<span style="color:var(--text-muted)"> · Usado por: ${inv.usedBy}</span>` : '';
       row.innerHTML = `
         <div style="flex:1;min-width:0">
           <div style="font-size:13px;font-weight:600">${inv.email}</div>
           <div style="font-size:11px;color:var(--text-muted)">
             ${inv.note ? `"${inv.note}" · ` : ''}
-            Código: <strong>${inv.code}</strong> · 
-            ${new Date(inv.createdAt).toLocaleDateString('es-CO')}
+            Código: <strong>${inv.code}</strong> ·
+            ${new Date(inv.createdAt).toLocaleDateString('es-CO')}${usedByText}
           </div>
+          <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;word-break:break-all">${link}</div>
         </div>
-        <span style="font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600;background:${st.bg};color:${st.color}">${st.label}</span>
-        ${!inv.used ? `<button class="btn-small" onclick="navigator.clipboard.writeText('${link}').then(()=>showToast('✓ Copiado'))" title="Copiar link">📋</button>` : ''}
+        <span style="font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600;background:${st.bg};color:${st.color};flex-shrink:0">${st.label}</span>
+        <button class="btn-small" onclick="navigator.clipboard.writeText('${link}').then(()=>showToast('✓ Copiado'))" title="Copiar link" ${inv.used ? 'style="opacity:.5"' : ''}>📋 Copiar link</button>
         ${!inv.used ? `<button class="btn-small btn-danger" data-delinv="${doc.id}" title="Eliminar">✕</button>` : ''}`;
       row.querySelector('[data-delinv]')?.addEventListener('click', async () => {
         await db.collection('invitations').doc(inv.id).delete();

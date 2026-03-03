@@ -151,7 +151,7 @@ function renderAll() {
   badge.textContent = urgentes.length;
   badge.classList.toggle('hidden', urgentes.length === 0);
 
-  renderList(document.getElementById('finishedList'), document.getElementById('emptyFinished'), STATE.tramites.filter(t => t.terminado));
+  renderList(document.getElementById('finishedList'), document.getElementById('emptyFinished'), applyFilters(STATE.tramites.filter(t => t.terminado), f));
 
   if (currentView === 'calendar') renderCalendar();
 }

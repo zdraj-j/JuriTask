@@ -20,13 +20,14 @@ function initAuthUI() {
   // Prellenar código de invitación desde URL (?invite=XXXX)
   const urlInvite = new URLSearchParams(window.location.search).get('invite');
   if (urlInvite) {
-    const codeEl = document.getElementById('regInviteCode');
-    if (codeEl) {
-      codeEl.value = urlInvite.toUpperCase();
-      // Abrir pestaña de registro automáticamente
-      const regTab = document.querySelector('.auth-tab[data-tab="register"]');
-      if (regTab) regTab.click();
-    }
+    const code = urlInvite.toUpperCase();
+    const regCodeEl    = document.getElementById('regInviteCode');
+    const googleCodeEl = document.getElementById('googleInviteCode');
+    if (regCodeEl)    regCodeEl.value    = code;
+    if (googleCodeEl) googleCodeEl.value = code;
+    // Abrir pestaña de registro automáticamente
+    const regTab = document.querySelector('.auth-tab[data-tab="register"]');
+    if (regTab) regTab.click();
   }
 
   // ── Olvidé contraseña ───────────────────────────────────
@@ -130,6 +131,35 @@ function initAuthUI() {
       showWaitScreen('verify', email);
 
     } catch(err) {
+      if (err.code === 'auth/email-already-in-use') {
+        // Puede ser un usuario eliminado de Firestore pero cuya cuenta de Auth persiste
+        try {
+          const signInCred = await AUTH.loginEmail(email, pass);
+          const uDoc = await db.collection('users').doc(signInCred.user.uid).get();
+          if (!uDoc.exists) {
+            // Re-registro: el doc de Firestore fue eliminado pero Auth persiste
+            await signInCred.user.updateProfile({ displayName: name });
+            const role = await ensureUserProfile({ ...signInCred.user, displayName: name }, hasValidInvite);
+            if (inviteDocId) {
+              db.collection('invitations').doc(inviteDocId).update({
+                used: true, usedBy: signInCred.user.uid, usedAt: new Date().toISOString(),
+              }).catch(() => {});
+            }
+            setAuthLoading(false);
+            if (role === 'admin' || hasValidInvite) return; // onAuthStateChanged carga app
+            try { await AUTH.sendVerificationEmail(signInCred.user); } catch(_) {}
+            showWaitScreen('verify', email);
+            return;
+          } else {
+            await AUTH.logout();
+            showAuthError('Ya existe una cuenta con ese correo.');
+          }
+        } catch(_) {
+          showAuthError(friendlyAuthError(err.code));
+        }
+        setAuthLoading(false);
+        return;
+      }
       setAuthLoading(false);
       showAuthError(friendlyAuthError(err.code));
     }
@@ -157,7 +187,8 @@ function initAuthUI() {
     try {
       // Verificar si hay código de invitación en URL o campo
       const urlInvite = new URLSearchParams(window.location.search).get('invite');
-      const fieldInvite = (document.getElementById('regInviteCode')?.value || '').trim().toUpperCase();
+      const fieldInvite = (document.getElementById('googleInviteCode')?.value
+                        || document.getElementById('regInviteCode')?.value || '').trim().toUpperCase();
       const code = urlInvite?.toUpperCase() || fieldInvite || '';
 
       let hasValidInvite = false;
@@ -190,11 +221,13 @@ function initAuthUI() {
         }).catch(() => {});
       }
 
-      // Si tiene invitación válida y el perfil ya existe pero no está aprobado, aprobarlo
+      // Si tiene invitación válida: asegurar approved y recargar para evitar race condition
       if (hasValidInvite) {
         try {
           await db.collection('users').doc(cred.user.uid).update({ approved: true });
         } catch(_) {}
+        location.reload(); // fuerza nuevo onAuthStateChanged con perfil actualizado
+        return;
       }
 
       // onAuthStateChanged se encarga
