@@ -317,6 +317,14 @@ function saveConfigDebounced() {
   }, 800);
 }
 
+// Guardado inmediato de config (sin debounce) — para cambios críticos como columns
+function saveConfigNow() {
+  if (!AUTH.userProfile?.uid) return;
+  clearTimeout(_fsConfigTimer);
+  userRef().collection('meta').doc('config').set(STATE.config)
+    .catch(e => console.error('Error guardando config:', e));
+}
+
 // ─── CAMBIOS DE SESIÓN ────────────────────────────────────────
 auth.onAuthStateChanged(async user => {
   const appEl     = document.getElementById('appContainer');
