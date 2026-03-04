@@ -203,8 +203,13 @@
       </div>
       <button class="btn-icon" id="reportBtn" title="Reporte de hoy">📋</button>
       <button class="btn btn-primary" id="newTramiteBtn" style="font-size:13px;padding:7px 14px">+ Nuevo trámite</button>
+      <button class="btn-icon notif-btn" id="notifBtn" title="Notificaciones" style="position:relative">
+        🔔<span class="notif-badge" id="notifBadge" style="display:none">0</span>
+      </button>
       <button class="btn-icon mob-opts-btn" id="mobOptsBtn" style="display:none">⋮</button>
     </div>
+    <!-- Panel de notificaciones -->
+    <div class="notif-panel" id="notifPanel"></div>
   </header>
 
   <main class="main-content">
@@ -263,7 +268,7 @@
         <div class="dash-kpi">
           <div class="dash-kpi-icon">👥</div>
           <div class="dash-kpi-value" id="kpiUsuarios">—</div>
-          <div class="dash-kpi-label">Usuarios registrados</div>
+          <div class="dash-kpi-label">Activos / Total usuarios</div>
         </div>
         <div class="dash-kpi">
           <div class="dash-kpi-icon">📂</div>
@@ -409,6 +414,23 @@
         </div>
       </div>
 
+      <!-- Mensajes a usuarios (admin) -->
+      <div class="dash-section" id="adminMsgSection">
+        <div class="dash-section-header">
+          <h3>📢 Enviar mensaje a usuarios</h3>
+        </div>
+        <div style="background:var(--surface-2);border-radius:12px;padding:18px 20px">
+          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">El mensaje aparecerá como notificación en la campana de todos los usuarios (o uno específico).</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+            <textarea id="adminMsgText" placeholder="Escribe tu mensaje…" rows="2"
+              style="flex:1;min-width:200px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text-primary);resize:vertical;font-family:inherit"></textarea>
+          </div>
+          <div style="display:flex;gap:8px;flex-wrap:wrap">
+            <button class="btn btn-primary" id="adminMsgBroadcastBtn">📢 Enviar a todos</button>
+          </div>
+        </div>
+      </div>
+
       <!-- Modal crear equipo -->
       <div id="createTeamOverlay" class="overlay">
         <div class="modal modal-sm">
@@ -535,6 +557,12 @@
             <div class="form-grid" style="margin-bottom:12px">
               <div class="form-group"><label>Texto de la tarea</label><input type="text" id="autoReqTexto" /></div>
               <div class="form-group"><label>Días a partir de hoy</label><input type="number" id="autoReqDias" min="1" max="365" /></div>
+              <div class="form-group full"><label>Responsable de la tarea</label>
+                <select id="autoReqResponsable">
+                  <option value="yo">Yo mismo</option>
+                  <option value="auto">Según tipo de trámite (colaborador)</option>
+                </select>
+              </div>
             </div>
             <button class="btn-small" id="saveAutoReqBtn">Guardar</button>
           </div>
@@ -614,12 +642,12 @@
       <button class="modal-close" id="modalClose">✕</button>
     </div>
     <div class="modal-body">
-      <div class="form-grid">
+      <div class="form-grid form-grid-3col">
         <div class="form-group">
           <label>Número de trámite *</label>
           <input type="text" id="fNumero" placeholder="Ej: 2024-001" />
         </div>
-        <div class="form-group form-group-full">
+        <div class="form-group span2">
           <label>Descripción *</label>
           <input type="text" id="fDescripcion" placeholder="Describe el trámite…" />
         </div>
@@ -642,7 +670,7 @@
           <label>Fecha de vencimiento</label>
           <input type="date" id="fFechaVencimiento" />
         </div>
-        <div class="form-group" id="fScopeWrap">
+        <div class="form-group span2" id="fScopeWrap">
           <label>Alcance</label>
           <div class="toggle-group">
             <button type="button" class="toggle-btn active" id="scopeBtnPrivate">🔒 Privado</button>
@@ -766,7 +794,10 @@
 <!-- 5. Dashboard: backups + admin -->
 <script src="dashboard.js"></script>
 
-<!-- 6. Orquestador general (debe ir de último) -->
+<!-- 6. Sistema de notificaciones -->
+<script src="notifications.js"></script>
+
+<!-- 7. Orquestador general (debe ir de último) -->
 <script src="config.js"></script>
 
 </body>

@@ -252,7 +252,7 @@ function init() {
       const manualAbogados = (STATE.config.abogados || []).filter(a => !members.find(m => m.uid === a.key));
       const idx = [...document.querySelectorAll('#abogadosList .abogado-config-row')].filter(r => r.querySelector('.ab-nombre')).indexOf(row);
       if (idx >= 0 && manualAbogados[idx]) {
-        manualAbogados[idx].nombre = sentenceCase(nombre);
+        manualAbogados[idx].nombre = titleCase(nombre);
         manualAbogados[idx].color = color;
       }
     });
@@ -267,7 +267,7 @@ function init() {
     const palette = ['#15803d','#1d4ed8','#9333ea','#c2410c','#0891b2','#be123c','#854d0e'];
     const color   = palette[(STATE.config.abogados || []).length % palette.length];
     STATE.config.abogados = STATE.config.abogados || [];
-    STATE.config.abogados.push({ key: 'abogado_' + Date.now(), nombre: sentenceCase(nombre), color });
+    STATE.config.abogados.push({ key: 'abogado_' + Date.now(), nombre: titleCase(nombre), color });
     inp.value = '';
     saveAll(); applyCssColors(); updateAbogadoSelects(); renderAbogadosList();
     showToast(`"${nombre}" añadido.`);
@@ -297,8 +297,9 @@ function init() {
     const dias  = parseInt(document.getElementById('autoReqDias').value);
     if (!texto)                          { showToast('El texto no puede estar vacío.'); return; }
     if (isNaN(dias) || dias < 1 || dias > 365) { showToast('Los días deben estar entre 1 y 365.'); return; }
-    STATE.config.autoReqTexto = texto;
-    STATE.config.autoReqDias  = dias;
+    STATE.config.autoReqTexto        = texto;
+    STATE.config.autoReqDias         = dias;
+    STATE.config.autoReqResponsable  = document.getElementById('autoReqResponsable')?.value || 'yo';
     saveAll(); showToast('Configuración guardada.');
   });
 
@@ -339,6 +340,18 @@ function init() {
       // Fallback: exportar JSON como backup
       exportData();
     }
+  });
+
+  // ── Notificaciones ───────────────────────────────────────
+  document.getElementById('notifBtn')?.addEventListener('click', e => {
+    e.stopPropagation();
+    if (typeof toggleNotifPanel === 'function') toggleNotifPanel();
+  });
+  document.getElementById('adminMsgBroadcastBtn')?.addEventListener('click', () => {
+    const msg = document.getElementById('adminMsgText')?.value.trim();
+    if (typeof adminSendBroadcast === 'function') adminSendBroadcast(msg).then(() => {
+      if (document.getElementById('adminMsgText')) document.getElementById('adminMsgText').value = '';
+    });
   });
 
   // ── Auth UI ──────────────────────────────────────────────

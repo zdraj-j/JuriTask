@@ -43,6 +43,7 @@ const DEFAULT_CONFIG = {
   autoReq:    true,
   autoReqTexto: '1er req',
   autoReqDias:  7,
+  autoReqResponsable: 'yo',
   diasRestantes: false,
 };
 

@@ -380,6 +380,7 @@ auth.onAuthStateChanged(async user => {
     if (typeof purgeExpiredFinished === 'function') purgeExpiredFinished();
     if (typeof startAutoBackup      === 'function') startAutoBackup();
     if (typeof loadTeamMembers      === 'function') loadTeamMembers();
+    if (typeof initNotifications    === 'function') initNotifications();
     // Admin: arrancar listener de cuentas pendientes
     if (AUTH.userProfile.role === 'admin' && typeof startPendingListener === 'function') {
       startPendingListener();
@@ -388,6 +389,7 @@ auth.onAuthStateChanged(async user => {
   } else {
     // Sin sesión
     AUTH.userProfile = null;
+    if (typeof stopNotifications === 'function') stopNotifications();
     hideWaitScreen();
     hideSplash();
     if (appEl)     appEl.style.display     = 'none';

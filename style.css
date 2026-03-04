@@ -1435,3 +1435,83 @@ body {
   --warning-light:  #3a2a00;
   --success-light:  #042010;
 }
+
+/* ═══════════════════ FIXES VARIOS ══════════════════════ */
+
+/* Fix 2: Mobile — siempre mostrar botón hamburguesa */
+@media (max-width: 768px) {
+  .sidebar:not(.collapsed) ~ .app-layout .menu-btn { display: flex !important; }
+}
+
+/* Fix 4: Modal 3 columnas */
+.form-grid-3col { grid-template-columns: 1fr 1fr 1fr !important; }
+.form-group.span2 { grid-column: span 2; }
+@media (max-width: 768px) {
+  .form-grid-3col { grid-template-columns: 1fr !important; }
+  .form-group.span2 { grid-column: span 1; }
+}
+
+/* Fix 7: Número de trámite seleccionable */
+.card-numero { user-select: text; cursor: text; }
+
+/* Fix 8: Falta análisis tag */
+.tag-falta-analisis {
+  display: inline-block;
+  font-size: 11px; font-weight: 700;
+  color: var(--warning); background: var(--warning-light);
+  border-radius: 20px; padding: 1px 7px; margin-right: 4px;
+}
+
+/* Fix 10: Responsable editable inline */
+.actividad-resp-edit {
+  font-family: var(--font); font-size: 11px;
+  color: var(--text-primary); background: var(--surface);
+  border: 1px solid var(--accent); border-radius: 20px;
+  padding: 1px 7px; outline: none; cursor: pointer;
+}
+
+/* Fix 11: Sidebar footer siempre al fondo */
+.sidebar-footer { margin-top: auto; }
+
+/* ═══════════════════ NOTIFICACIONES ════════════════════ */
+.notif-btn { position: relative; }
+.notif-badge {
+  position: absolute; top: 2px; right: 2px;
+  min-width: 16px; height: 16px;
+  background: var(--danger); color: #fff;
+  border-radius: 20px; font-size: 10px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 3px; pointer-events: none;
+}
+.notif-panel {
+  position: absolute; top: calc(var(--topbar-h) + 4px); right: 12px;
+  width: 320px; max-height: 420px; overflow-y: auto;
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius); box-shadow: var(--shadow-lg);
+  z-index: 500;
+  opacity: 0; pointer-events: none; transform: translateY(-8px);
+  transition: opacity .15s ease, transform .15s ease;
+}
+.notif-panel.open { opacity: 1; pointer-events: all; transform: translateY(0); }
+.notif-header {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 12px 16px 8px;
+  font-size: 12px; font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: .6px;
+  border-bottom: 1px solid var(--border-light);
+}
+.notif-clear-btn {
+  background: none; border: none; cursor: pointer;
+  font-size: 11px; color: var(--text-muted); font-family: var(--font);
+}
+.notif-clear-btn:hover { color: var(--danger); }
+.notif-item {
+  padding: 10px 16px; border-bottom: 1px solid var(--border-light);
+  transition: background var(--transition);
+}
+.notif-item.unread { background: var(--accent-light); }
+.notif-item:hover  { background: var(--surface-2); }
+.notif-msg  { font-size: 13px; color: var(--text-primary); line-height: 1.45; margin-bottom: 3px; }
+.notif-from { font-size: 11px; color: var(--text-muted); margin-bottom: 2px; }
+.notif-time { font-size: 10px; color: var(--text-muted); }
+.notif-empty { font-size: 13px; color: var(--text-muted); text-align: center; padding: 24px 16px; font-style: italic; }

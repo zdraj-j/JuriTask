@@ -177,7 +177,7 @@ async function renderDashboard() {
   totalVencidosAll += vencidos.length;
 
   // KPIs — usar totales reales de todos los usuarios
-  setText('kpiUsuarios',    knownUids.size);
+  setText('kpiUsuarios',    `${_dashUsers.length} / ${knownUids.size}`);
   setText('kpiTramites',    totalTramitesAll || activos.length);
   setText('kpiVencidos',    totalVencidosAll || vencidos.length);
   setText('kpiHoy',         hoyVenc.length);
@@ -659,21 +659,23 @@ async function loadInvitations() {
                : { label:'Pendiente', bg:'var(--accent-light)', color:'var(--accent)' };
       const link = `https://zdraj-j.github.io/JuriTask/?invite=${inv.code}`;
       const row = document.createElement('div');
-      row.style.cssText = 'display:flex;align-items:center;gap:10px;padding:10px 0;border-bottom:1px solid var(--border-light);flex-wrap:wrap';
-      const usedByText = inv.used && inv.usedBy ? `<span style="color:var(--text-muted)"> · Usado por: ${inv.usedBy}</span>` : '';
+      row.style.cssText = 'padding:10px 0;border-bottom:1px solid var(--border-light)';
+      const usedByText = inv.used && inv.usedBy ? ` · Usado por: ${inv.usedBy}` : '';
       row.innerHTML = `
-        <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:600">${inv.email}</div>
-          <div style="font-size:11px;color:var(--text-muted)">
-            ${inv.note ? `"${inv.note}" · ` : ''}
-            Código: <strong>${inv.code}</strong> ·
-            ${new Date(inv.createdAt).toLocaleDateString('es-CO')}${usedByText}
+        <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap">
+          <div style="flex:1;min-width:180px">
+            <div style="font-size:13px;font-weight:600;margin-bottom:3px">${inv.email}</div>
+            <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">
+              ${inv.note ? `"${inv.note}" · ` : ''}Código: <strong>${inv.code}</strong> · ${new Date(inv.createdAt).toLocaleDateString('es-CO')}${usedByText}
+            </div>
+            <div style="font-size:11px;color:var(--text-secondary);word-break:break-all;user-select:all">${link}</div>
           </div>
-          <div style="font-size:11px;color:var(--text-secondary);margin-top:2px;word-break:break-all">${link}</div>
-        </div>
-        <span style="font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600;background:${st.bg};color:${st.color};flex-shrink:0">${st.label}</span>
-        <button class="btn-small" onclick="navigator.clipboard.writeText('${link}').then(()=>showToast('✓ Copiado'))" title="Copiar link" ${inv.used ? 'style="opacity:.5"' : ''}>📋 Copiar link</button>
-        ${!inv.used ? `<button class="btn-small btn-danger" data-delinv="${doc.id}" title="Eliminar">✕</button>` : ''}`;
+          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;flex-wrap:wrap">
+            <span style="font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600;background:${st.bg};color:${st.color}">${st.label}</span>
+            <button class="btn-small" onclick="navigator.clipboard.writeText('${link}').then(()=>showToast('✓ Copiado'))" title="Copiar link" ${inv.used ? 'style="opacity:.5"' : ''}>📋 Copiar</button>
+            ${!inv.used ? `<button class="btn-small btn-danger" data-delinv="${doc.id}" title="Eliminar">✕</button>` : ''}
+          </div>
+        </div>`;
       row.querySelector('[data-delinv]')?.addEventListener('click', async () => {
         await db.collection('invitations').doc(inv.id).delete();
         showToast('Invitación eliminada.'); loadInvitations();

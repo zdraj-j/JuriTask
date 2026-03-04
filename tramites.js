@@ -77,6 +77,11 @@ function sentenceCase(str) {
   return s ? s.charAt(0).toUpperCase() + s.slice(1).toLowerCase() : s;
 }
 
+function titleCase(str) {
+  if (!str) return str;
+  return str.trim().toLowerCase().replace(/(^|\s)\S/g, c => c.toUpperCase());
+}
+
 function escapeHtml(str) {
   return String(str)
     .replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;')
@@ -197,9 +202,11 @@ function crearTareaRequerimiento(t) {
   const texto = (STATE.config.autoReqTexto || '1er req').trim();
   const fecha = nDaysFromToday(dias);
   if (!t.seguimiento.some(s => s.descripcion === texto && s.fecha === fecha && s.estado === 'pendiente')) {
+    const respCfg = STATE.config.autoReqResponsable || 'yo';
+    const responsable = respCfg === 'auto' ? (esPropio(t) ? 'yo' : t.abogado) : respCfg;
     t.seguimiento.unshift({
       descripcion: texto, fecha,
-      responsable: esPropio(t) ? 'yo' : t.abogado,
+      responsable,
       estado: 'pendiente', urgente: false,
     });
   }

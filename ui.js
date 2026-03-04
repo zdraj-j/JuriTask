@@ -185,6 +185,12 @@ function buildCard(t) {
     vencHtml    = `<span class="venc-fecha ${vcls}">${lbl}: ${formatDate(t.fechaVencimiento)}</span>${dtag}`;
   }
 
+  // Alerta falta análisis (trámites compartidos sin análisis completado)
+  const faltaAnalisis = !esP && !t.terminado && !t.gestion?.analisis;
+  const faltaAnalisisHtml = faltaAnalisis
+    ? `<span class="tag-falta-analisis">⚠ Falta análisis</span>`
+    : '';
+
   // Responsable — para trámites compartidos recibidos, mostrar quién los creó
   let respTag;
   if (esP) {
@@ -235,7 +241,7 @@ function buildCard(t) {
           ${respTag}${etapaTag}${urgenteTag}
         </div>
         <div class="card-desc">${escapeHtml(t.descripcion || '(sin descripción)')}</div>
-        <div class="card-dates">${vencHtml}</div>
+        <div class="card-dates">${faltaAnalisisHtml}${vencHtml}</div>
         ${segHtml}
       </div>
     </div>`;
@@ -534,6 +540,15 @@ function bindDetailContent(t, container, expandWrapper) {
     container.querySelector(`#${p}_newActDesc`).value = '';
     container.querySelector(`#${p}_newActFecha`).value = '';
     formNueva.style.display = 'none';
+    // Notificar si la tarea se asigna a un miembro del equipo distinto al usuario actual
+    if (typeof createNotification === 'function' && resp !== 'yo' && resp !== AUTH?.userProfile?.uid) {
+      const isTeamUid = typeof _teamMembers !== 'undefined' && _teamMembers.find(m => m.uid === resp);
+      if (isTeamUid) {
+        createNotification(resp, 'task_assigned',
+          `${AUTH?.userProfile?.displayName || 'Alguien'} te asignó una tarea en el trámite #${t.numero}: "${sentenceCase(desc)}"`,
+          { tramiteId: t.id });
+      }
+    }
     if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
     saveAll(); refreshCardOnly(t);
     renderActividadesIn(t, container.querySelector(`#${p}_actividades`), container, expandWrapper);
@@ -657,6 +672,41 @@ function renderActividadesIn(t, listEl, container, expandWrapper) {
         saveAll(); refreshCardOnly(t); renderActividadesIn(t, listEl, container, expandWrapper);
       }
     });
+
+    // Doble clic en responsable → selector inline
+    const respEl = div.querySelector('.actividad-resp');
+    if (respEl) {
+      respEl.title = 'Doble clic para cambiar responsable';
+      respEl.style.cursor = 'pointer';
+      respEl.addEventListener('dblclick', () => {
+        const sel = document.createElement('select');
+        sel.className = 'actividad-resp-edit';
+        sel.innerHTML = buildRespOptions(t.tipo || 'abogado', t.abogado || 'yo', act.responsable);
+        respEl.replaceWith(sel);
+        sel.focus();
+        const doSave = () => {
+          const newResp = sel.value;
+          if (newResp !== act.responsable) {
+            pushHistory('Cambiar responsable de tarea');
+            t.seguimiento[i].responsable = newResp;
+            if (typeof createNotification === 'function') {
+              const isTeamUid = typeof _teamMembers !== 'undefined' && _teamMembers.find(m => m.uid === newResp);
+              if (isTeamUid && newResp !== AUTH?.userProfile?.uid) {
+                createNotification(newResp, 'task_assigned',
+                  `${AUTH?.userProfile?.displayName || 'Alguien'} te asignó una tarea en el trámite #${t.numero}: "${act.descripcion}"`,
+                  { tramiteId: t.id });
+              }
+            }
+            if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
+            saveAll(); refreshCardOnly(t);
+          }
+          renderActividadesIn(t, listEl, container, expandWrapper);
+        };
+        sel.addEventListener('change', doSave);
+        sel.addEventListener('blur', doSave);
+      });
+    }
+
     listEl.appendChild(div);
   });
 }
@@ -962,9 +1012,10 @@ function renderConfig() {
   const cb2=document.getElementById('colorBar2'); if(cb2) cb2.value=STATE.config.colorBar2||'#3b5bdb';
   const cb3=document.getElementById('colorBar3'); if(cb3) cb3.value=STATE.config.colorBar3||'#10b981';
   updateBarPreviews(); setDetailMode(STATE.config.detailMode||'expand'); renderModulosList(); renderThemeGrid();
-  const arT=document.getElementById('autoReqToggle'); if(arT) arT.checked=STATE.config.autoReq!==false;
-  const arX=document.getElementById('autoReqTexto');  if(arX) arX.value=STATE.config.autoReqTexto||'1er req';
-  const arD=document.getElementById('autoReqDias');   if(arD) arD.value=STATE.config.autoReqDias??7;
+  const arT=document.getElementById('autoReqToggle');       if(arT) arT.checked=STATE.config.autoReq!==false;
+  const arX=document.getElementById('autoReqTexto');        if(arX) arX.value=STATE.config.autoReqTexto||'1er req';
+  const arD=document.getElementById('autoReqDias');         if(arD) arD.value=STATE.config.autoReqDias??7;
+  const arR=document.getElementById('autoReqResponsable');  if(arR) arR.value=STATE.config.autoReqResponsable||'yo';
   syncAutoReqFields();
   const drT=document.getElementById('diasRestantesToggle'); if(drT) drT.checked=!!(STATE.config.diasRestantes);
 
