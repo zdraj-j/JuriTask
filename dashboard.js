@@ -86,6 +86,7 @@ function startAutoBackup() {
 // ============================================================
 let _dashUsers   = [];
 let _dashEquipos = [];
+let _ghostUids   = []; // UIDs en userIndex sin doc en Firestore
 
 async function renderDashboard() {
   if (AUTH.userProfile?.role !== 'admin') return;
@@ -123,12 +124,16 @@ async function renderDashboard() {
 
   // Leer cada perfil de usuario individualmente + sus trámites (en paralelo)
   _dashUsers = [];
+  _ghostUids = [];
   let totalTramitesAll = 0;
   let totalVencidosAll = 0;
 
   const userPromises = [...knownUids].map(async (uid) => {
     try {
       const uDoc = await db.collection('users').doc(uid).get();
+      if (!uDoc.exists && uid !== AUTH.userProfile.uid) {
+        _ghostUids.push(uid); // UID en userIndex sin doc → fantasma
+      }
       let userData = uDoc.exists ? { uid, ...uDoc.data() } : (uid === AUTH.userProfile.uid ? { ...AUTH.userProfile } : null);
       if (!userData) return null;
       // Cargar conteo de trámites del usuario
@@ -177,7 +182,7 @@ async function renderDashboard() {
   totalVencidosAll += vencidos.length;
 
   // KPIs — usar totales reales de todos los usuarios
-  setText('kpiUsuarios',    `${_dashUsers.length} / ${knownUids.size}`);
+  setText('kpiUsuarios',    _dashUsers.length);
   setText('kpiTramites',    totalTramitesAll || activos.length);
   setText('kpiVencidos',    totalVencidosAll || vencidos.length);
   setText('kpiHoy',         hoyVenc.length);
@@ -278,6 +283,16 @@ async function renderDashboard() {
         const ok = await showConfirm(`¿Eliminar permanentemente a ${u.displayName||u.email}? Esta acción no se puede deshacer.`);
         if (!ok) return;
         await db.collection('users').doc(u.uid).delete();
+        // Limpiar userIndex para que el UID no quede como fantasma
+        db.collection('meta').doc('userIndex').update({
+          uids: firebase.firestore.FieldValue.arrayRemove(u.uid)
+        }).catch(() => {});
+        // Guardar email para mejorar mensajes de re-registro
+        if (u.email) {
+          db.collection('meta').doc('deletedEmails').set({
+            emails: firebase.firestore.FieldValue.arrayUnion(u.email)
+          }, { merge: true }).catch(() => {});
+        }
         showToast('Usuario eliminado.'); renderDashboard();
       });
       tbody.appendChild(tr);
@@ -285,6 +300,14 @@ async function renderDashboard() {
   }
 
   renderTeamsGrid(_dashEquipos);
+
+  // Mostrar botón de purga si hay fantasmas
+  const purgeBtn = document.getElementById('dashPurgeGhostsBtn');
+  if (purgeBtn) {
+    purgeBtn.style.display = _ghostUids.length ? '' : 'none';
+    purgeBtn.textContent = `🧹 Purgar ${_ghostUids.length} fantasma${_ghostUids.length !== 1 ? 's' : ''}`;
+    purgeBtn.onclick = purgeGhostUids;
+  }
 
   // Vencidos
   const vbody = document.getElementById('dashVencidosBody');
@@ -304,6 +327,22 @@ async function renderDashboard() {
         vbody.appendChild(tr);
       });
     }
+  }
+}
+
+// ── Purgar UIDs fantasma del índice ───────────────────────────
+async function purgeGhostUids() {
+  if (!_ghostUids.length) { showToast('No hay fantasmas que purgar.'); return; }
+  const ok = await showConfirm(`¿Eliminar ${_ghostUids.length} UID${_ghostUids.length !== 1 ? 's' : ''} fantasma del índice? Esto limpia registros de cuentas que ya fueron eliminadas.`);
+  if (!ok) return;
+  try {
+    await db.collection('meta').doc('userIndex').update({
+      uids: firebase.firestore.FieldValue.arrayRemove(..._ghostUids)
+    });
+    showToast(`✓ ${_ghostUids.length} fantasma${_ghostUids.length !== 1 ? 's' : ''} eliminado${_ghostUids.length !== 1 ? 's' : ''} del índice.`);
+    renderDashboard();
+  } catch(e) {
+    showToast('Error purgando: ' + (e.message || e.code));
   }
 }
 

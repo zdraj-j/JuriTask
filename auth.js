@@ -154,8 +154,20 @@ function initAuthUI() {
             await AUTH.logout();
             showAuthError('Ya existe una cuenta con ese correo.');
           }
-        } catch(_) {
-          showAuthError(friendlyAuthError(err.code));
+        } catch(signInErr) {
+          // Login falló (contraseña incorrecta u otro error)
+          // Verificar si el email fue eliminado por admin → guiar al usuario
+          try {
+            const delDoc = await db.collection('meta').doc('deletedEmails').get();
+            const deletedList = delDoc.exists ? (delDoc.data().emails || []) : [];
+            if (deletedList.includes(email)) {
+              showAuthError('Esta cuenta fue eliminada. Si quieres recuperar el acceso, usa "Olvidé mi contraseña" o contacta al administrador.');
+            } else {
+              showAuthError(friendlyAuthError(err.code));
+            }
+          } catch(_) {
+            showAuthError(friendlyAuthError(err.code));
+          }
         }
         setAuthLoading(false);
         return;

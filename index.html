@@ -268,7 +268,7 @@
         <div class="dash-kpi">
           <div class="dash-kpi-icon">👥</div>
           <div class="dash-kpi-value" id="kpiUsuarios">—</div>
-          <div class="dash-kpi-label">Activos / Total usuarios</div>
+          <div class="dash-kpi-label">Usuarios registrados</div>
         </div>
         <div class="dash-kpi">
           <div class="dash-kpi-icon">📂</div>
@@ -340,7 +340,10 @@
       <div class="dash-section">
         <div class="dash-section-header">
           <h3>👤 Usuarios activos</h3>
-          <button class="btn-small" id="dashCreateTeamBtn">＋ Crear equipo</button>
+          <div style="display:flex;gap:6px">
+            <button class="btn-small btn-warning" id="dashPurgeGhostsBtn" style="display:none" title="Eliminar UIDs del índice que no tienen cuenta en Firestore">🧹 Purgar fantasmas</button>
+            <button class="btn-small" id="dashCreateTeamBtn">＋ Crear equipo</button>
+          </div>
         </div>
         <div class="dash-table-wrap">
           <table class="dash-table">
