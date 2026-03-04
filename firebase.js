@@ -212,34 +212,24 @@ async function loadFromFirestore() {
   try {
     const metaDoc = await userRef().collection('meta').doc('config').get();
 
-    // Leer respaldo de localStorage para comparar timestamps
-    let lsConfig = null;
-    try {
-      const lsRaw = localStorage.getItem(KEYS.config);
-      if (lsRaw) lsConfig = JSON.parse(lsRaw);
-    } catch(_) {}
-
     if (metaDoc.exists) {
-      const fsConfig = metaDoc.data();
-      // Si localStorage tiene un guardado más reciente (ej. recarga antes del debounce),
-      // usar esos datos y sincronizarlos a Firestore
-      const useLocal = lsConfig?._savedAt && (!fsConfig._savedAt || lsConfig._savedAt > fsConfig._savedAt);
-      const configSrc = useLocal ? lsConfig : fsConfig;
+      // Firestore es la fuente de verdad: siempre usarla cuando existe
       STATE.config = Object.assign(
         { ...DEFAULT_CONFIG, abogados: DEFAULT_CONFIG.abogados.map(a=>({...a})), modulos:[...DEFAULT_CONFIG.modulos] },
-        configSrc
+        metaDoc.data()
       );
-      if (useLocal) {
-        // Sincronizar datos más recientes de localStorage a Firestore
-        saveConfigDebounced();
-      }
-    } else if (lsConfig) {
-      // No hay config en Firestore — usar localStorage como respaldo
-      STATE.config = Object.assign(
-        { ...DEFAULT_CONFIG, abogados: DEFAULT_CONFIG.abogados.map(a=>({...a})), modulos:[...DEFAULT_CONFIG.modulos] },
-        lsConfig
-      );
-      saveConfigDebounced(); // Subir a Firestore
+    } else {
+      // No hay config en Firestore — intentar recuperar de localStorage
+      try {
+        const lsRaw = localStorage.getItem(KEYS.config);
+        if (lsRaw) {
+          STATE.config = Object.assign(
+            { ...DEFAULT_CONFIG, abogados: DEFAULT_CONFIG.abogados.map(a=>({...a})), modulos:[...DEFAULT_CONFIG.modulos] },
+            JSON.parse(lsRaw)
+          );
+          saveConfigNow(); // Subir a Firestore
+        }
+      } catch(_) {}
     }
 
     const orderDoc = await userRef().collection('meta').doc('order').get();
@@ -304,25 +294,24 @@ function deleteTramiteFS(id) {
 }
 
 // ─── GUARDAR CONFIG + ORDER ───────────────────────────────────
+
+// Guardado inmediato de config en Firestore (llamado desde saveAll en storage.js)
+function saveConfigNow() {
+  if (!AUTH.userProfile?.uid) return;
+  userRef().collection('meta').doc('config').set(STATE.config)
+    .catch(e => console.error('Error guardando config:', e));
+}
+
+// Debounced: guarda order + tramites (config ya se guarda en saveConfigNow)
 let _fsConfigTimer = null;
 function saveConfigDebounced() {
   clearTimeout(_fsConfigTimer);
   _fsConfigTimer = setTimeout(() => {
     if (!AUTH.userProfile?.uid) return;
-    userRef().collection('meta').doc('config').set(STATE.config)
-      .catch(e => console.error('Error config:', e));
     userRef().collection('meta').doc('order').set({ order: STATE.order })
       .catch(e => console.error('Error order:', e));
     STATE.tramites.forEach(t => saveTramiteFS(t));
   }, 800);
-}
-
-// Guardado inmediato de config (sin debounce) — para cambios críticos como columns
-function saveConfigNow() {
-  if (!AUTH.userProfile?.uid) return;
-  clearTimeout(_fsConfigTimer);
-  userRef().collection('meta').doc('config').set(STATE.config)
-    .catch(e => console.error('Error guardando config:', e));
 }
 
 // ─── CAMBIOS DE SESIÓN ────────────────────────────────────────

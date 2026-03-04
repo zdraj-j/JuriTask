@@ -155,9 +155,7 @@ function setColumns(n) {
   STATE.config.columns = n;
   document.querySelectorAll('.col-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.cols) === n));
   document.querySelectorAll('.mob-col-btn').forEach(b => b.classList.toggle('active', parseInt(b.dataset.cols) === n));
-  saveAll();
-  if (typeof saveConfigNow === 'function') saveConfigNow();
-  renderAll();
+  saveAll(); renderAll();
 }
 
 function setDetailMode(mode) {
