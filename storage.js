@@ -112,12 +112,11 @@ const KEYS = {
  */
 let _saveTimer = null;
 function saveAll(immediate = false) {
-  // Marcar timestamp de guardado para comparación al cargar
-  STATE.config._savedAt = Date.now();
-
   if (typeof saveConfigDebounced === 'function') {
-    // Respaldo inmediato en localStorage + guardado en Firestore (debounced)
+    // Guardar config en Firestore de inmediato + localStorage como respaldo
+    // Order y tramites van debounced para evitar escrituras excesivas
     _flushSave();
+    if (typeof saveConfigNow === 'function') saveConfigNow();
     saveConfigDebounced();
     return;
   }
