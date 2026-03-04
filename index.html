@@ -646,34 +646,34 @@
     </div>
     <div class="modal-body">
       <div class="form-grid form-grid-3col">
-        <div class="form-group">
+        <div class="form-group" style="grid-column: span 3">
           <label>Número de trámite *</label>
           <input type="text" id="fNumero" placeholder="Ej: 2024-001" />
         </div>
-        <div class="form-group span2">
+        <div class="form-group" style="grid-column: span 7">
           <label>Descripción *</label>
           <input type="text" id="fDescripcion" placeholder="Describe el trámite…" />
         </div>
-        <div class="form-group">
+        <div class="form-group" style="grid-column: span 6">
           <label>Módulo *</label>
           <select id="fModulo"></select>
         </div>
-        <div class="form-group span2">
+        <div class="form-group" style="grid-column: span 4">
           <label>Tipo de trámite</label>
           <div class="toggle-group">
             <button type="button" class="toggle-btn active" id="tipoBtnAbogado">Compartido</button>
             <button type="button" class="toggle-btn" id="tipoBtnPropio">Solo yo</button>
           </div>
         </div>
-        <div class="form-group span2" id="fAbogadoWrap">
+        <div class="form-group" id="fAbogadoWrap" style="grid-column: span 7">
           <label>Colaborador</label>
           <select id="fAbogado"></select>
         </div>
-        <div class="form-group">
+        <div class="form-group" style="grid-column: span 3">
           <label>Fecha de vencimiento</label>
           <input type="date" id="fFechaVencimiento" />
         </div>
-        <div class="form-group span2" id="fScopeWrap">
+        <div class="form-group" id="fScopeWrap" style="grid-column: 1 / -1">
           <label>Alcance</label>
           <div class="toggle-group">
             <button type="button" class="toggle-btn active" id="scopeBtnPrivate">🔒 Privado</button>

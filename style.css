@@ -1446,7 +1446,7 @@ body {
 /* Fix 4: Modal 3 columnas */
 .form-grid-3col { grid-template-columns: 1fr 1fr 1fr !important; }
 .form-group.span2 { grid-column: span 2; }
-#tramiteModal .form-grid-3col { grid-template-columns: 0.75fr 1.25fr 0.9fr !important; }
+#tramiteModal .form-grid-3col { grid-template-columns: repeat(10, 1fr) !important; }
 @media (max-width: 768px) {
   .form-grid-3col { grid-template-columns: 1fr !important; }
   .form-group.span2 { grid-column: span 1; }
