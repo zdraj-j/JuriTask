@@ -107,11 +107,17 @@ const KEYS = {
 /**
  * saveAll con debounce de 400ms para evitar re-escrituras excesivas.
  * Las escrituras inline (blur, checkboxes) pasan por aquí.
+ * Siempre guarda en localStorage como respaldo inmediato, incluso cuando
+ * Firebase está activo, para sobrevivir recargas rápidas (Ctrl+Shift+R).
  */
 let _saveTimer = null;
 function saveAll(immediate = false) {
-  // Si Firebase está activo, delegar
+  // Marcar timestamp de guardado para comparación al cargar
+  STATE.config._savedAt = Date.now();
+
   if (typeof saveConfigDebounced === 'function') {
+    // Respaldo inmediato en localStorage + guardado en Firestore (debounced)
+    _flushSave();
     saveConfigDebounced();
     return;
   }
@@ -122,6 +128,9 @@ function saveAll(immediate = false) {
     _saveTimer = setTimeout(_flushSave, 400);
   }
 }
+
+// Asegurar guardado en localStorage antes de que la página se descargue
+window.addEventListener('beforeunload', () => _flushSave());
 
 function _flushSave() {
   try {

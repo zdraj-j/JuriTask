@@ -211,11 +211,35 @@ async function loadFromFirestore() {
 
   try {
     const metaDoc = await userRef().collection('meta').doc('config').get();
+
+    // Leer respaldo de localStorage para comparar timestamps
+    let lsConfig = null;
+    try {
+      const lsRaw = localStorage.getItem(KEYS.config);
+      if (lsRaw) lsConfig = JSON.parse(lsRaw);
+    } catch(_) {}
+
     if (metaDoc.exists) {
+      const fsConfig = metaDoc.data();
+      // Si localStorage tiene un guardado más reciente (ej. recarga antes del debounce),
+      // usar esos datos y sincronizarlos a Firestore
+      const useLocal = lsConfig?._savedAt && (!fsConfig._savedAt || lsConfig._savedAt > fsConfig._savedAt);
+      const configSrc = useLocal ? lsConfig : fsConfig;
       STATE.config = Object.assign(
         { ...DEFAULT_CONFIG, abogados: DEFAULT_CONFIG.abogados.map(a=>({...a})), modulos:[...DEFAULT_CONFIG.modulos] },
-        metaDoc.data()
+        configSrc
       );
+      if (useLocal) {
+        // Sincronizar datos más recientes de localStorage a Firestore
+        saveConfigDebounced();
+      }
+    } else if (lsConfig) {
+      // No hay config en Firestore — usar localStorage como respaldo
+      STATE.config = Object.assign(
+        { ...DEFAULT_CONFIG, abogados: DEFAULT_CONFIG.abogados.map(a=>({...a})), modulos:[...DEFAULT_CONFIG.modulos] },
+        lsConfig
+      );
+      saveConfigDebounced(); // Subir a Firestore
     }
 
     const orderDoc = await userRef().collection('meta').doc('order').get();
