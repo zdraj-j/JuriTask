@@ -13,14 +13,23 @@
 // ============================================================
 // BACKUPS
 // ============================================================
+/**
+ * Elimina recursivamente propiedades `undefined` de un objeto/array
+ * para que Firestore no rechace la escritura.
+ */
+function sanitizeForFirestore(obj) {
+  return JSON.parse(JSON.stringify(obj));
+}
+
 async function createBackup() {
   if (!AUTH.userProfile?.uid) return;
-  await db.collection('users').doc(AUTH.userProfile.uid).collection('backups').add({
+  const data = {
     creadoEn: new Date().toISOString(),
-    tramites: STATE.tramites,
-    order:    STATE.order,
-    config:   STATE.config,
-  });
+    tramites: sanitizeForFirestore(STATE.tramites),
+    order:    sanitizeForFirestore(STATE.order),
+    config:   sanitizeForFirestore(STATE.config),
+  };
+  await db.collection('users').doc(AUTH.userProfile.uid).collection('backups').add(data);
 }
 
 async function renderBackupList() {
@@ -70,14 +79,22 @@ async function deleteBackup(id) {
 
 let _autoBackupTimers = [];
 
+function stopAutoBackup() {
+  _autoBackupTimers.forEach(id => { clearTimeout(id); clearInterval(id); });
+  _autoBackupTimers = [];
+}
+
 function startAutoBackup() {
   if (!AUTH.userProfile?.uid) return;
-  if (_autoBackupTimers.length) return; // evitar timers duplicados
+
+  // Limpiar timers anteriores (cambio de cuenta sin recargar)
+  stopAutoBackup();
 
   const RETENTION = 7 * 24 * 60 * 60 * 1000; // conservar 7 días
   const SCHEDULE  = [ [8, 0], [13, 20], [16, 20] ]; // horas programadas
 
   async function runBackupCycle() {
+    if (!AUTH.userProfile?.uid) return;
     try {
       await createBackup();
       // eliminar backups con más de 7 días
@@ -100,7 +117,6 @@ function startAutoBackup() {
     const DAY = 24 * 60 * 60 * 1000;
     const id = setTimeout(() => {
       runBackupCycle();
-      // repetir cada 24h a partir de esta hora
       const intervalId = setInterval(runBackupCycle, DAY);
       _autoBackupTimers.push(intervalId);
     }, msUntil(hour, min));
