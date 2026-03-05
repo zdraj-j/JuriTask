@@ -68,14 +68,14 @@ async function deleteBackup(id) {
   renderBackupList(); showToast('Backup eliminado.');
 }
 
-let _autoBackupTimer = null;
+let _autoBackupTimers = [];
 
 function startAutoBackup() {
   if (!AUTH.userProfile?.uid) return;
-  if (_autoBackupTimer) return; // evitar timers duplicados
+  if (_autoBackupTimers.length) return; // evitar timers duplicados
 
-  const INTERVAL = 6 * 60 * 60 * 1000;   // cada 6 horas
   const RETENTION = 7 * 24 * 60 * 60 * 1000; // conservar 7 días
+  const SCHEDULE  = [ [8, 0], [13, 20], [16, 20] ]; // horas programadas
 
   async function runBackupCycle() {
     try {
@@ -88,9 +88,28 @@ function startAutoBackup() {
     } catch (e) { console.warn('Error backup automático:', e); }
   }
 
+  function msUntil(hour, min) {
+    const now = new Date();
+    const target = new Date(now);
+    target.setHours(hour, min, 0, 0);
+    if (target <= now) target.setDate(target.getDate() + 1);
+    return target - now;
+  }
+
+  function scheduleDaily(hour, min) {
+    const DAY = 24 * 60 * 60 * 1000;
+    const id = setTimeout(() => {
+      runBackupCycle();
+      // repetir cada 24h a partir de esta hora
+      const intervalId = setInterval(runBackupCycle, DAY);
+      _autoBackupTimers.push(intervalId);
+    }, msUntil(hour, min));
+    _autoBackupTimers.push(id);
+  }
+
   // backup inmediato para garantizar que todo usuario tenga al menos uno
   runBackupCycle();
-  _autoBackupTimer = setInterval(runBackupCycle, INTERVAL);
+  SCHEDULE.forEach(([h, m]) => scheduleDaily(h, m));
 }
 
 // ============================================================
