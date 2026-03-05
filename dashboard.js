@@ -68,17 +68,29 @@ async function deleteBackup(id) {
   renderBackupList(); showToast('Backup eliminado.');
 }
 
+let _autoBackupTimer = null;
+
 function startAutoBackup() {
   if (!AUTH.userProfile?.uid) return;
-  setInterval(async () => {
+  if (_autoBackupTimer) return; // evitar timers duplicados
+
+  const INTERVAL = 6 * 60 * 60 * 1000;   // cada 6 horas
+  const RETENTION = 7 * 24 * 60 * 60 * 1000; // conservar 7 días
+
+  async function runBackupCycle() {
     try {
       await createBackup();
-      const cutoff = new Date(Date.now() - 24*60*60*1000).toISOString();
+      // eliminar backups con más de 7 días
+      const cutoff = new Date(Date.now() - RETENTION).toISOString();
       const old = await db.collection('users').doc(AUTH.userProfile.uid)
-        .collection('backups').where('creadoEn','<',cutoff).get();
+        .collection('backups').where('creadoEn', '<', cutoff).get();
       old.forEach(doc => doc.ref.delete());
-    } catch(e) { console.warn('Error backup automático:', e); }
-  }, 2*60*60*1000);
+    } catch (e) { console.warn('Error backup automático:', e); }
+  }
+
+  // backup inmediato para garantizar que todo usuario tenga al menos uno
+  runBackupCycle();
+  _autoBackupTimer = setInterval(runBackupCycle, INTERVAL);
 }
 
 // ============================================================
