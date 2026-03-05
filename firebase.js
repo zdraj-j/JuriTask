@@ -236,7 +236,7 @@ async function loadFromFirestore() {
     }
 
     const orderDoc = await userRef().collection('meta').doc('order').get();
-    if (orderDoc.exists) STATE.order = orderDoc.data().order || [];
+    STATE.order = orderDoc.exists ? (orderDoc.data().order || []) : [];
 
     const snap = await userRef().collection('tramites').get();
     STATE.tramites = [];
@@ -422,9 +422,31 @@ auth.onAuthStateChanged(async user => {
     }
 
   } else {
-    // Sin sesión
+    // Sin sesión — limpiar TODO el estado para evitar fugas entre cuentas
     AUTH.userProfile = null;
     if (typeof stopNotifications === 'function') stopNotifications();
+    if (typeof stopAutoBackup   === 'function') stopAutoBackup();
+
+    // Limpiar estado en memoria
+    STATE.tramites = [];
+    STATE.order    = [];
+    STATE.config   = {
+      ...DEFAULT_CONFIG,
+      abogados: DEFAULT_CONFIG.abogados.map(a => ({ ...a })),
+      modulos:  [...DEFAULT_CONFIG.modulos],
+    };
+
+    // Limpiar localStorage para que no queden datos del usuario anterior
+    try {
+      localStorage.removeItem(KEYS.tramites);
+      localStorage.removeItem(KEYS.order);
+      localStorage.removeItem(KEYS.config);
+    } catch(_) {}
+
+    // Limpiar el DOM de trámites renderizados
+    const tramiteList = document.getElementById('tramiteList');
+    if (tramiteList) tramiteList.innerHTML = '';
+
     hideWaitScreen();
     hideSplash();
     if (appEl)     appEl.style.display     = 'none';
