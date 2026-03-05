@@ -113,6 +113,9 @@ async function ensureUserProfile(user, preApproved = false) {
   if (!existing.creadoEn)                        patch.creadoEn    = new Date().toISOString();
   if (existing.approved === undefined) patch.approved = true;
   if (existing.blocked  === undefined) patch.blocked  = false;
+  // Pre-aprobación con invitación: si el perfil fue creado sin invitación
+  // (por race condition con onAuthStateChanged), actualizarlo ahora
+  if (preApproved && existing.approved === false) patch.approved = true;
   if (Object.keys(patch).length) {
     await uRef.update(patch).catch(() => uRef.set(patch, { merge: true }));
   }
@@ -352,12 +355,20 @@ auth.onAuthStateChanged(async user => {
         AUTH.userProfile.teamId      = d.teamId  || null;
         AUTH.userProfile.displayName = d.displayName || AUTH.userProfile.displayName;
 
-        // Correo no verificado (solo cuentas email+pass, no Google/admin)
+        // Correo no verificado (solo cuentas email+pass)
         const isEmailPass = user.providerData?.[0]?.providerId === 'password';
-        if (isEmailPass && !user.emailVerified && d.role !== 'admin') {
-          // Seguir esperando en la pantalla de verificación
-          showWaitScreen('verify', user.email);
-          return;
+        if (isEmailPass && !user.emailVerified) {
+          // Recargar estado del usuario para detectar verificación reciente (token cacheado)
+          try {
+            await user.reload();
+          } catch(_) {}
+          if (!auth.currentUser?.emailVerified) {
+            // Seguir esperando en la pantalla de verificación
+            // Enviar correo de verificación si no se ha enviado aún
+            try { await AUTH.sendVerificationEmail(auth.currentUser); } catch(_) {}
+            showWaitScreen('verify', user.email);
+            return;
+          }
         }
 
         // Cuenta no aprobada → mostrar pantalla de espera
@@ -371,10 +382,13 @@ auth.onAuthStateChanged(async user => {
         AUTH.userProfile.role = await ensureUserProfile(user);
         // Si es email+pass y no está verificado, enviar correo
         const isEmailPass = user.providerData?.[0]?.providerId === 'password';
-        if (isEmailPass && !user.emailVerified && AUTH.userProfile.role !== 'admin') {
-          try { await AUTH.sendVerificationEmail(user); } catch(_) {}
-          showWaitScreen('verify', user.email);
-          return;
+        if (isEmailPass && !user.emailVerified) {
+          try { await user.reload(); } catch(_) {}
+          if (!auth.currentUser?.emailVerified) {
+            try { await AUTH.sendVerificationEmail(auth.currentUser || user); } catch(_) {}
+            showWaitScreen('verify', user.email);
+            return;
+          }
         }
       }
     } catch(e) {
