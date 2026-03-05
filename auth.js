@@ -120,14 +120,26 @@ function initAuthUI() {
 
       setAuthLoading(false);
 
+      // Enviar correo de verificación para TODOS los registros email+pass
+      // (incluso admin y usuarios con invitación necesitan verificar email para acceder a datos)
+      if (!cred.user.emailVerified) {
+        try { await AUTH.sendVerificationEmail(cred.user); } catch(_) {}
+      }
+
+      // Con invitación: asegurar que approved=true (safety contra race condition)
+      if (hasValidInvite) {
+        try {
+          await db.collection('users').doc(cred.user.uid).update({ approved: true });
+        } catch(_) {}
+      }
+
       // Primer admin o usuario con invitación: onAuthStateChanged carga la app directamente
       if (role === 'admin' || hasValidInvite) {
         // onAuthStateChanged se encarga
         return;
       }
 
-      // Sin invitación: enviar verificación y mostrar pantalla de espera
-      try { await AUTH.sendVerificationEmail(cred.user); } catch(_) {}
+      // Sin invitación: mostrar pantalla de espera
       showWaitScreen('verify', email);
 
     } catch(err) {
@@ -145,9 +157,17 @@ function initAuthUI() {
                 used: true, usedBy: signInCred.user.uid, usedAt: new Date().toISOString(),
               }).catch(() => {});
             }
+            // Enviar verificación para todos los registros email+pass
+            if (!signInCred.user.emailVerified) {
+              try { await AUTH.sendVerificationEmail(signInCred.user); } catch(_) {}
+            }
+            if (hasValidInvite) {
+              try {
+                await db.collection('users').doc(signInCred.user.uid).update({ approved: true });
+              } catch(_) {}
+            }
             setAuthLoading(false);
             if (role === 'admin' || hasValidInvite) return; // onAuthStateChanged carga app
-            try { await AUTH.sendVerificationEmail(signInCred.user); } catch(_) {}
             showWaitScreen('verify', email);
             return;
           } else {

@@ -59,14 +59,24 @@ service cloud.firestore {
       //  antes de que el correo esté verificado)
       allow read: if isSelf(uid) || isAdmin();
 
-      // CREAR el propio perfil: solo necesita estar autenticado
+      // CREAR el propio perfil: solo necesita estar autenticado.
       // (el correo aún no está verificado cuando se registra con email+pass)
-      // No puede asignarse rol admin ni approved:true por sí mismo.
+      // approved puede ser true (pre-aprobación con invitación válida).
+      // role solo puede ser 'admin' si es el primer usuario del sistema.
       allow create: if isSelf(uid)
                     && isAuthed()
-                    && (!('role'     in request.resource.data) || request.resource.data.role     == 'user')
-                    && (!('approved' in request.resource.data) || request.resource.data.approved == false)
-                    && (!('blocked'  in request.resource.data) || request.resource.data.blocked  == false);
+                    && (!('blocked'  in request.resource.data) || request.resource.data.blocked  == false)
+                    && (
+                      // Usuario normal: role debe ser 'user' (approved puede ser true para invitaciones)
+                      (!('role' in request.resource.data) || request.resource.data.role == 'user')
+                      // Primer usuario: puede asignarse admin si no hay nadie registrado aún
+                      || (request.resource.data.role == 'admin'
+                          && (
+                            !exists(/databases/$(database)/documents/meta/userIndex)
+                            || !('uids' in get(/databases/$(database)/documents/meta/userIndex).data)
+                            || get(/databases/$(database)/documents/meta/userIndex).data.uids.size() == 0
+                          ))
+                    );
 
       // ACTUALIZAR: el admin puede todo; el usuario solo sus campos no sensibles.
       // Excepción: un usuario puede aprobarse a sí mismo (approved: false → true)
