@@ -57,7 +57,8 @@ async function renderBackupList() {
       el.appendChild(row);
     });
   } catch(e) {
-    el.innerHTML = '<p style="font-size:13px;color:var(--danger)">Error cargando backups.</p>';
+    console.error('Error cargando backups:', e);
+    el.innerHTML = `<p style="font-size:13px;color:var(--danger)">Error cargando backups: ${e.code || e.message}</p>`;
   }
 }
 

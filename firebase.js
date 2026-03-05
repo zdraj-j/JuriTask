@@ -16,6 +16,7 @@ firebase.initializeApp(firebaseConfig);
 
 const auth = firebase.auth();
 const db   = firebase.firestore();
+db.settings({ ignoreUndefinedProperties: true });
 
 // URL de la app (para continueUrl en correos de verificación)
 const APP_URL = 'https://zdraj-j.github.io/JuriTask/';
@@ -395,7 +396,11 @@ auth.onAuthStateChanged(async user => {
       console.warn('Error leyendo perfil:', e);
     }
 
-    // ── Usuario OK: cargar la app ─────────────────────────
+    // ── Usuario OK: refrescar token y cargar la app ───────
+    // Forzar refresco del token para que Firestore Rules vea
+    // email_verified=true y approved=true sin cache viejo.
+    try { await user.getIdToken(true); } catch(_) {}
+
     hideWaitScreen();
     hideSplash();
     await loadFromFirestore();
