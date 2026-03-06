@@ -64,7 +64,7 @@ service cloud.firestore {
       // LEER el propio perfil: solo necesita estar autenticado
       // (necesario para que onAuthStateChanged compruebe approved/blocked
       //  antes de que el correo esté verificado)
-      allow read: if isSelf(uid) || isAdmin();
+      allow read: if isSelf(uid) || isAdmin() || isTeammate(uid);
 
       // CREAR el propio perfil: solo necesita estar autenticado.
       // (el correo aún no está verificado cuando se registra con email+pass)

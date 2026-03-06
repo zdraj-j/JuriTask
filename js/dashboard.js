@@ -551,15 +551,27 @@ async function saveTeam() {
   const id      = document.getElementById('editTeamId').value;
   const data    = { nombre, members, actualizadoEn: new Date().toISOString() };
   let teamId;
+  // Leer miembros anteriores ANTES de actualizar (para saber quién fue removido)
+  let oldMembers = [];
   if (id) {
+    try {
+      const oldDoc = await db.collection('teams').doc(id).get();
+      oldMembers = oldDoc.exists ? (oldDoc.data().members || []) : [];
+    } catch(_) {}
     await db.collection('teams').doc(id).update(data); teamId = id;
   } else {
     data.creadoEn = new Date().toISOString();
     const ref = await db.collection('teams').add(data); teamId = ref.id;
   }
-  for (const u of _dashUsers) {
-    const en = members.includes(u.uid);
-    await db.collection('users').doc(u.uid).update({ teamId: en ? teamId : null }).catch(()=>{});
+  // Asignar teamId a los miembros seleccionados
+  for (const uid of members) {
+    await db.collection('users').doc(uid).update({ teamId }).catch(()=>{});
+  }
+  // Limpiar teamId solo de usuarios que estaban en ESTE equipo y fueron removidos
+  for (const uid of oldMembers) {
+    if (!members.includes(uid)) {
+      await db.collection('users').doc(uid).update({ teamId: null }).catch(()=>{});
+    }
   }
   showToast(`✓ Equipo "${nombre}" guardado.`);
   closeTeamModal(); renderDashboard();
