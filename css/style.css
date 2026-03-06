@@ -28,6 +28,7 @@
   --shadow-lg:  0 12px 36px rgba(17,24,39,.14);
   --overlay-bg: rgba(8,12,26,.52);
   --print-bg:   #fff;
+  --icon-active-filter: brightness(0) saturate(100%) invert(30%) sepia(90%) saturate(2000%) hue-rotate(225deg) brightness(95%);
 }
 
 /* ── TEMA: OSCURO ─────────────────────────────────── */
@@ -55,6 +56,8 @@
   --shadow-lg:  0 12px 36px rgba(0,0,0,.65);
   --overlay-bg: rgba(0,0,0,.72);
   --print-bg:   #fff;
+  --icon-base-filter: invert(70%);
+  --icon-active-filter: brightness(0) saturate(100%) invert(50%) sepia(60%) saturate(2000%) hue-rotate(215deg) brightness(110%);
 }
 
 /* ── TEMA: SEPIA ──────────────────────────────────── */
@@ -82,6 +85,7 @@
   --shadow-lg:  0 12px 36px rgba(40,32,15,.2);
   --overlay-bg: rgba(25,18,5,.58);
   --print-bg:   #fff;
+  --icon-active-filter: brightness(0) saturate(100%) invert(30%) sepia(80%) saturate(600%) hue-rotate(15deg) brightness(90%);
 }
 
 /* ── TEMA: PIZARRA ────────────────────────────────── */
@@ -109,6 +113,8 @@
   --shadow-lg:  0 12px 36px rgba(0,0,0,.72);
   --overlay-bg: rgba(0,0,0,.72);
   --print-bg:   #fff;
+  --icon-base-filter: invert(70%);
+  --icon-active-filter: brightness(0) saturate(100%) invert(55%) sepia(70%) saturate(800%) hue-rotate(185deg) brightness(105%);
 }
 
 /* ── CONSTANTES ─────────────────────────────────────── */
@@ -203,7 +209,10 @@ body {
   font-weight: 600;
 }
 .nav-icon { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
-.nav-icon svg { display: block; }
+.nav-icon img, .btn-icon img { filter: var(--icon-base-filter, none); transition: opacity var(--transition), filter var(--transition); }
+.nav-icon img { opacity: .55; }
+.nav-item:hover .nav-icon img { opacity: .8; }
+.nav-item.active .nav-icon img { opacity: 1; filter: var(--icon-active-filter, none); }
 
 .badge {
   margin-left: auto; background: var(--danger); color: #fff;
