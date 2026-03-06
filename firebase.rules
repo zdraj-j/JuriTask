@@ -51,6 +51,13 @@ service cloud.firestore {
       return request.auth != null && request.auth.uid == uid;
     }
 
+    // El solicitante y el usuario destino están en el mismo equipo
+    function isTeammate(uid) {
+      return userDoc().data.teamId != null
+          && exists(/databases/$(database)/documents/users/$(uid))
+          && get(/databases/$(database)/documents/users/$(uid)).data.teamId == userDoc().data.teamId;
+    }
+
     // ── /users/{uid} ───────────────────────────────────────────
     match /users/{uid} {
 
@@ -97,13 +104,17 @@ service cloud.firestore {
 
       // Subcolecciones: solo con correo verificado y cuenta aprobada
       match /tramites/{tramiteId} {
-        allow read, write: if isApproved() && (isSelf(uid) || isAdmin());
+        allow read, write: if isApproved() && (isSelf(uid) || isAdmin() || isTeammate(uid));
       }
       match /meta/{docId} {
         allow read, write: if isApproved() && isSelf(uid);
       }
       match /backups/{backupId} {
         allow read, write: if isApproved() && isSelf(uid);
+      }
+      match /notifications/{notifId} {
+        allow read, write: if isApproved() && isSelf(uid);
+        allow create: if isApproved() && (isAdmin() || isTeammate(uid));
       }
     }
 
