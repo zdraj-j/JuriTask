@@ -4,8 +4,8 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
   <title>JuriTask</title>
-  <link rel="icon" type="image/png" href="favicon.png" />
-  <link rel="stylesheet" href="style.css" />
+  <link rel="icon" type="image/png" href="assets/logo/favicon.png" />
+  <link rel="stylesheet" href="css/style.css" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -16,7 +16,7 @@
      SPLASH SCREEN (mientras se determina sesión)
      ============================================================ -->
 <div id="splashScreen" style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:#f0f0f0;flex-direction:column;gap:16px">
-  <img src="logo.png" alt="JuriTask" style="height:56px;object-fit:contain;opacity:.9" onerror="this.style.display='none'" />
+  <img src="assets/logo/logo.png" alt="JuriTask" style="height:56px;object-fit:contain;opacity:.9" onerror="this.style.display='none'" />
   <div style="width:32px;height:32px;border:3px solid rgba(0,0,0,.12);border-top-color:#6e8efb;border-radius:50%;animation:spin .7s linear infinite"></div>
   <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
 </div>
@@ -28,7 +28,7 @@
   <div class="auth-bg"></div>
   <div class="auth-card">
     <div class="auth-logo">
-      <img src="logo.png" alt="JuriTask" style="height:48px;object-fit:contain;" onerror="this.style.display='none';this.nextElementSibling.style.display='block'" />
+      <img src="assets/logo/logo.png" alt="JuriTask" style="height:48px;object-fit:contain;" onerror="this.style.display='none';this.nextElementSibling.style.display='block'" />
       <span style="display:none">⚖ <strong>JuriTask</strong></span>
     </div>
     <p class="auth-tagline">Gestión de trámites inteligente</p>
@@ -134,18 +134,18 @@
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-header">
     <div class="logo">
-      <img src="logo.png" alt="JuriTask" class="logo-img" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />
+      <img src="assets/logo/logo.png" alt="JuriTask" class="logo-img" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />
       <span class="logo-fallback">⚖ JuriTask</span>
     </div>
     <button class="sidebar-toggle" id="sidebarToggle" title="Cerrar menú">✕</button>
   </div>
   <nav class="sidebar-nav">
-    <button class="nav-item active"  data-view="all">      <span class="nav-icon">◈</span> Todos los trámites</button>
-    <button class="nav-item"         data-view="today">    <span class="nav-icon">◉</span> Hoy / Vencidos<span class="badge" id="todayBadge">0</span></button>
-    <button class="nav-item"         data-view="calendar"> <span class="nav-icon">📅</span> Calendario</button>
-    <button class="nav-item"         data-view="finished"> <span class="nav-icon">◎</span> Terminados</button>
-    <button class="nav-item dash-nav-item" data-view="dashboard" style="display:none"><span class="nav-icon">🛡</span> Dashboard Admin</button>
-    <button class="nav-item"         data-view="config">   <span class="nav-icon">◫</span> Configuración</button>
+    <button class="nav-item active"  data-view="all">      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 7v7"/><path d="M12 7v4"/><path d="M16 7v9"/></svg></span> Todos los trámites</button>
+    <button class="nav-item"         data-view="today">    <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6v6l2 1"/><path d="M12.337 21.994a10 10 0 1 1 9.588-8.767"/><path d="m14 18 4 4 4-4"/><path d="M18 14v8"/></svg></span> Hoy / Vencidos<span class="badge" id="todayBadge">0</span></button>
+    <button class="nav-item"         data-view="calendar"> <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M3 10h18"/><path d="M8 2v4"/><path d="M17 14h-6"/><path d="M13 18H7"/><path d="M7 14h.01"/><path d="M17 18h.01"/></svg></span> Calendario</button>
+    <button class="nav-item"         data-view="finished"> <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span> Terminados</button>
+    <button class="nav-item dash-nav-item" data-view="dashboard" style="display:none"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v1.258"/><path d="M16 3v5.46"/><path d="M21 9.118V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5.75"/><path d="M22 17.5c0 2.499-1.75 3.749-3.83 4.474a.5.5 0 0 1-.335-.005c-2.085-.72-3.835-1.97-3.835-4.47V14a.5.5 0 0 1 .5-.499c1 0 2.25-.6 3.12-1.36a.6.6 0 0 1 .76-.001c.875.765 2.12 1.36 3.12 1.36a.5.5 0 0 1 .5.5z"/><path d="M3 15h7"/><path d="M3 9h12.142"/><path d="M8 15v6"/><path d="M8 3v6"/></svg></span> Dashboard Admin</button>
+    <button class="nav-item"         data-view="config">   <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><circle cx="12" cy="12" r="4"/></svg></span> Configuración</button>
   </nav>
   <div class="sidebar-filters" id="sidebarFilters">
     <button class="filter-toggle-btn" id="filtersToggle">
@@ -201,10 +201,10 @@
         <button class="col-btn" data-cols="2">⊟</button>
         <button class="col-btn" data-cols="3">⊞</button>
       </div>
-      <button class="btn-icon" id="reportBtn" title="Reporte de hoy">📋</button>
+      <button class="btn-icon" id="reportBtn" title="Reporte de hoy"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 14v2.2l1.6 1"/><path d="M16 2v4"/><path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/><path d="M3 10h5"/><path d="M8 2v4"/><circle cx="16" cy="16" r="6"/></svg></button>
       <button class="btn btn-primary" id="newTramiteBtn" style="font-size:13px;padding:7px 14px">+ Nuevo trámite</button>
       <button class="btn-icon notif-btn" id="notifBtn" title="Notificaciones" style="position:relative">
-        🔔<span class="notif-badge" id="notifBadge" style="display:none">0</span>
+        <svg id="notifBellIcon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg><span class="notif-badge" id="notifBadge" style="display:none">0</span>
       </button>
       <button class="btn-icon mob-opts-btn" id="mobOptsBtn" style="display:none">⋮</button>
     </div>
@@ -782,26 +782,26 @@
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
 
 <!-- 2. Base de la app -->
-<script src="storage.js"></script>
-<script src="tramites.js"></script>
-<script src="filters.js"></script>
-<script src="calendar.js"></script>
-<script src="ui.js"></script>
+<script src="js/storage.js"></script>
+<script src="js/tramites.js"></script>
+<script src="js/filters.js"></script>
+<script src="js/calendar.js"></script>
+<script src="js/ui.js"></script>
 
 <!-- 3. Firebase: inicialización + firestore -->
-<script src="firebase.js"></script>
+<script src="js/firebase.js"></script>
 
 <!-- 4. Auth UI: login, registro, perfil, logout -->
-<script src="auth.js"></script>
+<script src="js/auth.js"></script>
 
 <!-- 5. Dashboard: backups + admin -->
-<script src="dashboard.js"></script>
+<script src="js/dashboard.js"></script>
 
 <!-- 6. Sistema de notificaciones -->
-<script src="notifications.js"></script>
+<script src="js/notifications.js"></script>
 
 <!-- 7. Orquestador general (debe ir de último) -->
-<script src="config.js"></script>
+<script src="js/config.js"></script>
 
 </body>
 </html>
