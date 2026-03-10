@@ -33,49 +33,19 @@
     </div>
     <p class="auth-tagline">Gestión de trámites inteligente</p>
 
-    <div class="auth-tabs">
-      <button class="auth-tab active" data-tab="login">Iniciar sesión</button>
-      <button class="auth-tab" data-tab="register">Registrarse</button>
-    </div>
-
     <div id="authError" class="auth-message" style="display:none"></div>
 
     <!-- LOGIN -->
     <form id="loginForm">
       <div class="auth-field">
-        <label>Correo electrónico</label>
-        <input type="email" id="loginEmail" placeholder="correo@ejemplo.com" autocomplete="email" />
+        <label>Correo o nombre de usuario</label>
+        <input type="text" id="loginEmail" placeholder="correo@ejemplo.com o usuario" autocomplete="username" />
       </div>
       <div class="auth-field">
         <label>Contraseña</label>
         <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" />
       </div>
       <button type="submit" class="btn btn-primary auth-submit-btn">Iniciar sesión</button>
-    </form>
-
-    <!-- REGISTER -->
-    <form id="registerForm" style="display:none">
-      <div class="auth-field">
-        <label>Nombre completo</label>
-        <input type="text" id="regName" placeholder="Tu nombre" autocomplete="name" />
-      </div>
-      <div class="auth-field">
-        <label>Correo electrónico</label>
-        <input type="email" id="regEmail" placeholder="correo@ejemplo.com" autocomplete="email" />
-      </div>
-      <div class="auth-field">
-        <label>Contraseña</label>
-        <input type="password" id="regPass" placeholder="Mínimo 6 caracteres" autocomplete="new-password" />
-      </div>
-      <div class="auth-field">
-        <label>Confirmar contraseña</label>
-        <input type="password" id="regPass2" placeholder="Repite la contraseña" autocomplete="new-password" />
-      </div>
-      <div class="auth-field" id="inviteCodeField">
-        <label>Código de invitación <span style="font-size:11px;color:var(--text-muted);font-weight:400">(opcional — si no tienes, dejarlo vacío)</span></label>
-        <input type="text" id="regInviteCode" placeholder="Ej: AB1CD2EF" autocomplete="off" style="text-transform:uppercase;letter-spacing:2px" />
-      </div>
-      <button type="submit" class="btn btn-primary auth-submit-btn">Crear cuenta</button>
     </form>
 
     <!-- RESET -->
@@ -86,14 +56,10 @@
         <input type="email" id="resetEmail" placeholder="correo@ejemplo.com" autocomplete="email" />
       </div>
       <button type="submit" class="btn btn-primary auth-submit-btn">Enviar enlace</button>
+      <button type="button" class="auth-link-btn" id="backToLoginBtn">← Volver a iniciar sesión</button>
     </form>
 
     <div class="auth-divider"><span>o</span></div>
-    <div id="googleInviteWrap" style="margin-bottom:8px">
-      <input type="text" id="googleInviteCode" placeholder="Código de invitación (si tienes)"
-             autocomplete="off"
-             style="text-transform:uppercase;letter-spacing:2px;width:100%;padding:9px 12px;border:1px solid var(--border,#dde1eb);border-radius:8px;font-size:13px;background:var(--surface-2,#f7f8fb);color:var(--text-primary,#111827);box-sizing:border-box;outline:none" />
-    </div>
     <button class="btn-google-login" type="button">
       <svg width="18" height="18" viewBox="0 0 48 48">
         <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.2l6.7-6.7C35.8 2.5 30.3 0 24 0 14.6 0 6.6 5.4 2.5 13.3l7.8 6C12.1 13.2 17.6 9.5 24 9.5z"/>
@@ -397,23 +363,22 @@
         </div>
       </div>
 
-      <!-- Invitaciones de usuarios -->
-      <div class="dash-section" id="invitationsSection">
+      <!-- Crear usuario (admin) -->
+      <div class="dash-section" id="createUserSection" style="display:none">
         <div class="dash-section-header">
-          <h3>✉️ Invitar usuarios</h3>
+          <h3>👤 Crear usuario</h3>
         </div>
-        <div style="background:var(--surface-2);border-radius:12px;padding:18px 20px;margin-bottom:18px">
-          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">Genera un link de invitación. El usuario que lo use se registra y accede directamente, sin necesidad de aprobación manual.</p>
+        <div style="background:var(--surface-2);border-radius:12px;padding:18px 20px">
+          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">Crea un usuario con nombre de usuario y contraseña. El usuario se aprueba automáticamente y puede iniciar sesión de inmediato.</p>
           <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
-            <input type="email" id="inviteEmailInput" placeholder="correo@ejemplo.com" style="flex:1;min-width:180px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text-primary)" />
-            <input type="text"  id="inviteNoteInput"  placeholder="Nota (opcional)" style="flex:1;min-width:140px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text-primary)" />
-            <button class="btn btn-primary" id="createInviteBtn">＋ Crear invitación</button>
+            <input type="text" id="newUserDisplayName" placeholder="Nombre completo" style="flex:1;min-width:140px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text-primary)" />
+            <input type="text" id="newUserUsername" placeholder="Nombre de usuario" autocomplete="off" style="flex:1;min-width:140px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text-primary)" />
           </div>
-          <div id="inviteResult"></div>
-        </div>
-        <p style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:10px;padding:0 20px">Invitaciones recientes</p>
-        <div id="invitationsList" style="padding:0 20px 16px">
-          <p style="font-size:13px;color:var(--text-muted);font-style:italic">Cargando…</p>
+          <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
+            <input type="password" id="newUserPassword" placeholder="Contraseña (mín. 6 caracteres)" autocomplete="new-password" style="flex:1;min-width:180px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text-primary)" />
+            <button class="btn btn-primary" id="adminCreateUserBtn">＋ Crear usuario</button>
+          </div>
+          <div id="createUserResult"></div>
         </div>
       </div>
 
@@ -423,13 +388,16 @@
           <h3>📢 Enviar mensaje a usuarios</h3>
         </div>
         <div style="background:var(--surface-2);border-radius:12px;padding:18px 20px">
-          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">El mensaje aparecerá como notificación en la campana de todos los usuarios (o uno específico).</p>
+          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:14px">El mensaje aparecerá como notificación en la campana del usuario seleccionado o de todos.</p>
           <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:10px">
             <textarea id="adminMsgText" placeholder="Escribe tu mensaje…" rows="2"
               style="flex:1;min-width:200px;padding:9px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text-primary);resize:vertical;font-family:inherit"></textarea>
           </div>
-          <div style="display:flex;gap:8px;flex-wrap:wrap">
-            <button class="btn btn-primary" id="adminMsgBroadcastBtn">📢 Enviar a todos</button>
+          <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap">
+            <select id="adminMsgTarget" style="padding:8px 12px;border:1px solid var(--border);border-radius:8px;font-size:13px;background:var(--surface);color:var(--text-primary);min-width:180px">
+              <option value="all">Todos los usuarios</option>
+            </select>
+            <button class="btn btn-primary" id="adminMsgBroadcastBtn">📢 Enviar</button>
           </div>
         </div>
       </div>
@@ -525,27 +493,55 @@
 
         <div class="config-section">
           <h3>Visualización</h3>
-          <div class="config-row"><label>Modo de detalle</label>
-            <div class="toggle-group">
-              <button class="toggle-btn" id="modeExpand">Expandir</button>
-              <button class="toggle-btn" id="modeModal">Modal</button>
+          <div class="config-vis-grid">
+            <div class="config-vis-item">
+              <label>Modo de detalle</label>
+              <div class="toggle-group">
+                <button class="toggle-btn" id="modeExpand">Expandir</button>
+                <button class="toggle-btn" id="modeModal">Modal</button>
+              </div>
+            </div>
+            <div class="config-vis-item">
+              <label>Días restantes en tarjetas</label>
+              <label class="switch"><input type="checkbox" id="diasRestantesToggle" /><span class="slider"></span></label>
             </div>
           </div>
-          <div class="config-row"><label>Días restantes en tarjetas</label>
-            <label class="switch"><input type="checkbox" id="diasRestantesToggle" /><span class="slider"></span></label>
+          <div style="margin-top:18px">
+            <label style="font-size:13px;color:var(--text-secondary);display:block;margin-bottom:10px">Tema</label>
+            <div class="theme-grid" id="themeGrid"></div>
           </div>
-          <div class="config-row"><label>Tema</label></div>
-          <div class="theme-grid" id="themeGrid"></div>
+        </div>
+
+        <div class="config-section">
+          <h3>Calendario</h3>
+          <div class="config-vis-grid">
+            <div class="config-vis-item">
+              <label>Mostrar en calendario</label>
+              <select id="calendarShowSelect" style="padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;background:var(--surface-2);color:var(--text-primary)">
+                <option value="both">Vencimientos y tareas</option>
+                <option value="venc">Solo vencimientos</option>
+                <option value="tarea">Solo tareas</option>
+              </select>
+            </div>
+            <div class="config-vis-item">
+              <label>Mostrar # de tr&aacute;mite</label>
+              <label class="switch"><input type="checkbox" id="calendarShowNumToggle" checked /><span class="slider"></span></label>
+            </div>
+            <div class="config-vis-item">
+              <label>Mostrar descripci&oacute;n</label>
+              <label class="switch"><input type="checkbox" id="calendarShowDescToggle" checked /><span class="slider"></span></label>
+            </div>
+          </div>
         </div>
 
         <div class="config-section">
           <h3>Colores de progreso</h3>
           <div class="bar-color-grid">
-            <div class="bar-color-row"><span class="bar-color-preview" id="barPreview1"></span><label>Análisis</label><input type="color" id="colorBar1" class="color-picker" /></div>
+            <div class="bar-color-row"><span class="bar-color-preview" id="barPreview1"></span><label>An&aacute;lisis</label><input type="color" id="colorBar1" class="color-picker" /></div>
             <div class="bar-color-row"><span class="bar-color-preview" id="barPreview2"></span><label>Cumplimiento</label><input type="color" id="colorBar2" class="color-picker" /></div>
             <div class="bar-color-row"><span class="bar-color-preview" id="barPreview3"></span><label>Terminado</label><input type="color" id="colorBar3" class="color-picker" /></div>
           </div>
-          <div class="config-btns-row">
+          <div class="config-btns-row" style="margin-top:12px">
             <button class="btn btn-primary" id="saveBarColorsBtn">Guardar colores</button>
             <button class="btn-small" id="resetBarColorsBtn">Restablecer</button>
           </div>

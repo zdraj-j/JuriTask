@@ -5,193 +5,26 @@
  */
 
 function initAuthUI() {
-  // ── Tabs ────────────────────────────────────────────────
-  document.querySelectorAll('.auth-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      const target = tab.dataset.tab;
-      document.querySelectorAll('.auth-tab').forEach(t => t.classList.toggle('active', t === tab));
-      document.getElementById('loginForm').style.display    = target === 'login'    ? '' : 'none';
-      document.getElementById('registerForm').style.display = target === 'register' ? '' : 'none';
-      document.getElementById('resetForm').style.display    = 'none';
-      clearAuthError();
-    });
-  });
-
-  // Prellenar código de invitación desde URL (?invite=XXXX)
-  const urlInvite = new URLSearchParams(window.location.search).get('invite');
-  if (urlInvite) {
-    const code = urlInvite.toUpperCase();
-    const regCodeEl    = document.getElementById('regInviteCode');
-    const googleCodeEl = document.getElementById('googleInviteCode');
-    if (regCodeEl)    regCodeEl.value    = code;
-    if (googleCodeEl) googleCodeEl.value = code;
-    // Abrir pestaña de registro automáticamente
-    const regTab = document.querySelector('.auth-tab[data-tab="register"]');
-    if (regTab) regTab.click();
-  }
-
   // ── Olvidé contraseña ───────────────────────────────────
   document.getElementById('forgotPassBtn')?.addEventListener('click', () => {
     document.getElementById('loginForm').style.display    = 'none';
-    document.getElementById('registerForm').style.display = 'none';
     document.getElementById('resetForm').style.display    = '';
-    document.querySelectorAll('.auth-tab').forEach(t => t.classList.remove('active'));
     clearAuthError();
   });
 
   // ── LOGIN ────────────────────────────────────────────────
   document.getElementById('loginForm')?.addEventListener('submit', async e => {
     e.preventDefault();
-    const email = document.getElementById('loginEmail').value.trim();
+    let email = document.getElementById('loginEmail').value.trim();
     const pass  = document.getElementById('loginPass').value;
     if (!email || !pass) { showAuthError('Completa todos los campos.'); return; }
+    // Si no tiene @, es un nombre de usuario creado por admin
+    if (!email.includes('@')) email = email.toLowerCase().replace(/\s/g, '') + '@juritask.local';
     setAuthLoading(true);
     try {
       await AUTH.loginEmail(email, pass);
       // onAuthStateChanged se encarga de todo lo siguiente
     } catch(err) {
-      setAuthLoading(false);
-      showAuthError(friendlyAuthError(err.code));
-    }
-  });
-
-  // ── REGISTRO ─────────────────────────────────────────────
-  document.getElementById('registerForm')?.addEventListener('submit', async e => {
-    e.preventDefault();
-    const name   = document.getElementById('regName').value.trim();
-    const email  = document.getElementById('regEmail').value.trim();
-    const pass   = document.getElementById('regPass').value;
-    const pass2  = document.getElementById('regPass2').value;
-    const code   = (document.getElementById('regInviteCode')?.value || '').trim().toUpperCase();
-
-    if (!name || !email || !pass || !pass2) { showAuthError('Completa todos los campos.'); return; }
-    if (pass !== pass2)  { showAuthError('Las contraseñas no coinciden.'); return; }
-    if (pass.length < 6) { showAuthError('La contraseña debe tener al menos 6 caracteres.'); return; }
-
-    setAuthLoading(true);
-    try {
-      // Validar invitación ANTES de crear la cuenta (para no dejar cuentas huérfanas)
-      let inviteDocId   = null;
-      let hasValidInvite = false;
-      if (code) {
-        try {
-          const now     = new Date().toISOString();
-          const invSnap = await db.collection('invitations')
-            .where('code', '==', code)
-            .where('used', '==', false)
-            .limit(1).get();
-          if (!invSnap.empty) {
-            const invDoc = invSnap.docs[0];
-            if (invDoc.data().expiresAt > now) {
-              inviteDocId    = invDoc.id;
-              hasValidInvite = true;
-            } else {
-              setAuthLoading(false);
-              showAuthError('El código de invitación ha expirado.');
-              return;
-            }
-          } else {
-            setAuthLoading(false);
-            showAuthError('Código de invitación inválido o ya utilizado.');
-            return;
-          }
-        } catch(e) {
-          console.warn('Error validating invite:', e);
-          // Si hay error de permisos en invitations, continuar sin invitación
-        }
-      }
-
-      // Crear cuenta
-      const cred = await AUTH.registerEmail(email, pass);
-      await cred.user.updateProfile({ displayName: name });
-
-      // Crear perfil en Firestore (pre-aprobado si tiene invitación)
-      const role = await ensureUserProfile(
-        { ...cred.user, displayName: name },
-        hasValidInvite
-      );
-
-      // Marcar invitación como usada
-      if (inviteDocId) {
-        db.collection('invitations').doc(inviteDocId).update({
-          used: true, usedBy: cred.user.uid, usedAt: new Date().toISOString(),
-        }).catch(() => {});
-      }
-
-      setAuthLoading(false);
-
-      // Enviar correo de verificación para TODOS los registros email+pass
-      // (incluso admin y usuarios con invitación necesitan verificar email para acceder a datos)
-      if (!cred.user.emailVerified) {
-        try { await AUTH.sendVerificationEmail(cred.user); } catch(_) {}
-      }
-
-      // Con invitación: asegurar que approved=true (safety contra race condition)
-      if (hasValidInvite) {
-        try {
-          await db.collection('users').doc(cred.user.uid).update({ approved: true });
-        } catch(_) {}
-      }
-
-      // Primer admin o usuario con invitación: onAuthStateChanged carga la app directamente
-      if (role === 'admin' || hasValidInvite) {
-        // onAuthStateChanged se encarga
-        return;
-      }
-
-      // Sin invitación: mostrar pantalla de espera
-      showWaitScreen('verify', email);
-
-    } catch(err) {
-      if (err.code === 'auth/email-already-in-use') {
-        // Puede ser un usuario eliminado de Firestore pero cuya cuenta de Auth persiste
-        try {
-          const signInCred = await AUTH.loginEmail(email, pass);
-          const uDoc = await db.collection('users').doc(signInCred.user.uid).get();
-          if (!uDoc.exists) {
-            // Re-registro: el doc de Firestore fue eliminado pero Auth persiste
-            await signInCred.user.updateProfile({ displayName: name });
-            const role = await ensureUserProfile({ ...signInCred.user, displayName: name }, hasValidInvite);
-            if (inviteDocId) {
-              db.collection('invitations').doc(inviteDocId).update({
-                used: true, usedBy: signInCred.user.uid, usedAt: new Date().toISOString(),
-              }).catch(() => {});
-            }
-            // Enviar verificación para todos los registros email+pass
-            if (!signInCred.user.emailVerified) {
-              try { await AUTH.sendVerificationEmail(signInCred.user); } catch(_) {}
-            }
-            if (hasValidInvite) {
-              try {
-                await db.collection('users').doc(signInCred.user.uid).update({ approved: true });
-              } catch(_) {}
-            }
-            setAuthLoading(false);
-            if (role === 'admin' || hasValidInvite) return; // onAuthStateChanged carga app
-            showWaitScreen('verify', email);
-            return;
-          } else {
-            await AUTH.logout();
-            showAuthError('Ya existe una cuenta con ese correo.');
-          }
-        } catch(signInErr) {
-          // Login falló (contraseña incorrecta u otro error)
-          // Verificar si el email fue eliminado por admin → guiar al usuario
-          try {
-            const delDoc = await db.collection('meta').doc('deletedEmails').get();
-            const deletedList = delDoc.exists ? (delDoc.data().emails || []) : [];
-            if (deletedList.includes(email)) {
-              showAuthError('Esta cuenta fue eliminada. Si quieres recuperar el acceso, usa "Olvidé mi contraseña" o contacta al administrador.');
-            } else {
-              showAuthError(friendlyAuthError(err.code));
-            }
-          } catch(_) {
-            showAuthError(friendlyAuthError(err.code));
-          }
-        }
-        setAuthLoading(false);
-        return;
-      }
       setAuthLoading(false);
       showAuthError(friendlyAuthError(err.code));
     }
@@ -213,55 +46,19 @@ function initAuthUI() {
     }
   });
 
+  // ── Volver a login desde reset ─────────────────────────
+  document.getElementById('backToLoginBtn')?.addEventListener('click', () => {
+    document.getElementById('resetForm').style.display = 'none';
+    document.getElementById('loginForm').style.display = '';
+    clearAuthError();
+  });
+
   // ── GOOGLE ───────────────────────────────────────────────
   document.querySelector('.btn-google-login')?.addEventListener('click', async () => {
     setAuthLoading(true);
     try {
-      // Verificar si hay código de invitación en URL o campo
-      const urlInvite = new URLSearchParams(window.location.search).get('invite');
-      const fieldInvite = (document.getElementById('googleInviteCode')?.value
-                        || document.getElementById('regInviteCode')?.value || '').trim().toUpperCase();
-      const code = urlInvite?.toUpperCase() || fieldInvite || '';
-
-      let hasValidInvite = false;
-      let inviteDocId = null;
-
-      if (code) {
-        try {
-          const now = new Date().toISOString();
-          const invSnap = await db.collection('invitations')
-            .where('code', '==', code)
-            .where('used', '==', false)
-            .limit(1).get();
-          if (!invSnap.empty) {
-            const invDoc = invSnap.docs[0];
-            if (invDoc.data().expiresAt > now) {
-              inviteDocId = invDoc.id;
-              hasValidInvite = true;
-            }
-          }
-        } catch(e) { console.warn('Error validating invite for Google:', e); }
-      }
-
       const cred = await AUTH.loginGoogle();
-      await ensureUserProfile(cred.user, hasValidInvite);
-
-      // Marcar invitación como usada
-      if (inviteDocId) {
-        db.collection('invitations').doc(inviteDocId).update({
-          used: true, usedBy: cred.user.uid, usedAt: new Date().toISOString(),
-        }).catch(() => {});
-      }
-
-      // Si tiene invitación válida: asegurar approved y recargar para evitar race condition
-      if (hasValidInvite) {
-        try {
-          await db.collection('users').doc(cred.user.uid).update({ approved: true });
-        } catch(_) {}
-        location.reload(); // fuerza nuevo onAuthStateChanged con perfil actualizado
-        return;
-      }
-
+      await ensureUserProfile(cred.user);
       // onAuthStateChanged se encarga
     } catch(err) {
       setAuthLoading(false);

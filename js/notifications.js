@@ -156,12 +156,20 @@ async function createNotification(toUid, type, message, extra = {}) {
 }
 
 // ============================================================
-// ADMIN: ENVIAR MENSAJE A TODOS
+// ADMIN: ENVIAR MENSAJE A TODOS O A UN USUARIO ESPECÍFICO
 // ============================================================
-async function adminSendBroadcast(message) {
+async function adminSendBroadcast(message, targetUid) {
   if (!message || !message.trim()) { showToast('Escribe un mensaje.'); return; }
   if ((typeof AUTH === 'undefined') || AUTH.userProfile?.role !== 'admin') return;
 
+  // Enviar a un usuario específico
+  if (targetUid && targetUid !== 'all') {
+    await createNotification(targetUid, 'admin_message', message.trim());
+    showToast('✓ Mensaje enviado.');
+    return;
+  }
+
+  // Enviar a todos
   let uids = [];
   try {
     const idxDoc = await db.collection('meta').doc('userIndex').get();

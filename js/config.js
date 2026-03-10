@@ -273,6 +273,20 @@ function init() {
     showToast(`"${nombre}" añadido.`);
   });
 
+  // ── Config: calendario ──────────────────────────────────
+  document.getElementById('calendarShowSelect')?.addEventListener('change', e => {
+    STATE.config.calendarShow = e.target.value; saveAll();
+    if (currentView === 'calendar') renderCalendar();
+  });
+  document.getElementById('calendarShowNumToggle')?.addEventListener('change', e => {
+    STATE.config.calendarShowNum = e.target.checked; saveAll();
+    if (currentView === 'calendar') renderCalendar();
+  });
+  document.getElementById('calendarShowDescToggle')?.addEventListener('change', e => {
+    STATE.config.calendarShowDesc = e.target.checked; saveAll();
+    if (currentView === 'calendar') renderCalendar();
+  });
+
   // ── Config: colores de barra ─────────────────────────────
   [1,2,3].forEach(n => document.getElementById(`colorBar${n}`).addEventListener('input', updateBarPreviews));
   document.getElementById('saveBarColorsBtn').addEventListener('click', () => {
@@ -349,7 +363,8 @@ function init() {
   });
   document.getElementById('adminMsgBroadcastBtn')?.addEventListener('click', () => {
     const msg = document.getElementById('adminMsgText')?.value.trim();
-    if (typeof adminSendBroadcast === 'function') adminSendBroadcast(msg).then(() => {
+    const target = document.getElementById('adminMsgTarget')?.value || 'all';
+    if (typeof adminSendBroadcast === 'function') adminSendBroadcast(msg, target).then(() => {
       if (document.getElementById('adminMsgText')) document.getElementById('adminMsgText').value = '';
     });
   });

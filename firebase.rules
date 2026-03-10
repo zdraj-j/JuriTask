@@ -32,9 +32,9 @@ service cloud.firestore {
           && request.auth.token.email_verified == true;
     }
 
-    // Aprobado por el admin y no bloqueado (requiere correo verificado)
+    // Aprobado por el admin y no bloqueado
     function isApproved() {
-      return isVerified()
+      return request.auth != null
           && exists(/databases/$(database)/documents/users/$(request.auth.uid))
           && userDoc().data.approved == true
           && userDoc().data.blocked  != true;
@@ -114,7 +114,7 @@ service cloud.firestore {
       }
       match /notifications/{notifId} {
         allow read, write: if isApproved() && isSelf(uid);
-        allow create: if isApproved() && (isAdmin() || isTeammate(uid));
+        allow create: if isApproved();
       }
     }
 

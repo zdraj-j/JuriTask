@@ -352,25 +352,10 @@ auth.onAuthStateChanged(async user => {
           return;
         }
 
-        AUTH.userProfile.role        = d.role    || 'user';
-        AUTH.userProfile.teamId      = d.teamId  || null;
-        AUTH.userProfile.displayName = d.displayName || AUTH.userProfile.displayName;
-
-        // Correo no verificado (solo cuentas email+pass)
-        const isEmailPass = user.providerData?.[0]?.providerId === 'password';
-        if (isEmailPass && !user.emailVerified) {
-          // Recargar estado del usuario para detectar verificación reciente (token cacheado)
-          try {
-            await user.reload();
-          } catch(_) {}
-          if (!auth.currentUser?.emailVerified) {
-            // Seguir esperando en la pantalla de verificación
-            // Enviar correo de verificación si no se ha enviado aún
-            try { await AUTH.sendVerificationEmail(auth.currentUser); } catch(_) {}
-            showWaitScreen('verify', user.email);
-            return;
-          }
-        }
+        AUTH.userProfile.role           = d.role    || 'user';
+        AUTH.userProfile.teamId        = d.teamId  || null;
+        AUTH.userProfile.canCreateUsers = d.canCreateUsers || false;
+        AUTH.userProfile.displayName   = d.displayName || AUTH.userProfile.displayName;
 
         // Cuenta no aprobada → mostrar pantalla de espera
         if (!d.approved && d.role !== 'admin') {
@@ -381,16 +366,6 @@ auth.onAuthStateChanged(async user => {
       } else {
         // Perfil no existe: crearlo
         AUTH.userProfile.role = await ensureUserProfile(user);
-        // Si es email+pass y no está verificado, enviar correo
-        const isEmailPass = user.providerData?.[0]?.providerId === 'password';
-        if (isEmailPass && !user.emailVerified) {
-          try { await user.reload(); } catch(_) {}
-          if (!auth.currentUser?.emailVerified) {
-            try { await AUTH.sendVerificationEmail(auth.currentUser || user); } catch(_) {}
-            showWaitScreen('verify', user.email);
-            return;
-          }
-        }
       }
     } catch(e) {
       console.warn('Error leyendo perfil:', e);

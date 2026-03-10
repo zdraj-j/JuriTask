@@ -540,14 +540,11 @@ function bindDetailContent(t, container, expandWrapper) {
     container.querySelector(`#${p}_newActDesc`).value = '';
     container.querySelector(`#${p}_newActFecha`).value = '';
     formNueva.style.display = 'none';
-    // Notificar si la tarea se asigna a un miembro del equipo distinto al usuario actual
-    if (typeof createNotification === 'function' && resp !== 'yo' && resp !== AUTH?.userProfile?.uid) {
-      const isTeamUid = typeof _teamMembers !== 'undefined' && _teamMembers.find(m => m.uid === resp);
-      if (isTeamUid) {
-        createNotification(resp, 'task_assigned',
-          `${AUTH?.userProfile?.displayName || 'Alguien'} te asignó una tarea en el trámite #${t.numero}: "${sentenceCase(desc)}"`,
-          { tramiteId: t.id });
-      }
+    // Notificar si la tarea se asigna a otro usuario (no a "yo" ni al propio, ni a abogados manuales)
+    if (typeof createNotification === 'function' && resp !== 'yo' && resp !== AUTH?.userProfile?.uid && !resp.startsWith('abogado_')) {
+      createNotification(resp, 'task_assigned',
+        `${AUTH?.userProfile?.displayName || 'Alguien'} te asignó una tarea en el trámite #${t.numero}: "${sentenceCase(desc)}"`,
+        { tramiteId: t.id });
     }
     if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
     saveAll(); refreshCardOnly(t);
@@ -689,13 +686,10 @@ function renderActividadesIn(t, listEl, container, expandWrapper) {
           if (newResp !== act.responsable) {
             pushHistory('Cambiar responsable de tarea');
             t.seguimiento[i].responsable = newResp;
-            if (typeof createNotification === 'function') {
-              const isTeamUid = typeof _teamMembers !== 'undefined' && _teamMembers.find(m => m.uid === newResp);
-              if (isTeamUid && newResp !== AUTH?.userProfile?.uid) {
-                createNotification(newResp, 'task_assigned',
-                  `${AUTH?.userProfile?.displayName || 'Alguien'} te asignó una tarea en el trámite #${t.numero}: "${act.descripcion}"`,
-                  { tramiteId: t.id });
-              }
+            if (typeof createNotification === 'function' && newResp !== 'yo' && newResp !== AUTH?.userProfile?.uid && !newResp.startsWith('abogado_')) {
+              createNotification(newResp, 'task_assigned',
+                `${AUTH?.userProfile?.displayName || 'Alguien'} te asignó una tarea en el trámite #${t.numero}: "${act.descripcion}"`,
+                { tramiteId: t.id });
             }
             if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
             saveAll(); refreshCardOnly(t);
@@ -1018,6 +1012,9 @@ function renderConfig() {
   const arR=document.getElementById('autoReqResponsable');  if(arR) arR.value=STATE.config.autoReqResponsable||'yo';
   syncAutoReqFields();
   const drT=document.getElementById('diasRestantesToggle'); if(drT) drT.checked=!!(STATE.config.diasRestantes);
+  const calSel=document.getElementById('calendarShowSelect');     if(calSel) calSel.value=STATE.config.calendarShow||'both';
+  const calNum=document.getElementById('calendarShowNumToggle');  if(calNum) calNum.checked=STATE.config.calendarShowNum!==false;
+  const calDsc=document.getElementById('calendarShowDescToggle'); if(calDsc) calDsc.checked=STATE.config.calendarShowDesc!==false;
 
   // Mostrar sección admin solo si el usuario es admin
   const isAdmin = (typeof AUTH !== 'undefined') && AUTH.userProfile?.role === 'admin';

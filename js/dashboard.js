@@ -224,6 +224,12 @@ async function renderDashboard() {
     admins.sort((a, b) => (a.creadoEn || '9999').localeCompare(b.creadoEn || '9999'));
     admins[0]._isOriginalAdmin = true;
   }
+  // Propagar _isOriginalAdmin y canCreateUsers al AUTH.userProfile
+  const meInDash = _dashUsers.find(u => u.uid === AUTH.userProfile.uid);
+  if (meInDash) {
+    AUTH.userProfile._isOriginalAdmin = meInDash._isOriginalAdmin || false;
+    AUTH.userProfile.canCreateUsers   = meInDash.canCreateUsers || false;
+  }
   if (!_dashUsers.length) {
     _dashUsers = [{ ...AUTH.userProfile, _tramitesActivos: activos.length, _tramitesVencidos: vencidos.length, _tramitesList: STATE.tramites }];
   }
@@ -288,6 +294,7 @@ async function renderDashboard() {
           <div style="display:flex;gap:4px;flex-wrap:wrap">
             ${!isMe ? `<button class="btn-small" data-viewtramites="${u.uid}" title="Ver trámites">📋 Ver</button>` : ''}
             ${!isMe ? `<button class="btn-small" data-resetpwd="${u.uid}" title="Enviar reset de contraseña">🔑</button>` : ''}
+            ${(!isMe && u.role === 'admin' && !isOriginalAdmin && AUTH.userProfile._isOriginalAdmin) ? `<button class="btn-small ${u.canCreateUsers?'btn-warning':''}" data-togglecreate="${u.uid}" title="${u.canCreateUsers?'Quitar':'Dar'} permiso de crear usuarios">👤${u.canCreateUsers?'✓':''}</button>` : ''}
             ${canBlock ? `<button class="btn-small ${blocked?'':'btn-warning'}" data-toggleblock="${u.uid}" data-blocked="${blocked?'1':'0'}" title="${blocked?'Desbloquear':'Bloquear'} usuario">${blocked?'🔓':'🔒'}</button>` : ''}
             ${canDelete ? `<button class="btn-small btn-danger" data-deluser="${u.uid}" title="Eliminar usuario">✕</button>` : ''}
           </div>
@@ -315,6 +322,13 @@ async function renderDashboard() {
           await auth.sendPasswordResetEmail(u.email);
           showToast(`✓ Email de recuperación enviado a ${u.email}`);
         } catch(e) { showToast('Error enviando email: ' + (e.message||e.code)); }
+      });
+      tr.querySelector('[data-togglecreate]')?.addEventListener('click', async () => {
+        const newVal = !u.canCreateUsers;
+        await db.collection('users').doc(u.uid).update({ canCreateUsers: newVal });
+        u.canCreateUsers = newVal;
+        showToast(newVal ? 'Permiso de crear usuarios concedido.' : 'Permiso de crear usuarios revocado.');
+        renderDashboard();
       });
       tr.querySelector('[data-toggleblock]')?.addEventListener('click', async btn => {
         const nowBlocked = !u.blocked;
@@ -348,6 +362,18 @@ async function renderDashboard() {
   }
 
   renderTeamsGrid(_dashEquipos);
+
+  // Poblar selector de usuario para notificaciones
+  const msgTarget = document.getElementById('adminMsgTarget');
+  if (msgTarget) {
+    msgTarget.innerHTML = '<option value="all">Todos los usuarios</option>';
+    _dashUsers.filter(u => u.uid !== AUTH.userProfile.uid).forEach(u => {
+      const o = document.createElement('option');
+      o.value = u.uid;
+      o.textContent = u.displayName || u.email || u.uid;
+      msgTarget.appendChild(o);
+    });
+  }
 
   // Mostrar botón de purga si hay fantasmas
   const purgeBtn = document.getElementById('dashPurgeGhostsBtn');
@@ -685,111 +711,91 @@ function _renderPendingTable(pending) {
   });
 }
 
-// ── Invitaciones ──────────────────────────────────────────────
-async function createInvitation() {
-  const emailEl = document.getElementById('inviteEmailInput');
-  const noteEl  = document.getElementById('inviteNoteInput');
-  const email   = emailEl ? emailEl.value.trim().toLowerCase() : '';
-  if (!email || !email.includes('@')) { showToast('Ingresa un correo válido.'); return; }
+// ── Crear usuario desde el admin ──────────────────────────────
+async function adminCreateUser() {
+  const displayName = document.getElementById('newUserDisplayName')?.value.trim();
+  const username    = document.getElementById('newUserUsername')?.value.trim();
+  const password    = document.getElementById('newUserPassword')?.value;
 
-  const code = Math.random().toString(36).slice(2, 10).toUpperCase();
-  const data = {
-    email,
-    note:      noteEl ? noteEl.value.trim() : '',
-    code,
-    createdBy: AUTH.userProfile.uid,
-    createdAt: new Date().toISOString(),
-    used:      false,
-    expiresAt: new Date(Date.now() + 7 * 24 * 60 * 60 * 1000).toISOString(),
-  };
+  if (!displayName) { showToast('El nombre completo es obligatorio.'); return; }
+  if (!username)    { showToast('El nombre de usuario es obligatorio.'); return; }
+  if (!password || password.length < 6) { showToast('La contraseña debe tener al menos 6 caracteres.'); return; }
 
-  const btn = document.getElementById('createInviteBtn');
+  // Validar que el username solo tenga caracteres válidos
+  const cleanUser = username.toLowerCase().replace(/\s/g, '');
+  if (!/^[a-z0-9._-]+$/.test(cleanUser)) {
+    showToast('El usuario solo puede tener letras, números, puntos, guiones.');
+    return;
+  }
+
+  const fakeEmail = cleanUser + '@juritask.local';
+  const btn = document.getElementById('adminCreateUserBtn');
   if (btn) { btn.disabled = true; btn.textContent = 'Creando…'; }
 
   try {
-    await db.collection('invitations').add(data);
-    if (emailEl) emailEl.value = '';
-    if (noteEl)  noteEl.value  = '';
+    // Usar app secundaria para no desloguear al admin
+    const tempName = 'tempCreate_' + Date.now();
+    const secondaryApp  = firebase.initializeApp(firebaseConfig, tempName);
+    const secondaryAuth = secondaryApp.auth();
+    const secondaryDb   = secondaryApp.firestore();
 
-    const invLink = `https://zdraj-j.github.io/JuriTask/?invite=${code}`;
-    _showInviteResult(email, code, invLink);
-    showToast('✓ Invitación creada.');
-    loadInvitations();
-  } catch(e) {
-    showToast('Error: ' + (e.message || e.code));
-  } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '＋ Crear invitación'; }
-  }
-}
+    try {
+      const cred = await secondaryAuth.createUserWithEmailAndPassword(fakeEmail, password);
+      const newUid = cred.user.uid;
+      await cred.user.updateProfile({ displayName });
 
-function _showInviteResult(email, code, link) {
-  const el = document.getElementById('inviteResult');
-  if (!el) return;
-  el.style.display = '';
-  el.innerHTML = `
-    <div style="background:var(--success-light,#f0fdf4);border:1px solid var(--success,#16a34a);border-radius:10px;padding:14px 16px;margin-top:14px">
-      <div style="font-size:13px;font-weight:600;color:var(--success,#16a34a);margin-bottom:10px">✓ Invitación generada para <strong>${email}</strong></div>
-      <div style="display:flex;align-items:center;gap:8px">
-        <code style="flex:1;font-size:11px;background:var(--surface-2);padding:7px 10px;border-radius:6px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;display:block">${link}</code>
-        <button class="btn-small" onclick="navigator.clipboard.writeText('${link}').then(()=>showToast('✓ Link copiado'))">📋 Copiar</button>
-      </div>
-      <div style="font-size:11px;color:var(--text-muted);margin-top:6px">Código: <strong>${code}</strong> · Expira en 7 días · El usuario que use este link se aprueba automáticamente</div>
-    </div>`;
-}
-
-async function loadInvitations() {
-  const list = document.getElementById('invitationsList');
-  if (!list || AUTH.userProfile?.role !== 'admin') return;
-  list.innerHTML = '<p style="font-size:12px;color:var(--text-muted)">Cargando…</p>';
-  try {
-    const snap = await db.collection('invitations')
-      .orderBy('createdAt', 'desc').limit(15).get();
-    if (snap.empty) {
-      list.innerHTML = '<p style="font-size:13px;color:var(--text-muted);font-style:italic">No hay invitaciones creadas.</p>';
-      return;
-    }
-    list.innerHTML = '';
-    const now = new Date().toISOString();
-    snap.forEach(doc => {
-      const inv = { id: doc.id, ...doc.data() };
-      const expired = inv.expiresAt < now;
-      const st = inv.used ? { label:'✓ Usada', bg:'var(--success-light)', color:'var(--success)' }
-               : expired  ? { label:'Expirada', bg:'var(--danger-light)', color:'var(--danger)' }
-               : { label:'Pendiente', bg:'var(--accent-light)', color:'var(--accent)' };
-      const link = `https://zdraj-j.github.io/JuriTask/?invite=${inv.code}`;
-      const row = document.createElement('div');
-      row.style.cssText = 'padding:10px 0;border-bottom:1px solid var(--border-light)';
-      const usedByText = inv.used && inv.usedBy ? ` · Usado por: ${inv.usedBy}` : '';
-      row.innerHTML = `
-        <div style="display:flex;align-items:flex-start;gap:10px;flex-wrap:wrap">
-          <div style="flex:1;min-width:180px">
-            <div style="font-size:13px;font-weight:600;margin-bottom:3px">${inv.email}</div>
-            <div style="font-size:11px;color:var(--text-muted);margin-bottom:4px">
-              ${inv.note ? `"${inv.note}" · ` : ''}Código: <strong>${inv.code}</strong> · ${new Date(inv.createdAt).toLocaleDateString('es-CO')}${usedByText}
-            </div>
-            <div style="font-size:11px;color:var(--text-secondary);word-break:break-all;user-select:all">${link}</div>
-          </div>
-          <div style="display:flex;align-items:center;gap:6px;flex-shrink:0;flex-wrap:wrap">
-            <span style="font-size:11px;padding:2px 8px;border-radius:20px;font-weight:600;background:${st.bg};color:${st.color}">${st.label}</span>
-            <button class="btn-small" onclick="navigator.clipboard.writeText('${link}').then(()=>showToast('✓ Copiado'))" title="Copiar link" ${inv.used ? 'style="opacity:.5"' : ''}>📋 Copiar</button>
-            ${!inv.used ? `<button class="btn-small btn-danger" data-delinv="${doc.id}" title="Eliminar">✕</button>` : ''}
-          </div>
-        </div>`;
-      row.querySelector('[data-delinv]')?.addEventListener('click', async () => {
-        await db.collection('invitations').doc(inv.id).delete();
-        showToast('Invitación eliminada.'); loadInvitations();
+      // Crear perfil en Firestore (usando el contexto auth del nuevo usuario)
+      await secondaryDb.collection('users').doc(newUid).set({
+        displayName,
+        email:        fakeEmail,
+        username:     cleanUser,
+        role:         'user',
+        approved:     true,
+        blocked:      false,
+        adminCreated: true,
+        creadoEn:     new Date().toISOString(),
       });
-      list.appendChild(row);
-    });
+
+      await secondaryAuth.signOut();
+
+      // Registrar en userIndex (usando la db principal como admin)
+      await registerInUserIndex(newUid);
+
+      // Limpiar campos
+      if (document.getElementById('newUserDisplayName')) document.getElementById('newUserDisplayName').value = '';
+      if (document.getElementById('newUserUsername'))    document.getElementById('newUserUsername').value = '';
+      if (document.getElementById('newUserPassword'))    document.getElementById('newUserPassword').value = '';
+
+      const resultEl = document.getElementById('createUserResult');
+      if (resultEl) {
+        resultEl.innerHTML = `
+          <div style="background:var(--success-light,#f0fdf4);border:1px solid var(--success,#16a34a);border-radius:10px;padding:14px 16px;margin-top:10px">
+            <div style="font-size:13px;font-weight:600;color:var(--success,#16a34a);margin-bottom:4px">✓ Usuario creado</div>
+            <div style="font-size:12px;color:var(--text-secondary)">
+              <strong>${displayName}</strong> puede iniciar sesión con usuario <strong>${cleanUser}</strong> y la contraseña asignada.
+            </div>
+          </div>`;
+        setTimeout(() => { resultEl.innerHTML = ''; }, 8000);
+      }
+
+      showToast(`✓ Usuario "${displayName}" creado.`);
+      renderDashboard();
+    } finally {
+      try { await secondaryApp.delete(); } catch(_) {}
+    }
   } catch(e) {
-    list.innerHTML = `<p style="font-size:13px;color:var(--danger)">Error cargando invitaciones: ${e.code||e.message}</p>`;
+    if (e.code === 'auth/email-already-in-use') {
+      showToast('Ya existe un usuario con ese nombre de usuario.');
+    } else {
+      showToast('Error: ' + (e.message || e.code));
+    }
+  } finally {
+    if (btn) { btn.disabled = false; btn.textContent = '＋ Crear usuario'; }
   }
 }
 
 // ── Función de compatibilidad (llamada desde config.js) ───────
 async function loadAdminUsers() {
-  // La gestión completa está en el dashboard.
-  // Esta función solo arranca el listener si no está activo.
   if (AUTH.userProfile?.role === 'admin') startPendingListener();
 }
 
@@ -886,7 +892,7 @@ const _originalSaveTramiteFS = typeof saveTramiteFS !== 'undefined' ? saveTramit
 
 function initDashboard() {
   document.getElementById('dashRefreshBtn')?.addEventListener('click', () => {
-    renderDashboard(); loadInvitations();
+    renderDashboard();
   });
   document.getElementById('dashCreateTeamBtn')?.addEventListener('click', () => openTeamModal());
   document.getElementById('createTeamClose')?.addEventListener('click', closeTeamModal);
@@ -895,14 +901,25 @@ function initDashboard() {
   document.getElementById('createTeamOverlay')?.addEventListener('click', e => {
     if (e.target === document.getElementById('createTeamOverlay')) closeTeamModal();
   });
-  document.getElementById('createInviteBtn')?.addEventListener('click', createInvitation);
+  document.getElementById('adminCreateUserBtn')?.addEventListener('click', adminCreateUser);
 }
 
-// Alias para config.js — al navegar al dashboard, arrancar listener y cargar invitaciones
 function loadDashboardData() {
   renderDashboard();
   if (AUTH.userProfile?.role === 'admin') {
     startPendingListener();
-    loadInvitations();
+    // Mostrar sección de crear usuario si tiene permiso
+    _updateCreateUserVisibility();
   }
+}
+
+function _updateCreateUserVisibility() {
+  const section = document.getElementById('createUserSection');
+  if (!section) return;
+  const p = AUTH.userProfile;
+  if (!p || p.role !== 'admin') { section.style.display = 'none'; return; }
+  // Admin principal siempre puede crear usuarios
+  // Otros admins necesitan canCreateUsers=true
+  const isOriginal = _dashUsers.find(u => u.uid === p.uid && u._isOriginalAdmin);
+  section.style.display = (isOriginal || p.canCreateUsers) ? '' : 'none';
 }
