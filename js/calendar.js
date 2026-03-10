@@ -11,6 +11,23 @@ const MESES = [
   'Julio','Agosto','Septiembre','Octubre','Noviembre','Diciembre',
 ];
 
+function _calEventDot(ev, dateStr) {
+  const dot = document.createElement('div');
+  const dc  = dateClass(dateStr);
+  const cls = ev.tipo === 'venc' ? (dc || 'upcoming') : 'tarea';
+  dot.className   = `cal-event-dot ${cls}${ev.urgente ? ' cal-urg' : ''}`;
+  const showDesc = STATE.config.calendarShowDesc !== false;
+  const showNum  = STATE.config.calendarShowNum  !== false;
+  const label = showNum && showDesc ? ev.desc
+              : showNum  ? `#${ev.t.numero}`
+              : showDesc ? ev.desc.replace(/^#\d+\s*/, '')
+              : (ev.tipo === 'venc' ? 'Venc.' : 'Tarea');
+  dot.textContent = label.length > 28 ? label.slice(0, 27) + '…' : label;
+  dot.title       = ev.desc;
+  dot.addEventListener('click', e => { e.stopPropagation(); openDetail(ev.t.id); });
+  return dot;
+}
+
 function renderCalendar() {
   const titleEl = document.getElementById('calMonthTitle');
   const grid    = document.getElementById('calGrid');
@@ -30,24 +47,29 @@ function renderCalendar() {
   const rows       = Math.ceil(totalCells / 7);
   const hoy        = today();
 
+  // ── Filtro de tipo de evento según config ──────────────────
+  const calShow = STATE.config.calendarShow || 'both';
+
   // ── Construir mapa de eventos por fecha ──────────────────
   const eventMap = {}; // 'YYYY-MM-DD' → [{tipo, t, desc, urgente?}]
 
   STATE.tramites.filter(t => !t.terminado).forEach(t => {
     // Vencimiento
-    if (t.fechaVencimiento && !t.gestion?.cumplimiento) {
+    if ((calShow === 'both' || calShow === 'venc') && t.fechaVencimiento && !t.gestion?.cumplimiento) {
       const k = t.fechaVencimiento;
       if (!eventMap[k]) eventMap[k] = [];
       eventMap[k].push({ tipo: 'venc', t, desc: `#${t.numero} ${t.descripcion}` });
     }
     // Tareas pendientes con fecha
-    (t.seguimiento || [])
-      .filter(s => s.estado === 'pendiente' && s.fecha)
-      .forEach(s => {
-        const k = s.fecha;
-        if (!eventMap[k]) eventMap[k] = [];
-        eventMap[k].push({ tipo: 'tarea', t, desc: `#${t.numero} ${s.descripcion}`, urgente: s.urgente });
-      });
+    if (calShow === 'both' || calShow === 'tarea') {
+      (t.seguimiento || [])
+        .filter(s => s.estado === 'pendiente' && s.fecha)
+        .forEach(s => {
+          const k = s.fecha;
+          if (!eventMap[k]) eventMap[k] = [];
+          eventMap[k].push({ tipo: 'tarea', t, desc: `#${t.numero} ${s.descripcion}`, urgente: s.urgente });
+        });
+    }
   });
 
   // ── Render celdas ────────────────────────────────────────
@@ -82,20 +104,25 @@ function renderCalendar() {
       const maxShow = 3;
 
       events.slice(0, maxShow).forEach(ev => {
-        const dot = document.createElement('div');
-        const dc  = dateClass(dateStr);
-        const cls = ev.tipo === 'venc' ? (dc || 'upcoming') : 'tarea';
-        dot.className   = `cal-event-dot ${cls}${ev.urgente ? ' cal-urg' : ''}`;
-        dot.textContent = ev.desc.length > 24 ? ev.desc.slice(0, 23) + '…' : ev.desc;
-        dot.title       = ev.desc;
-        dot.addEventListener('click', e => { e.stopPropagation(); openDetail(ev.t.id); });
-        cell.appendChild(dot);
+        cell.appendChild(_calEventDot(ev, dateStr));
       });
 
       if (events.length > maxShow) {
         const more = document.createElement('div');
         more.className   = 'cal-event-more';
         more.textContent = `+${events.length - maxShow} más`;
+        more.style.cursor = 'pointer';
+        let expanded = false;
+        more.addEventListener('click', e => {
+          e.stopPropagation();
+          if (!expanded) {
+            expanded = true;
+            more.style.display = 'none';
+            events.slice(maxShow).forEach(ev => {
+              cell.appendChild(_calEventDot(ev, dateStr));
+            });
+          }
+        });
         cell.appendChild(more);
       }
 
