@@ -1260,26 +1260,26 @@ body {
 /* ═══════════════════ DASHBOARD ══════════════════ */
 .dash-kpi-grid {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 14px; margin-bottom: 24px;
+  grid-template-columns: repeat(auto-fill, minmax(130px, 1fr));
+  gap: 10px; margin-bottom: 24px;
 }
-@media (max-width: 900px) { .dash-kpi-grid { grid-template-columns: repeat(2, 1fr); } }
-@media (max-width: 480px) { .dash-kpi-grid { grid-template-columns: 1fr 1fr; } }
+@media (max-width: 480px) { .dash-kpi-grid { grid-template-columns: repeat(3, 1fr); } }
 
 .dash-kpi {
   background: var(--surface); border-radius: var(--radius);
-  padding: 18px 20px; border: 1px solid var(--border-light);
+  padding: 14px 12px; border: 1px solid var(--border-light);
+  text-align: center;
   transition: box-shadow var(--transition);
 }
 .dash-kpi:hover { box-shadow: var(--shadow-md); }
 .dash-kpi-danger  { border-color: var(--danger);  background: var(--danger-light); }
 .dash-kpi-warning { border-color: var(--warning); background: var(--warning-light); }
-.dash-kpi-icon  { font-size: 22px; margin-bottom: 10px; color: var(--text-muted); display: flex; align-items: center; }
-.dash-kpi-icon svg { width: 24px; height: 24px; flex-shrink: 0; }
+.dash-kpi-icon  { font-size: 20px; margin-bottom: 6px; color: var(--text-muted); display: flex; align-items: center; justify-content: center; }
+.dash-kpi-icon svg { width: 22px; height: 22px; flex-shrink: 0; }
 .dash-kpi-danger .dash-kpi-icon  { color: var(--danger); }
 .dash-kpi-warning .dash-kpi-icon { color: var(--warning); }
-.dash-kpi-value { font-size: 30px; font-weight: 800; color: var(--text-primary); line-height: 1; letter-spacing: -1px; }
-.dash-kpi-label { font-size: 11px; color: var(--text-muted); margin-top: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
+.dash-kpi-value { font-size: 24px; font-weight: 800; color: var(--text-primary); line-height: 1; letter-spacing: -1px; }
+.dash-kpi-label { font-size: 10px; color: var(--text-muted); margin-top: 4px; font-weight: 600; text-transform: uppercase; letter-spacing: .4px; }
 
 .dash-metrics-row {
   display: grid; grid-template-columns: repeat(3, 1fr);
@@ -1573,3 +1573,42 @@ body {
 .notif-from { font-size: 11px; color: var(--text-muted); margin-bottom: 2px; }
 .notif-time { font-size: 10px; color: var(--text-muted); }
 .notif-empty { font-size: 13px; color: var(--text-muted); text-align: center; padding: 24px 16px; font-style: italic; }
+
+/* ── Google Drive attachments ─────────────────────── */
+.drive-badge {
+  font-size: 10px; font-weight: 600; color: #4285f4;
+  background: rgba(66,133,244,.1); padding: 2px 8px;
+  border-radius: 10px; vertical-align: 2px; margin-left: 6px;
+}
+.drive-attachments-list {
+  display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;
+}
+.drive-empty {
+  font-size: 12px; color: var(--text-muted); font-style: italic;
+  padding: 4px 0; margin: 0;
+}
+.drive-chip {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 6px 10px; border-radius: 8px;
+  background: var(--surface-2); border: 1px solid var(--border-light);
+  color: var(--text-primary); text-decoration: none;
+  font-size: 12px; line-height: 1.3; transition: all .15s;
+  max-width: 260px; cursor: pointer;
+}
+.drive-chip:hover {
+  background: var(--accent-light); border-color: var(--accent);
+  color: var(--accent);
+}
+.drive-chip-icon { display: flex; flex-shrink: 0; }
+.drive-chip-name {
+  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+}
+.drive-chip-remove {
+  background: none; border: none; color: var(--text-muted);
+  font-size: 16px; line-height: 1; cursor: pointer;
+  padding: 0 0 0 4px; flex-shrink: 0; font-weight: 600;
+}
+.drive-chip-remove:hover { color: var(--danger); }
+.btn-drive {
+  margin-top: 4px; display: inline-flex; align-items: center;
+}

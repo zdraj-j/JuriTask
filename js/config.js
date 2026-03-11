@@ -103,6 +103,7 @@ function init() {
   document.getElementById('newTramiteBtn')?.addEventListener('click',      () => openModal());
   document.getElementById('newTramiteBtnEmpty')?.addEventListener('click', () => openModal());
   document.getElementById('tipoBtnAbogado').addEventListener('click', () => setModalTipo('abogado'));
+  document.getElementById('tipoBtnEquipo')?.addEventListener('click', () => setModalTipo('equipo'));
   document.getElementById('tipoBtnPropio').addEventListener('click',  () => setModalTipo('propio'));
   document.getElementById('scopeBtnPrivate')?.addEventListener('click', () => setModalScope('private'));
   document.getElementById('scopeBtnTeam')?.addEventListener('click',   () => setModalScope('team'));

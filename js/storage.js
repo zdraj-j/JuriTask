@@ -151,6 +151,7 @@ function migrateTramite(t) {
   if (!t.tipo)        t.tipo        = 'abogado';
   if (!t.seguimiento) t.seguimiento = [];
   if (!t.notas)       t.notas       = [];
+  if (!t.attachments) t.attachments = [];
   if (!t.gestion)     t.gestion     = { analisis: false, cumplimiento: false };
   t.seguimiento.forEach(s => {
     if (s.responsable === 'auxiliar' || s.responsable === 'propio') s.responsable = 'yo';
