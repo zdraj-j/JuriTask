@@ -355,7 +355,11 @@ let currentDetailId = null;
 function openDetail(id) {
   const t = getById(id); if (!t) return;
   currentDetailId = id;
-  STATE.config.detailMode === 'modal' ? openDetailModal(t) : openDetailExpand(t);
+  // Force modal in calendar/dashboard views where there are no card wrappers
+  const activeView = document.querySelector('.view.active');
+  const viewId = activeView ? activeView.id : '';
+  const forceModal = viewId === 'view-calendar' || viewId === 'view-dashboard';
+  (forceModal || STATE.config.detailMode === 'modal') ? openDetailModal(t) : openDetailExpand(t);
 }
 
 function openDetailModal(t) {

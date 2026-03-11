@@ -408,6 +408,8 @@ body {
   cursor: pointer; transition: all var(--transition); white-space: nowrap;
 }
 .btn-small:hover { background: var(--accent-hover); }
+.btn-small.btn-icon-sm { padding: 5px 7px; display: inline-flex; align-items: center; justify-content: center; }
+.btn-small.btn-icon-sm svg { display: block; }
 .btn-small.btn-danger { background: var(--danger-light); color: var(--danger); border: 1px solid var(--danger); }
 .btn-small.btn-danger:hover { background: var(--danger); color: #fff; }
 .btn-icon {
@@ -1060,21 +1062,22 @@ body {
 .backup-loading, .backup-empty { font-size: 13px; color: var(--text-muted); font-style: italic; }
 
 /* ═══════════════════ CALENDARIO ═════════════════ */
+.calendar-container { width: 100%; overflow-x: auto; }
 .cal-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
 .cal-nav { font-size: 20px; width: 36px; height: 36px; font-weight: 700; }
 .cal-month-title { font-size: 17px; font-weight: 700; flex: 1; }
 .cal-today-btn { padding: 6px 14px; font-size: 12px; }
-.cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 4px; }
+.cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 4px; min-width: 0; }
 .cal-weekdays > div { text-align: center; font-size: 10px; font-weight: 700; color: var(--text-muted); padding: 4px 0; text-transform: uppercase; letter-spacing: .6px; }
-.cal-grid { display: flex; flex-direction: column; gap: 2px; }
-.cal-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; }
-.cal-cell { background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--radius-xs); padding: 6px 7px; min-height: 78px; transition: border-color var(--transition); }
+.cal-grid { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
+.cal-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; min-width: 0; }
+.cal-cell { background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--radius-xs); padding: 6px 7px; min-height: 78px; min-width: 0; overflow: hidden; transition: border-color var(--transition); }
 .cal-cell:hover { border-color: var(--accent); }
 .cal-cell-empty { background: transparent; border-color: transparent; min-height: 78px; }
 .cal-today { border-color: var(--accent) !important; background: var(--accent-light); }
 .cal-day-num { font-size: 11px; font-weight: 700; color: var(--text-secondary); margin-bottom: 4px; }
 .cal-day-today { color: var(--accent); }
-.cal-event-dot { font-size: 10px; padding: 2px 5px; border-radius: 4px; margin-bottom: 2px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity var(--transition); line-height: 1.4; }
+.cal-event-dot { font-size: 10px; padding: 2px 5px; border-radius: 4px; margin-bottom: 2px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity var(--transition); line-height: 1.4; max-width: 100%; }
 .cal-event-dot:hover { opacity: .75; }
 .cal-event-dot.overdue  { background: var(--danger-light);  color: var(--danger); }
 .cal-event-dot.today    { background: var(--warning-light); color: var(--warning); }
@@ -1202,6 +1205,41 @@ body {
 .user-name-display { font-size: 13px; font-weight: 600; color: var(--text-primary); max-width: 110px; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .admin-badge { background: var(--warning); color: #fff; font-size: 10px; font-weight: 700; padding: 2px 6px; border-radius: 8px; }
 
+/* ═══════════════════ PROFILE POPOVER ═══════════════ */
+.profile-popover {
+  position: fixed;
+  z-index: 700;
+  opacity: 0; pointer-events: none;
+  transition: opacity .15s ease, transform .15s ease;
+  transform: translateY(8px);
+}
+.profile-popover.open {
+  opacity: 1; pointer-events: all;
+  transform: translateY(0);
+}
+.profile-popover-inner {
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  box-shadow: var(--shadow-lg);
+  min-width: 240px;
+  max-width: 280px;
+  overflow: hidden;
+}
+.profile-popover-btn {
+  display: flex; align-items: center; gap: 10px;
+  width: 100%; padding: 10px 12px;
+  background: none; border: none; border-radius: 8px;
+  font-size: 13px; font-weight: 500; color: var(--text-primary);
+  cursor: pointer; transition: background .15s;
+  text-align: left; font-family: inherit;
+}
+.profile-popover-btn:hover { background: var(--surface-2); }
+.profile-popover-btn svg { flex-shrink: 0; color: var(--text-muted); }
+.profile-popover-btn-danger { color: var(--danger); }
+.profile-popover-btn-danger svg { color: var(--danger); }
+.profile-popover-btn-danger:hover { background: var(--danger-light); }
+
 /* ═══════════════════ CONFIG ACCOUNT ════════════ */
 .config-account-row { display: flex; align-items: center; justify-content: space-between; gap: 16px; flex-wrap: wrap; }
 .config-account-info { display: flex; align-items: center; gap: 14px; }
@@ -1227,7 +1265,10 @@ body {
 .dash-kpi:hover { box-shadow: var(--shadow-md); }
 .dash-kpi-danger  { border-color: var(--danger);  background: var(--danger-light); }
 .dash-kpi-warning { border-color: var(--warning); background: var(--warning-light); }
-.dash-kpi-icon  { font-size: 22px; margin-bottom: 10px; }
+.dash-kpi-icon  { font-size: 22px; margin-bottom: 10px; color: var(--text-muted); display: flex; align-items: center; }
+.dash-kpi-icon svg { width: 24px; height: 24px; flex-shrink: 0; }
+.dash-kpi-danger .dash-kpi-icon  { color: var(--danger); }
+.dash-kpi-warning .dash-kpi-icon { color: var(--warning); }
 .dash-kpi-value { font-size: 30px; font-weight: 800; color: var(--text-primary); line-height: 1; letter-spacing: -1px; }
 .dash-kpi-label { font-size: 11px; color: var(--text-muted); margin-top: 6px; font-weight: 600; text-transform: uppercase; letter-spacing: .5px; }
 
@@ -1270,7 +1311,8 @@ body {
 .dash-teams-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; padding: 16px 20px; }
 .dash-team-card { background: var(--surface-2); border-radius: var(--radius-sm); padding: 16px; border: 1px solid var(--border-light); transition: box-shadow var(--transition); }
 .dash-team-card:hover { box-shadow: var(--shadow-md); }
-.dash-team-name { font-weight: 700; font-size: 14px; margin-bottom: 4px; }
+.dash-team-name { font-weight: 700; font-size: 14px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
+.dash-team-name svg { flex-shrink: 0; color: var(--accent); }
 .dash-team-meta { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; }
 .dash-team-actions { display: flex; gap: 8px; }
 .dash-empty { padding: 24px; color: var(--text-muted); font-style: italic; font-size: 13px; text-align: center; }

@@ -115,10 +115,16 @@ function logout() {
   AUTH.logout().catch(console.error);
 }
 
-// ── Overlay de perfil (topbar) ────────────────────────────────
+// ── Popover de perfil (anclado al avatar) ────────────────────
 function openProfileModal() {
   const p = AUTH.userProfile;
   if (!p) return;
+  const panel = document.getElementById('profileOverlay');
+  if (!panel) return;
+
+  // Toggle — si ya está abierto, cerrar
+  if (panel.classList.contains('open')) { closeProfileModal(); return; }
+
   const initials = (p.displayName || p.email || '?').slice(0, 2).toUpperCase();
   const avatarBig = document.getElementById('profileAvatarBig');
   if (avatarBig) avatarBig.textContent = initials;
@@ -127,12 +133,34 @@ function openProfileModal() {
   const rd = document.getElementById('profileRoleDisplay');
   if (nd) nd.textContent = p.displayName || '(sin nombre)';
   if (ed) ed.textContent = p.email || '';
-  if (rd) rd.textContent = p.role === 'admin' ? '👑 Administrador' : '👤 Usuario';
-  document.getElementById('profileOverlay').classList.add('open');
+  if (rd) rd.textContent = p.role === 'admin' ? 'Administrador' : 'Usuario';
+
+  // Posicionar popover encima del botón de avatar
+  const btn = document.getElementById('userAvatarBtn');
+  if (btn) {
+    const rect = btn.getBoundingClientRect();
+    panel.style.left   = rect.left + 'px';
+    panel.style.bottom = (window.innerHeight - rect.top + 8) + 'px';
+    panel.style.top    = 'auto';
+    panel.style.right  = 'auto';
+  }
+
+  panel.classList.add('open');
+
+  // Cerrar al hacer click fuera
+  setTimeout(() => {
+    function onOutside(e) {
+      if (!panel.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+        closeProfileModal();
+        document.removeEventListener('click', onOutside);
+      }
+    }
+    document.addEventListener('click', onOutside);
+  }, 50);
 }
 
 function closeProfileModal() {
-  document.getElementById('profileOverlay').classList.remove('open');
+  document.getElementById('profileOverlay')?.classList.remove('open');
 }
 
 // ── Modal editar perfil (desde config) ───────────────────────
@@ -154,11 +182,7 @@ function closeEditProfileModal() {
 }
 
 function initAuth() {
-  // Overlay de perfil
-  document.getElementById('profileClose')?.addEventListener('click', closeProfileModal);
-  document.getElementById('profileOverlay')?.addEventListener('click', e => {
-    if (e.target === document.getElementById('profileOverlay')) closeProfileModal();
-  });
+  // Popover de perfil
   document.getElementById('goToEditProfileBtn')?.addEventListener('click', () => {
     closeProfileModal();
     if (typeof switchView === 'function') switchView('config');

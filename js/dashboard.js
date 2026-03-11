@@ -280,8 +280,8 @@ async function renderDashboard() {
         <td class="dash-email">${u.email||'—'}</td>
         <td>
           <select class="role-select" data-uid="${u.uid}" ${!canChangeRole?'disabled':''} style="font-size:12px;padding:3px 6px;border-radius:6px;border:1px solid var(--border)${!canChangeRole?';opacity:.6':''}">
-            <option value="user"  ${u.role!=='admin'?'selected':''}>👤 Usuario</option>
-            <option value="admin" ${u.role==='admin'?'selected':''}>👑 Admin</option>
+            <option value="user"  ${u.role!=='admin'?'selected':''}>Usuario</option>
+            <option value="admin" ${u.role==='admin'?'selected':''}>Admin</option>
           </select>
         </td>
         <td>${equipo
@@ -291,12 +291,12 @@ async function renderDashboard() {
           ${nAct} ${nVenc>0?`<span style="font-size:11px;color:var(--danger)">(${nVenc} venc.)</span>`:''}
         </td>
         <td>
-          <div style="display:flex;gap:4px;flex-wrap:wrap">
-            ${!isMe ? `<button class="btn-small" data-viewtramites="${u.uid}" title="Ver trámites">📋 Ver</button>` : ''}
-            ${!isMe ? `<button class="btn-small" data-resetpwd="${u.uid}" title="Enviar reset de contraseña">🔑</button>` : ''}
-            ${(!isMe && u.role === 'admin' && !isOriginalAdmin && AUTH.userProfile._isOriginalAdmin) ? `<button class="btn-small ${u.canCreateUsers?'btn-warning':''}" data-togglecreate="${u.uid}" title="${u.canCreateUsers?'Quitar':'Dar'} permiso de crear usuarios">👤${u.canCreateUsers?'✓':''}</button>` : ''}
-            ${canBlock ? `<button class="btn-small ${blocked?'':'btn-warning'}" data-toggleblock="${u.uid}" data-blocked="${blocked?'1':'0'}" title="${blocked?'Desbloquear':'Bloquear'} usuario">${blocked?'🔓':'🔒'}</button>` : ''}
-            ${canDelete ? `<button class="btn-small btn-danger" data-deluser="${u.uid}" title="Eliminar usuario">✕</button>` : ''}
+          <div style="display:flex;gap:4px;flex-wrap:wrap;align-items:center">
+            ${!isMe ? `<button class="btn-small btn-icon-sm" data-viewtramites="${u.uid}" title="Ver trámites"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M14 9.536V7a4 4 0 0 1 4-4h1.5a.5.5 0 0 1 .5.5V5a4 4 0 0 1-4 4 4 4 0 0 0-4 4c0 2 1 3 1 5a5 5 0 0 1-1 3"/><path d="M4 9a5 5 0 0 1 8 4 5 5 0 0 1-8-4"/><path d="M5 21h14"/></svg></button>` : ''}
+            ${!isMe ? `<button class="btn-small btn-icon-sm" data-resetpwd="${u.uid}" title="Enviar reset de contraseña"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M2.586 17.414A2 2 0 0 0 2 18.828V21a1 1 0 0 0 1 1h3a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h1a1 1 0 0 0 1-1v-1a1 1 0 0 1 1-1h.172a2 2 0 0 0 1.414-.586l.814-.814a6.5 6.5 0 1 0-4-4z"/><circle cx="16.5" cy="7.5" r=".5" fill="currentColor"/></svg></button>` : ''}
+            ${(!isMe && u.role === 'admin' && !isOriginalAdmin && AUTH.userProfile._isOriginalAdmin) ? `<button class="btn-small btn-icon-sm ${u.canCreateUsers?'btn-warning':''}" data-togglecreate="${u.uid}" title="${u.canCreateUsers?'Quitar':'Dar'} permiso de crear usuarios"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/><circle cx="9" cy="7" r="4"/><line x1="19" x2="19" y1="8" y2="14"/><line x1="22" x2="16" y1="11" y2="11"/></svg></button>` : ''}
+            ${canBlock ? `<button class="btn-small btn-icon-sm ${blocked?'':'btn-warning'}" data-toggleblock="${u.uid}" data-blocked="${blocked?'1':'0'}" title="${blocked?'Desbloquear':'Bloquear'} usuario"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M19 16v-2a2 2 0 0 0-4 0v2"/><path d="M9.5 15H7a4 4 0 0 0-4 4v2"/><circle cx="10" cy="7" r="4"/><rect x="13" y="16" width="8" height="5" rx=".899"/></svg></button>` : ''}
+            ${canDelete ? `<button class="btn-small btn-icon-sm btn-danger" data-deluser="${u.uid}" title="Eliminar usuario"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m15 9-6 6"/><path d="m9 9 6 6"/></svg></button>` : ''}
           </div>
         </td>`;
       tr.querySelector('.role-select')?.addEventListener('change', async e => {
@@ -388,7 +388,7 @@ async function renderDashboard() {
   if (vbody) {
     vbody.innerHTML = '';
     if (!vencidos.length) {
-      vbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px">¡No hay trámites vencidos! 🎉</td></tr>';
+      vbody.innerHTML = '<tr><td colspan="5" style="text-align:center;color:var(--text-muted);padding:20px">¡No hay trámites vencidos! <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px"><path d="M5.8 11.3 2 22l10.7-3.79"/><path d="M4 3h.01"/><path d="M22 8h.01"/><path d="M15 2h.01"/><path d="M22 20h.01"/><path d="m22 2-2.24.75a2.9 2.9 0 0 0-1.96 3.12c.1.86-.57 1.63-1.45 1.63h-.38c-.86 0-1.6.6-1.76 1.44L14 10"/><path d="m22 13-.82-.33c-.86-.34-1.82.2-1.98 1.11c-.11.7-.72 1.22-1.43 1.22H17"/><path d="m11 2 .33.82c.34.86-.2 1.82-1.11 1.98C9.52 4.9 9 5.52 9 6.23V7"/><path d="M11 13c1.93 1.93 2.83 4.17 2 5-.83.83-3.07-.07-5-2-1.93-1.93-2.83-4.17-2-5 .83-.83 3.07.07 5 2Z"/></svg></td></tr>';
     } else {
       vencidos.sort((a,b)=>(a.fechaVencimiento||'').localeCompare(b.fechaVencimiento||'')).forEach(t => {
         const tr = document.createElement('tr');
@@ -528,11 +528,11 @@ function renderTeamsGrid(equipos) {
     const card = document.createElement('div');
     card.className = 'dash-team-card';
     card.innerHTML = `
-      <div class="dash-team-name">👥 ${eq.nombre}</div>
+      <div class="dash-team-name"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m10.586 5.414-5.172 5.172"/><path d="m18.586 13.414-5.172 5.172"/><path d="M6 12h12"/><circle cx="12" cy="20" r="2"/><circle cx="12" cy="4" r="2"/><circle cx="20" cy="12" r="2"/><circle cx="4" cy="12" r="2"/></svg> ${eq.nombre}</div>
       <div class="dash-team-meta">${memberCount} miembro${memberCount!==1?'s':''}</div>
       <div class="dash-team-actions">
-        <button class="btn-small" data-editteam="${eq.id}">✎ Editar</button>
-        <button class="btn-small btn-danger" data-delteam="${eq.id}">✕ Eliminar</button>
+        <button class="btn-small" data-editteam="${eq.id}"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></svg> Editar</button>
+        <button class="btn-small btn-danger" data-delteam="${eq.id}"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 11v6"/><path d="M14 11v6"/><path d="M19 6v14a2 2 0 0 1-2 2H7a2 2 0 0 1-2-2V6"/><path d="M3 6h18"/><path d="M8 6V4a2 2 0 0 1 2-2h4a2 2 0 0 1 2 2v2"/></svg> Eliminar</button>
       </div>`;
     card.querySelector('[data-editteam]').addEventListener('click', () => openTeamModal(eq));
     card.querySelector('[data-delteam]').addEventListener('click', async () => {
@@ -559,7 +559,7 @@ function openTeamModal(equipo = null) {
     const row = document.createElement('label');
     row.className = 'team-member-row';
     row.innerHTML = `<input type="checkbox" value="${u.uid}" ${checked?'checked':''}/>
-      <span>${u.displayName||u.email}${u.role==='admin'?' 👑':''}</span>`;
+      <span>${u.displayName||u.email}${u.role==='admin'?' <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;color:var(--warning)"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg>':''}</span>`;
     list.appendChild(row);
   });
   overlay.classList.add('open');
