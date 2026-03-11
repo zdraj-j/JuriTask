@@ -156,6 +156,8 @@ function migrateTramite(t) {
   t.seguimiento.forEach(s => {
     if (s.responsable === 'auxiliar' || s.responsable === 'propio') s.responsable = 'yo';
     if (s.urgente === undefined) s.urgente = false;
+    if (!s.attachments) s.attachments = [];
+    if (!s.completedBy) s.completedBy = {};
   });
   // Migrar proximaAccion antigua
   if (t.proximaAccion?.descripcion) {

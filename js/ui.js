@@ -299,15 +299,16 @@ function buildCard(t) {
 
 function buildSeguimientoHtml(tareas, tramite) {
   if (!tareas.length) return '';
+  const shown = tareas.slice(0, 2);
+  const extra = tareas.length - shown.length;
   return `<div class="card-seguimiento">
-    ${tareas.slice(0, 2).map(s => {
+    ${shown.map(s => {
       const dc   = dateClass(s.fecha);
       const urg  = s.urgente ? '<span class="seg-urg">🔴</span>' : '';
       const fech = s.fecha  ? `<span class="seg-fecha ${dc}">${formatDate(s.fecha)}</span>` : '';
-      const resp = s.responsable ? `<span style="color:var(--text-muted);font-size:10px">· ${abogadoName(s.responsable, tramite)}</span>` : '';
-      return `<div class="card-seg-item"><div class="seg-dot ${dc}"></div>${urg}<span style="flex:1;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${s.descripcion}</span>${fech}${resp}</div>`;
+      return `<div class="card-seg-item"><div class="seg-dot ${dc}"></div>${urg}<span class="seg-desc">${s.descripcion}</span>${fech}</div>`;
     }).join('')}
-    ${tareas.length > 2 ? `<div class="card-seg-item" style="color:var(--text-muted);font-size:11px">+${tareas.length - 2} más…</div>` : ''}
+    ${extra > 0 ? `<div class="card-seg-more">+${extra} tarea${extra>1?'s':''} más</div>` : ''}
   </div>`;
 }
 
@@ -486,11 +487,6 @@ function buildDetailContent(t) {
       <button class="btn-small" id="${p}_saveVenc" style="margin-top:10px">Guardar fecha</button>
     </div>
     <div class="detail-section">
-      <h3>Archivos adjuntos <span class="drive-badge">Google Drive</span></h3>
-      <div id="${p}_attachments" class="drive-attachments-list"></div>
-      <button class="btn-small btn-drive" id="${p}_addAttachment" type="button"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M12 12v6"/><path d="m15 15-3-3-3 3"/></svg> Adjuntar desde Drive</button>
-    </div>
-    <div class="detail-section">
       <h3>Notas</h3>
       <div id="${p}_notas"></div>
       <div class="add-nota-row">
@@ -579,33 +575,6 @@ function bindDetailContent(t, container, expandWrapper) {
     saveAll(); refreshCardOnly(t); showToast('Fecha actualizada.');
   });
 
-  // ── Archivos adjuntos de Google Drive ──
-  if (!t.attachments) t.attachments = [];
-  const attContainer = container.querySelector(`#${p}_attachments`);
-  const _renderAtts = () => {
-    if (typeof renderDriveAttachments === 'function') {
-      renderDriveAttachments(t.attachments, attContainer, true, idx => {
-        t.attachments.splice(idx, 1);
-        if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
-        saveAll(); _renderAtts();
-        showToast('Adjunto eliminado.');
-      });
-    }
-  };
-  _renderAtts();
-  container.querySelector(`#${p}_addAttachment`)?.addEventListener('click', async () => {
-    if (typeof openDrivePicker !== 'function') { showToast('Google Drive no disponible.'); return; }
-    try {
-      const files = await openDrivePicker();
-      if (files.length) {
-        t.attachments.push(...files);
-        if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
-        saveAll(); _renderAtts();
-        showToast(`${files.length} archivo(s) adjuntado(s).`);
-      }
-    } catch(e) { /* usuario canceló o error ya mostrado */ }
-  });
-
   renderNotasIn(t, container.querySelector(`#${p}_notas`));
   container.querySelector(`#${p}_addNota`)?.addEventListener('click', () => {
     const texto = container.querySelector(`#${p}_newNota`).value.trim();
@@ -633,21 +602,103 @@ function renderActividadesIn(t, listEl, container, expandWrapper) {
     });
 
   sorted.forEach(({ act, origIdx: i }) => {
+    if (!act.attachments) act.attachments = [];
+    if (!act.completedBy) act.completedBy = {};
     const div    = document.createElement('div');
     const isDone = act.estado === 'realizado';
     div.className = 'actividad-item' + (act.urgente ? ' act-urgente' : '');
+
+    // Per-member completion for team tasks
+    const isTeam = t.sharedWith && t.sharedWith.length > 0;
+    const myUid  = AUTH?.userProfile?.uid;
+    let memberChecksHtml = '';
+    if (isTeam) {
+      const allMembers = [myUid, ...(t.sharedWith || [])].filter(Boolean);
+      const uniqueMembers = [...new Set(allMembers)];
+      memberChecksHtml = '<div class="act-member-checks">' + uniqueMembers.map(uid => {
+        const checked = act.completedBy[uid] ? 'checked' : '';
+        const isMe = uid === myUid;
+        const name = isMe ? 'Yo' : (typeof abogadoName === 'function' ? abogadoName(uid, t) : uid);
+        return `<label class="act-member-check ${checked ? 'done' : ''}" title="${name}"><input type="checkbox" data-uid="${uid}" ${checked} ${!isMe ? 'disabled' : ''}/><span class="act-member-name">${name.split(' ')[0]}</span></label>`;
+      }).join('') + '</div>';
+    }
+
+    const attCount = act.attachments.length;
     div.innerHTML = `
-      <div class="actividad-check-wrap"><label class="round-check-wrap"><input type="checkbox" ${isDone?'checked':''}/><div class="round-check-box"></div></label></div>
+      <div class="actividad-check-wrap"><label class="round-check-wrap"><input type="checkbox" class="act-main-check" ${isDone?'checked':''}/><div class="round-check-box"></div></label></div>
       <div class="actividad-info">
         <div class="actividad-desc ${isDone?'done':''}" title="Doble clic para editar">${escapeHtml(act.descripcion)}</div>
         <div class="actividad-meta">
           <input type="date" value="${act.fecha||''}" />
           ${act.responsable ? `<span class="actividad-resp">${abogadoName(act.responsable, t)}</span>` : ''}
-          <span class="actividad-estado ${act.estado}">${isDone?'Realizado':'Pendiente'}</span>
+          <button class="act-attach-btn act-drive-btn" title="Adjuntar desde Drive" ${attCount>=5?'disabled':''}><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 87.3 78" fill="none"><path d="M6.6 66.85L3.3 61.25l27.35-47.4h7.45z" fill="#0066DA"/><path d="M57.6 78H29.7l13.85-24h27.9z" fill="#00AC47"/><path d="M84 61.25L57.6 13.85H42.1l26.4 47.4z" fill="#EA4335"/></svg></button>
+          <button class="act-attach-btn act-link-btn" title="Adjuntar enlace" ${attCount>=5?'disabled':''}><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
         </div>
+        ${memberChecksHtml}
+        <div class="act-attachments-row" data-idx="${i}"></div>
       </div>
       <button class="act-urg-btn ${act.urgente?'active':''}" title="${act.urgente?'Quitar urgente':'Marcar urgente'}">🔴</button>
       <button class="actividad-delete" title="Eliminar">✕</button>`;
+
+    // Render per-task attachments
+    const attRow = div.querySelector('.act-attachments-row');
+    if (typeof renderTaskAttachments === 'function') {
+      renderTaskAttachments(act.attachments, attRow, true, idx2 => {
+        act.attachments.splice(idx2, 1);
+        if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
+        saveAll(); renderActividadesIn(t, listEl, container, expandWrapper);
+      });
+    }
+
+    // Drive attach button per task
+    div.querySelector('.act-drive-btn')?.addEventListener('click', async () => {
+      if (act.attachments.length >= 5) { showToast('Máximo 5 adjuntos por tarea.'); return; }
+      if (typeof openDrivePicker !== 'function') { showToast('Google Drive no disponible.'); return; }
+      try {
+        const files = await openDrivePicker();
+        const space = 5 - act.attachments.length;
+        const toAdd = files.slice(0, space);
+        if (toAdd.length) {
+          act.attachments.push(...toAdd);
+          if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
+          saveAll(); renderActividadesIn(t, listEl, container, expandWrapper);
+          showToast(`${toAdd.length} archivo(s) adjuntado(s).`);
+        }
+      } catch(e) {}
+    });
+
+    // Link attach button per task
+    div.querySelector('.act-link-btn')?.addEventListener('click', () => {
+      if (act.attachments.length >= 5) { showToast('Máximo 5 adjuntos por tarea.'); return; }
+      const url = prompt('Pega la URL del enlace:');
+      if (!url || !url.trim()) return;
+      const trimmed = url.trim();
+      if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) {
+        showToast('Ingresa una URL válida (http:// o https://).'); return;
+      }
+      const name = prompt('Nombre del enlace (opcional):') || trimmed;
+      act.attachments.push({ type: 'link', url: trimmed, name: name.trim(), mimeType: 'link' });
+      if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
+      saveAll(); renderActividadesIn(t, listEl, container, expandWrapper);
+      showToast('Enlace adjuntado.');
+    });
+
+    // Per-member completion checks
+    if (isTeam) {
+      div.querySelectorAll('.act-member-check input').forEach(cb => {
+        cb.addEventListener('change', e => {
+          const uid = e.target.dataset.uid;
+          act.completedBy[uid] = e.target.checked;
+          // Auto-mark as done if all members checked
+          const allMembers = [myUid, ...(t.sharedWith || [])].filter(Boolean);
+          const uniqueMembers = [...new Set(allMembers)];
+          const allDone = uniqueMembers.every(u => act.completedBy[u]);
+          act.estado = allDone ? 'realizado' : 'pendiente';
+          if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
+          saveAll(); refreshCardOnly(t); renderActividadesIn(t, listEl, container, expandWrapper);
+        });
+      });
+    }
 
     // Debounce en edición inline de descripción
     const descEl = div.querySelector('.actividad-desc');
@@ -688,7 +739,7 @@ function renderActividadesIn(t, listEl, container, expandWrapper) {
       }, 400);
     });
 
-    div.querySelector('input[type="checkbox"]').addEventListener('change', e => {
+    div.querySelector('.act-main-check').addEventListener('change', e => {
       pushHistory(e.target.checked ? 'Marcar tarea realizada' : 'Desmarcar tarea');
       t.seguimiento[i].estado = e.target.checked ? 'realizado' : 'pendiente';
       if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
@@ -795,9 +846,11 @@ let _tareasIniciales = [];
 
 function setModalTipo(tipo) {
   modalTipoActual = tipo;
-  document.getElementById('tipoBtnAbogado')?.classList.toggle('active', tipo === 'abogado');
-  document.getElementById('tipoBtnEquipo')?.classList.toggle('active',  tipo === 'equipo');
-  document.getElementById('tipoBtnPropio')?.classList.toggle('active',  tipo === 'propio');
+  const sel = document.getElementById('fTipo');
+  if (sel) sel.value = tipo;
+  // Ocultar opción equipo si no hay miembros
+  const eqOpt = sel?.querySelector('option[value="equipo"]');
+  if (eqOpt) eqOpt.style.display = (typeof _teamMembers !== 'undefined' && _teamMembers.length) ? '' : 'none';
   const abWrap = document.getElementById('fAbogadoWrap');
   const tmWrap = document.getElementById('fTeamMembersWrap');
   if (abWrap) abWrap.style.display = tipo === 'abogado' ? '' : 'none';
@@ -835,36 +888,77 @@ function addTareaRow(desc = '', fecha = '', resp = '') {
   list.querySelector('.tareas-empty-hint')?.remove();
 
   const idx = _tareasIniciales.length;
-  _tareasIniciales.push({ descripcion: desc, fecha, responsable: resp || (STATE.config.abogados[0]?.key || 'yo'), estado: 'pendiente', urgente: false });
+  _tareasIniciales.push({ descripcion: desc, fecha, responsable: resp || (STATE.config.abogados[0]?.key || 'yo'), estado: 'pendiente', urgente: false, attachments: [], completedBy: {} });
 
   const row = document.createElement('div'); row.className = 'tarea-inicial-row'; row.dataset.idx = idx;
   row.innerHTML = `
     <input type="text"  class="ti-desc"  placeholder="¿Qué hacer?"  value="${escapeAttr(desc)}" />
     <input type="date"  class="ti-fecha" value="${fecha}" />
     <select class="ti-resp">${buildRespOptions(modalTipoActual, document.getElementById('fAbogado')?.value || 'yo', resp)}</select>
+    <button class="ti-drive" title="Adjuntar desde Drive"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 87.3 78" fill="none"><path d="M6.6 66.85L3.3 61.25l27.35-47.4h7.45z" fill="#0066DA"/><path d="M57.6 78H29.7l13.85-24h27.9z" fill="#00AC47"/><path d="M84 61.25L57.6 13.85H42.1l26.4 47.4z" fill="#EA4335"/></svg></button>
+    <button class="ti-link" title="Adjuntar enlace"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
     <button class="ti-urg ${_tareasIniciales[idx].urgente ? 'active' : ''}" title="Marcar urgente">🔴</button>
-    <button class="ti-del" title="Eliminar">✕</button>`;
+    <button class="ti-del" title="Eliminar">✕</button>
+    <div class="ti-atts"></div>`;
 
+  const _renderTiAtts = () => {
+    const c = row.querySelector('.ti-atts');
+    if (typeof renderTaskAttachments === 'function') {
+      renderTaskAttachments(_tareasIniciales[idx]?.attachments || [], c, true, i2 => {
+        if (_tareasIniciales[idx]) { _tareasIniciales[idx].attachments.splice(i2, 1); _renderTiAtts(); }
+      });
+    }
+  };
+  row.querySelector('.ti-drive').addEventListener('click', async () => {
+    if (!_tareasIniciales[idx] || _tareasIniciales[idx].attachments.length >= 5) { showToast('Máximo 5 adjuntos.'); return; }
+    if (typeof openDrivePicker !== 'function') { showToast('Google Drive no disponible.'); return; }
+    try {
+      const files = await openDrivePicker();
+      const space = 5 - _tareasIniciales[idx].attachments.length;
+      _tareasIniciales[idx].attachments.push(...files.slice(0, space));
+      _renderTiAtts();
+    } catch(e) {}
+  });
+  row.querySelector('.ti-link').addEventListener('click', () => {
+    if (!_tareasIniciales[idx] || _tareasIniciales[idx].attachments.length >= 5) { showToast('Máximo 5 adjuntos.'); return; }
+    const url = prompt('Pega la URL:');
+    if (!url || !url.trim()) return;
+    const trimmed = url.trim();
+    if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) { showToast('URL inválida.'); return; }
+    const name = prompt('Nombre (opcional):') || trimmed;
+    _tareasIniciales[idx].attachments.push({ type: 'link', url: trimmed, name: name.trim(), mimeType: 'link' });
+    _renderTiAtts();
+  });
   row.querySelector('.ti-urg').addEventListener('click', () => {
     _tareasIniciales[idx].urgente = !_tareasIniciales[idx].urgente;
     row.querySelector('.ti-urg').classList.toggle('active', _tareasIniciales[idx].urgente);
   });
   row.querySelector('.ti-del').addEventListener('click', () => {
     _tareasIniciales.splice(idx, 1); row.remove();
-    if (!document.querySelectorAll('.tarea-inicial-row').length)
-      list.innerHTML = '<p class="tareas-empty-hint">Ninguna tarea aún — puedes agregar después.</p>';
   });
   list.appendChild(row);
+  setTimeout(() => row.querySelector('.ti-desc')?.focus(), 60);
 }
 
 function syncTareasFromDOM() {
   document.querySelectorAll('.tarea-inicial-row').forEach((row, i) => {
     if (_tareasIniciales[i]) {
-      _tareasIniciales[i].descripcion = sentenceCase(row.querySelector('.ti-desc').value.trim());
-      _tareasIniciales[i].fecha       = row.querySelector('.ti-fecha').value;
-      _tareasIniciales[i].responsable = row.querySelector('.ti-resp').value;
+      _tareasIniciales[i].descripcion = sentenceCase(row.querySelector('.ti-desc')?.value?.trim() || '');
+      _tareasIniciales[i].fecha       = row.querySelector('.ti-fecha')?.value || '';
+      _tareasIniciales[i].responsable = row.querySelector('.ti-resp')?.value || 'yo';
     }
   });
+}
+
+let _modalAttachments = [];
+function _renderModalAttachments() {
+  const c = document.getElementById('modalAttachmentsList');
+  if (!c) return;
+  if (typeof renderTaskAttachments === 'function') {
+    renderTaskAttachments(_modalAttachments, c, true, idx => {
+      _modalAttachments.splice(idx, 1); _renderModalAttachments();
+    });
+  }
 }
 
 function openModal(tramite = null) {
@@ -881,11 +975,10 @@ function openModal(tramite = null) {
   document.getElementById('fFechaVencimiento').value = tramite?.fechaVencimiento || '';
   document.getElementById('fNota').value             = '';
   document.getElementById('nuevaNotaFieldsModal').style.display = 'none';
-  document.getElementById('tareasInicialesList').innerHTML = '<p class="tareas-empty-hint">Ninguna tarea aún — puedes agregar después.</p>';
-
-  // Mostrar u ocultar botón de equipo según si hay miembros
-  const equipoBtn = document.getElementById('tipoBtnEquipo');
-  if (equipoBtn) equipoBtn.style.display = (typeof _teamMembers !== 'undefined' && _teamMembers.length) ? '' : 'none';
+  document.getElementById('tareasInicialesList').innerHTML = '';
+  document.getElementById('modalAttachmentsList').innerHTML = '';
+  _modalAttachments = tramite?.attachments ? [...tramite.attachments] : [];
+  _renderModalAttachments();
 
   // Determinar tipo: si tiene sharedWith es 'equipo', si tiene abogado es 'abogado', sino 'propio'
   const tipoModal = tramite?.sharedWith?.length ? 'equipo' : (tramite?.tipo || 'abogado');
@@ -944,6 +1037,7 @@ async function saveTramite() {
       else { delete t.abogado; delete t.sharedWith; t._scope = 'private'; }
       if (tareasValidas.length) t.seguimiento.unshift(...tareasValidas);
       if (notaInicial.length)   t.notas.push(...notaInicial);
+      if (_modalAttachments.length) t.attachments = [...(t.attachments || []), ..._modalAttachments];
       if (typeof saveTramiteFS === 'function') await saveTramiteFS(t);
       showToast('Trámite actualizado.');
     } else {
@@ -954,7 +1048,7 @@ async function saveTramite() {
         tipo: tipo === 'equipo' ? 'abogado' : tipo,
         fechaVencimiento: venc,
         gestion:    { analisis: false, cumplimiento: false },
-        seguimiento: tareasValidas, notas: notaInicial, attachments: [],
+        seguimiento: tareasValidas, notas: notaInicial, attachments: _modalAttachments.slice(),
         terminado: false, terminadoEn: null,
         creadoEn:  new Date().toISOString(),
         _scope:    scope,
