@@ -267,14 +267,29 @@ function saveTramiteFS(tramite) {
   const own = userRef().collection('tramites').doc(tramite.id).set(data)
     .catch(e => console.error('Error guardando trámite:', e));
 
-  if (tramite._scope === 'team' && tramite.abogado) {
-    const isTeamMember = typeof _teamMembers !== 'undefined' && _teamMembers.find(m => m.uid === tramite.abogado);
-    const isSharedFrom = tramite._sharedFrom;
-    if (isTeamMember || isSharedFrom) {
-      const targetUid  = isSharedFrom ? tramite._sharedFrom : tramite.abogado;
-      const sharedData = { ...data, _sharedFrom: AUTH.userProfile.uid, _sharedFromName: AUTH.userProfile.displayName || AUTH.userProfile.email };
-      db.collection('users').doc(targetUid).collection('tramites').doc(tramite.id).set(sharedData)
-        .catch(e => console.warn('Error sincronizando trámite compartido:', e.code));
+  const sharedMeta = { _sharedFrom: AUTH.userProfile.uid, _sharedFromName: AUTH.userProfile.displayName || AUTH.userProfile.email };
+
+  if (tramite._scope === 'team') {
+    // Compartir con múltiples miembros del equipo (sharedWith array)
+    if (tramite.sharedWith && tramite.sharedWith.length) {
+      const sharedData = { ...data, ...sharedMeta };
+      tramite.sharedWith.forEach(uid => {
+        if (uid !== AUTH.userProfile.uid) {
+          db.collection('users').doc(uid).collection('tramites').doc(tramite.id).set(sharedData)
+            .catch(e => console.warn('Error sincronizando trámite compartido:', e.code));
+        }
+      });
+    }
+    // Compartir con un solo colaborador (legacy)
+    else if (tramite.abogado) {
+      const isTeamMember = typeof _teamMembers !== 'undefined' && _teamMembers.find(m => m.uid === tramite.abogado);
+      const isSharedFrom = tramite._sharedFrom;
+      if (isTeamMember || isSharedFrom) {
+        const targetUid  = isSharedFrom ? tramite._sharedFrom : tramite.abogado;
+        const sharedData = { ...data, ...sharedMeta };
+        db.collection('users').doc(targetUid).collection('tramites').doc(tramite.id).set(sharedData)
+          .catch(e => console.warn('Error sincronizando trámite compartido:', e.code));
+      }
     }
   }
 
@@ -286,10 +301,19 @@ function deleteTramiteFS(id) {
   const t = typeof getById === 'function' ? getById(id) : null;
   userRef().collection('tramites').doc(id).delete()
     .catch(e => console.error('Error eliminando trámite:', e));
-  if (t && t._scope === 'team' && t.abogado) {
-    const isTeamMember = typeof _teamMembers !== 'undefined' && _teamMembers.find(m => m.uid === t.abogado);
-    if (isTeamMember) {
-      db.collection('users').doc(t.abogado).collection('tramites').doc(id).delete().catch(()=>{});
+  if (t && t._scope === 'team') {
+    // Eliminar de todos los miembros compartidos
+    if (t.sharedWith && t.sharedWith.length) {
+      t.sharedWith.forEach(uid => {
+        if (uid !== AUTH.userProfile?.uid) {
+          db.collection('users').doc(uid).collection('tramites').doc(id).delete().catch(()=>{});
+        }
+      });
+    } else if (t.abogado) {
+      const isTeamMember = typeof _teamMembers !== 'undefined' && _teamMembers.find(m => m.uid === t.abogado);
+      if (isTeamMember) {
+        db.collection('users').doc(t.abogado).collection('tramites').doc(id).delete().catch(()=>{});
+      }
     }
   }
   if (t && t._sharedFrom) {

@@ -97,7 +97,7 @@ function buildRespOptions(tipoTramite, abogadoKey, selectedValue) {
     });
   }
   // Luego: colaboradores manuales de config (que no sean ya del equipo)
-  if (tipoTramite === 'abogado' && abogadoKey) {
+  if ((tipoTramite === 'abogado' || tipoTramite === 'equipo') && abogadoKey && abogadoKey !== 'yo') {
     const isTeamMember = (typeof _teamMembers !== 'undefined') && _teamMembers.find(m => m.uid === abogadoKey);
     if (!isTeamMember) {
       const a = (STATE.config.abogados || []).find(x => x.key === abogadoKey);

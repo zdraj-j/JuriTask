@@ -658,12 +658,17 @@
           <label>Tipo de trámite</label>
           <div class="toggle-group">
             <button type="button" class="toggle-btn active" id="tipoBtnAbogado">Compartido</button>
+            <button type="button" class="toggle-btn" id="tipoBtnEquipo">Equipo</button>
             <button type="button" class="toggle-btn" id="tipoBtnPropio">Solo yo</button>
           </div>
         </div>
         <div class="form-group" id="fAbogadoWrap" style="grid-column: span 7">
           <label>Colaborador</label>
           <select id="fAbogado"></select>
+        </div>
+        <div class="form-group" id="fTeamMembersWrap" style="grid-column: span 7; display:none">
+          <label>Miembros del equipo</label>
+          <div id="fTeamMembersList" class="team-member-list" style="max-height:140px;overflow-y:auto"></div>
         </div>
         <div class="form-group" style="grid-column: span 3">
           <label>Fecha de vencimiento</label>

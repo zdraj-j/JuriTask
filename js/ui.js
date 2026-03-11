@@ -365,7 +365,8 @@ function openDetail(id) {
 function openDetailModal(t) {
   closeAllExpands();
   document.getElementById('detailTitle').textContent    = `Trámite #${t.numero}`;
-  document.getElementById('detailSubtitle').textContent = `${t.descripcion} · ${esPropio(t) ? 'Propio' : abogadoName(t.abogado)} · ${t.modulo}${t.fechaVencimiento ? ` · Vence: ${formatDate(t.fechaVencimiento)}` : ''}`;
+  const ownerLabel = t.sharedWith?.length ? 'Equipo' : (esPropio(t) ? 'Propio' : abogadoName(t.abogado));
+  document.getElementById('detailSubtitle').textContent = `${t.descripcion} · ${ownerLabel} · ${t.modulo}${t.fechaVencimiento ? ` · Vence: ${formatDate(t.fechaVencimiento)}` : ''}`;
   document.getElementById('detailModal').dataset.id     = t.id;
   const body = document.getElementById('detailModalBody');
   body.innerHTML = buildDetailContent(t);
@@ -763,9 +764,32 @@ let _tareasIniciales = [];
 function setModalTipo(tipo) {
   modalTipoActual = tipo;
   document.getElementById('tipoBtnAbogado')?.classList.toggle('active', tipo === 'abogado');
+  document.getElementById('tipoBtnEquipo')?.classList.toggle('active',  tipo === 'equipo');
   document.getElementById('tipoBtnPropio')?.classList.toggle('active',  tipo === 'propio');
   const abWrap = document.getElementById('fAbogadoWrap');
+  const tmWrap = document.getElementById('fTeamMembersWrap');
   if (abWrap) abWrap.style.display = tipo === 'abogado' ? '' : 'none';
+  if (tmWrap) {
+    tmWrap.style.display = tipo === 'equipo' ? '' : 'none';
+    if (tipo === 'equipo') _populateTeamCheckboxes();
+  }
+}
+
+function _populateTeamCheckboxes(selectedUids) {
+  const list = document.getElementById('fTeamMembersList');
+  if (!list || typeof _teamMembers === 'undefined') return;
+  list.innerHTML = '';
+  if (!_teamMembers.length) {
+    list.innerHTML = '<p style="font-size:12px;color:var(--text-muted);padding:6px">No hay miembros en tu equipo.</p>';
+    return;
+  }
+  _teamMembers.forEach(m => {
+    const checked = selectedUids ? selectedUids.includes(m.uid) : true;
+    const row = document.createElement('label');
+    row.className = 'team-member-row';
+    row.innerHTML = `<input type="checkbox" value="${m.uid}" ${checked ? 'checked' : ''}/> <span>${m.displayName || m.email}</span>`;
+    list.appendChild(row);
+  });
 }
 
 function setModalScope(scope) {
@@ -827,14 +851,21 @@ function openModal(tramite = null) {
   document.getElementById('nuevaNotaFieldsModal').style.display = 'none';
   document.getElementById('tareasInicialesList').innerHTML = '<p class="tareas-empty-hint">Ninguna tarea aún — puedes agregar después.</p>';
 
-  setModalTipo(tramite?.tipo || 'abogado');
+  // Mostrar u ocultar botón de equipo según si hay miembros
+  const equipoBtn = document.getElementById('tipoBtnEquipo');
+  if (equipoBtn) equipoBtn.style.display = (typeof _teamMembers !== 'undefined' && _teamMembers.length) ? '' : 'none';
+
+  // Determinar tipo: si tiene sharedWith es 'equipo', si tiene abogado es 'abogado', sino 'propio'
+  const tipoModal = tramite?.sharedWith?.length ? 'equipo' : (tramite?.tipo || 'abogado');
+  setModalTipo(tipoModal);
+  if (tipoModal === 'equipo' && tramite?.sharedWith) {
+    _populateTeamCheckboxes(tramite.sharedWith);
+  }
   setModalScope(tramite?._scope || 'private');
 
   // Mostrar colaborador si hay miembros del equipo
   const sw = document.getElementById('fScopeWrap');
-  if (sw) sw.style.display = 'none'; // ya no se usa - scope derivado del colaborador
-  const abWrap = document.getElementById('fAbogadoWrap');
-  if (abWrap) abWrap.style.display = (modalTipoActual === 'abogado') ? '' : 'none';
+  if (sw) sw.style.display = 'none'; // ya no se usa - scope derivado del tipo
 
   document.getElementById('modalOverlay').classList.add('open');
   setTimeout(() => document.getElementById('fNumero')?.focus(), 120);
@@ -856,9 +887,11 @@ async function saveTramite() {
   const modulo      = document.getElementById('fModulo').value;
   const tipo        = modalTipoActual;
   const colaborador = tipo === 'abogado' ? document.getElementById('fAbogado').value : null;
+  const teamUids    = tipo === 'equipo' ? [...document.querySelectorAll('#fTeamMembersList input:checked')].map(c => c.value) : [];
   const venc        = document.getElementById('fFechaVencimiento').value;
 
   if (!numero || !modulo) { showToast('Completa: número y módulo.'); return; }
+  if (tipo === 'equipo' && !teamUids.length) { showToast('Selecciona al menos un miembro del equipo.'); return; }
 
   syncTareasFromDOM();
   const tareasValidas = _tareasIniciales.filter(t => t.descripcion);
@@ -873,17 +906,20 @@ async function saveTramite() {
       const t = getById(editingId);
       if (!t) { showToast('Error: no se encontró el trámite.'); return; }
       pushHistory(`Editar trámite #${numero}`);
-      Object.assign(t, { numero, descripcion: desc, modulo, tipo, fechaVencimiento: venc });
-      if (tipo === 'abogado') t.abogado = colaborador; else delete t.abogado;
+      Object.assign(t, { numero, descripcion: desc, modulo, tipo: tipo === 'equipo' ? 'abogado' : tipo, fechaVencimiento: venc });
+      if (tipo === 'abogado') { t.abogado = colaborador; delete t.sharedWith; }
+      else if (tipo === 'equipo') { delete t.abogado; t.sharedWith = teamUids; t._scope = 'team'; }
+      else { delete t.abogado; delete t.sharedWith; t._scope = 'private'; }
       if (tareasValidas.length) t.seguimiento.unshift(...tareasValidas);
       if (notaInicial.length)   t.notas.push(...notaInicial);
       if (typeof saveTramiteFS === 'function') await saveTramiteFS(t);
       showToast('Trámite actualizado.');
     } else {
       pushHistory(`Crear trámite #${numero}`);
-      const scope = (tipo === 'abogado' && colaborador) ? 'team' : 'private';
+      const scope = (tipo === 'equipo' || (tipo === 'abogado' && colaborador)) ? 'team' : 'private';
       const newT = {
-        id: genId(), numero, descripcion: desc, modulo, tipo,
+        id: genId(), numero, descripcion: desc, modulo,
+        tipo: tipo === 'equipo' ? 'abogado' : tipo,
         fechaVencimiento: venc,
         gestion:    { analisis: false, cumplimiento: false },
         seguimiento: tareasValidas, notas: notaInicial,
@@ -893,23 +929,13 @@ async function saveTramite() {
         createdBy: AUTH?.userProfile?.uid || null,
       };
       if (tipo === 'abogado' && colaborador) newT.abogado = colaborador;
+      if (tipo === 'equipo') newT.sharedWith = teamUids;
 
       STATE.tramites.push(newT);
       STATE.order.push(newT.id);
 
       if (typeof saveTramiteFS === 'function') {
         await saveTramiteFS(newT);
-        // Compartir con colaborador si es miembro del equipo en Firestore
-        if (scope === 'team' && colaborador && typeof _teamMembers !== 'undefined') {
-          const isTeamMember = _teamMembers.find(m => m.uid === colaborador);
-          if (isTeamMember) {
-            try {
-              const sharedData = { ...newT, _sharedFrom: AUTH.userProfile.uid, _sharedFromName: AUTH.userProfile.displayName || AUTH.userProfile.email };
-              delete sharedData.id;
-              await db.collection('users').doc(colaborador).collection('tramites').doc(newT.id).set(sharedData);
-            } catch(e) { console.warn('No se pudo compartir con colaborador:', e.code); }
-          }
-        }
       } else {
         saveAll(true);
       }
