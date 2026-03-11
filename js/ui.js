@@ -486,6 +486,11 @@ function buildDetailContent(t) {
       <button class="btn-small" id="${p}_saveVenc" style="margin-top:10px">Guardar fecha</button>
     </div>
     <div class="detail-section">
+      <h3>Archivos adjuntos <span class="drive-badge">Google Drive</span></h3>
+      <div id="${p}_attachments" class="drive-attachments-list"></div>
+      <button class="btn-small btn-drive" id="${p}_addAttachment" type="button"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M12 12v6"/><path d="m15 15-3-3-3 3"/></svg> Adjuntar desde Drive</button>
+    </div>
+    <div class="detail-section">
       <h3>Notas</h3>
       <div id="${p}_notas"></div>
       <div class="add-nota-row">
@@ -572,6 +577,33 @@ function bindDetailContent(t, container, expandWrapper) {
     t.fechaVencimiento = vencInput.value;
     if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
     saveAll(); refreshCardOnly(t); showToast('Fecha actualizada.');
+  });
+
+  // ── Archivos adjuntos de Google Drive ──
+  if (!t.attachments) t.attachments = [];
+  const attContainer = container.querySelector(`#${p}_attachments`);
+  const _renderAtts = () => {
+    if (typeof renderDriveAttachments === 'function') {
+      renderDriveAttachments(t.attachments, attContainer, true, idx => {
+        t.attachments.splice(idx, 1);
+        if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
+        saveAll(); _renderAtts();
+        showToast('Adjunto eliminado.');
+      });
+    }
+  };
+  _renderAtts();
+  container.querySelector(`#${p}_addAttachment`)?.addEventListener('click', async () => {
+    if (typeof openDrivePicker !== 'function') { showToast('Google Drive no disponible.'); return; }
+    try {
+      const files = await openDrivePicker();
+      if (files.length) {
+        t.attachments.push(...files);
+        if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
+        saveAll(); _renderAtts();
+        showToast(`${files.length} archivo(s) adjuntado(s).`);
+      }
+    } catch(e) { /* usuario canceló o error ya mostrado */ }
   });
 
   renderNotasIn(t, container.querySelector(`#${p}_notas`));
@@ -922,7 +954,7 @@ async function saveTramite() {
         tipo: tipo === 'equipo' ? 'abogado' : tipo,
         fechaVencimiento: venc,
         gestion:    { analisis: false, cumplimiento: false },
-        seguimiento: tareasValidas, notas: notaInicial,
+        seguimiento: tareasValidas, notas: notaInicial, attachments: [],
         terminado: false, terminadoEn: null,
         creadoEn:  new Date().toISOString(),
         _scope:    scope,

@@ -25,10 +25,19 @@ const APP_URL = 'https://zdraj-j.github.io/JuriTask/';
 const AUTH = {
   userProfile: null,
 
+  // Token de acceso de Google (para Drive Picker)
+  _googleAccessToken: null,
+
   loginGoogle() {
     const provider = new firebase.auth.GoogleAuthProvider();
+    provider.addScope('https://www.googleapis.com/auth/drive.file');
     provider.setCustomParameters({ prompt: 'select_account' });
-    return auth.signInWithPopup(provider);
+    return auth.signInWithPopup(provider).then(result => {
+      if (result.credential) {
+        AUTH._googleAccessToken = result.credential.accessToken;
+      }
+      return result;
+    });
   },
 
   loginEmail(email, password) {
