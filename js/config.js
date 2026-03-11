@@ -102,9 +102,7 @@ function init() {
   // ── Nuevo trámite ────────────────────────────────────────
   document.getElementById('newTramiteBtn')?.addEventListener('click',      () => openModal());
   document.getElementById('newTramiteBtnEmpty')?.addEventListener('click', () => openModal());
-  document.getElementById('tipoBtnAbogado').addEventListener('click', () => setModalTipo('abogado'));
-  document.getElementById('tipoBtnEquipo')?.addEventListener('click', () => setModalTipo('equipo'));
-  document.getElementById('tipoBtnPropio').addEventListener('click',  () => setModalTipo('propio'));
+  document.getElementById('fTipo')?.addEventListener('change', e => setModalTipo(e.target.value));
   document.getElementById('scopeBtnPrivate')?.addEventListener('click', () => setModalScope('private'));
   document.getElementById('scopeBtnTeam')?.addEventListener('click',   () => setModalScope('team'));
 
@@ -114,6 +112,23 @@ function init() {
     const open = f.style.display !== 'none';
     f.style.display = open ? 'none' : 'block';
     if (!open) setTimeout(() => document.getElementById('fNota')?.focus(), 60);
+  });
+  document.getElementById('btnDriveModal')?.addEventListener('click', async () => {
+    if (typeof openDrivePicker !== 'function') { showToast('Google Drive no disponible.'); return; }
+    try {
+      const files = await openDrivePicker();
+      if (files.length) { _modalAttachments.push(...files); _renderModalAttachments(); showToast(`${files.length} archivo(s) adjuntado(s).`); }
+    } catch(e) {}
+  });
+  document.getElementById('btnEnlaceModal')?.addEventListener('click', () => {
+    const url = prompt('Pega la URL del enlace:');
+    if (!url || !url.trim()) return;
+    const trimmed = url.trim();
+    if (!trimmed.startsWith('http://') && !trimmed.startsWith('https://')) { showToast('URL inválida.'); return; }
+    const name = prompt('Nombre del enlace (opcional):') || trimmed;
+    _modalAttachments.push({ type: 'link', url: trimmed, name: name.trim(), mimeType: 'link' });
+    _renderModalAttachments();
+    showToast('Enlace adjuntado.');
   });
 
   // ── Modal trámite ────────────────────────────────────────

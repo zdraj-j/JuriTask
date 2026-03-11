@@ -628,9 +628,6 @@ body {
   font-size: 11px; color: var(--text-muted);
   background: var(--surface-3); border-radius: 20px; padding: 1px 7px;
 }
-.actividad-estado { font-size: 11px; font-weight: 600; padding: 2px 7px; border-radius: 20px; }
-.actividad-estado.pendiente { background: var(--warning-light); color: var(--warning); }
-.actividad-estado.realizado { background: var(--success-light); color: var(--success); }
 .actividad-delete {
   background: none; border: none; cursor: pointer;
   color: var(--text-muted); font-size: 13px; padding: 2px;
@@ -1037,21 +1034,22 @@ body {
 .tareas-iniciales-list { display: flex; flex-direction: column; gap: 8px; }
 .tareas-empty-hint { font-size: 13px; color: var(--text-muted); font-style: italic; }
 .tarea-inicial-row {
-  display: grid; grid-template-columns: 1fr 130px auto auto auto;
-  gap: 6px; align-items: center;
+  display: grid; grid-template-columns: 1fr 110px auto auto auto auto auto;
+  gap: 4px; align-items: center;
   background: var(--surface-2); border-radius: var(--radius-sm);
   padding: 8px 10px; border: 1px solid var(--border-light);
+  margin-bottom: 4px;
 }
-.tarea-inicial-row input, .tarea-inicial-row select { border: none; background: none; font-size: 13px; color: var(--text-primary); padding: 2px 4px; }
+.tarea-inicial-row input, .tarea-inicial-row select { border: none; background: none; font-size: 12px; color: var(--text-primary); padding: 2px 4px; }
 .tarea-inicial-row input:focus, .tarea-inicial-row select:focus { outline: none; }
-.ti-urg { background: none; border: none; cursor: pointer; opacity: .3; font-size: 13px; transition: opacity var(--transition); }
+.ti-drive, .ti-link { background: none; border: none; cursor: pointer; opacity: .4; transition: opacity var(--transition); display: inline-flex; padding: 2px; }
+.ti-drive:hover, .ti-link:hover { opacity: 1; }
+.ti-urg { background: none; border: none; cursor: pointer; opacity: .3; font-size: 12px; transition: opacity var(--transition); }
 .ti-urg.active { opacity: 1; }
 .ti-del { background: none; border: none; cursor: pointer; color: var(--danger); font-size: 12px; opacity: .5; transition: opacity var(--transition); }
 .ti-del:hover { opacity: 1; }
-@media (max-width: 600px) {
-  .tarea-inicial-row { grid-template-columns: 1fr auto auto auto; }
-  .tarea-inicial-row input[type=date] { display: none; }
-}
+.ti-atts { grid-column: 1 / -1; display: flex; gap: 4px; flex-wrap: wrap; }
+.ti-atts:empty { display: none; }
 
 /* ═══════════════════ BACKUPS ════════════════════ */
 .backup-desc { font-size: 13px; color: var(--text-secondary); margin-bottom: 14px; }
@@ -1565,41 +1563,83 @@ body {
 .notif-time { font-size: 10px; color: var(--text-muted); }
 .notif-empty { font-size: 13px; color: var(--text-muted); text-align: center; padding: 24px 16px; font-style: italic; }
 
-/* ── Google Drive attachments ─────────────────────── */
-.drive-badge {
-  font-size: 10px; font-weight: 600; color: #4285f4;
-  background: rgba(66,133,244,.1); padding: 2px 8px;
-  border-radius: 10px; vertical-align: 2px; margin-left: 6px;
-}
-.drive-attachments-list {
-  display: flex; flex-wrap: wrap; gap: 8px; margin-bottom: 10px;
-}
-.drive-empty {
-  font-size: 12px; color: var(--text-muted); font-style: italic;
-  padding: 4px 0; margin: 0;
-}
-.drive-chip {
-  display: inline-flex; align-items: center; gap: 6px;
-  padding: 6px 10px; border-radius: 8px;
+/* ── Per-task attachments (Drive + links) ─────────── */
+.task-att-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 28px; height: 28px; border-radius: 6px;
   background: var(--surface-2); border: 1px solid var(--border-light);
-  color: var(--text-primary); text-decoration: none;
-  font-size: 12px; line-height: 1.3; transition: all .15s;
-  max-width: 260px; cursor: pointer;
+  color: var(--text-secondary); text-decoration: none;
+  transition: all .15s; cursor: pointer; flex-shrink: 0;
 }
-.drive-chip:hover {
+.task-att-btn:hover {
   background: var(--accent-light); border-color: var(--accent);
-  color: var(--accent);
 }
-.drive-chip-icon { display: flex; flex-shrink: 0; }
-.drive-chip-name {
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+.act-attachments-row {
+  display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;
 }
-.drive-chip-remove {
-  background: none; border: none; color: var(--text-muted);
-  font-size: 16px; line-height: 1; cursor: pointer;
-  padding: 0 0 0 4px; flex-shrink: 0; font-weight: 600;
+.act-attach-btn {
+  background: none; border: none; cursor: pointer;
+  padding: 2px 4px; border-radius: 4px; display: inline-flex;
+  align-items: center; opacity: .5; transition: opacity .15s;
 }
-.drive-chip-remove:hover { color: var(--danger); }
-.btn-drive {
-  margin-top: 4px; display: inline-flex; align-items: center;
+.act-attach-btn:hover { opacity: 1; }
+.act-attach-btn:disabled { opacity: .2; cursor: default; }
+
+/* Per-member completion checks */
+.act-member-checks {
+  display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;
+}
+.act-member-check {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 10px; color: var(--text-muted);
+  background: var(--surface-2); padding: 2px 6px;
+  border-radius: 12px; cursor: default;
+}
+.act-member-check.done { background: var(--success-light); color: var(--success); }
+.act-member-check input { width: 12px; height: 12px; margin: 0; cursor: pointer; }
+.act-member-check input:disabled { cursor: default; }
+.act-member-name { white-space: nowrap; }
+
+/* ── Modal compact action row ────────────────────── */
+.modal-action-row {
+  display: flex; gap: 6px; margin: 14px 0 8px;
+  padding: 8px 0; border-top: 1px solid var(--border-light);
+}
+.modal-action-btn {
+  display: inline-flex; align-items: center; gap: 5px;
+  padding: 6px 12px; border: 1px solid var(--border);
+  border-radius: 20px; background: var(--surface-2);
+  font-family: var(--font); font-size: 12px;
+  color: var(--text-secondary); cursor: pointer; transition: all .15s;
+}
+.modal-action-btn:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+.modal-action-label { pointer-events: none; }
+.modal-attachments-list {
+  display: flex; flex-wrap: wrap; gap: 4px; margin-top: 4px;
+}
+
+/* ── Modal grid ──────────────────────────────────── */
+.form-grid-modal {
+  display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+}
+
+/* ── Card seguimiento tweaks ─────────────────────── */
+.seg-desc {
+  flex: 1; min-width: 0; overflow: hidden;
+  text-overflow: ellipsis; white-space: nowrap;
+}
+.card-seg-more {
+  font-size: 11px; color: var(--text-muted); padding-left: 11px;
+}
+
+/* ── Mobile: force 1 column ──────────────────────── */
+@media (max-width: 768px) {
+  .tramite-list { flex-direction: column !important; }
+  .tramite-list .tramite-col { display: flex !important; flex: 1; }
+  .form-grid-modal { grid-template-columns: 1fr !important; }
+  .form-grid-modal .form-group[style*="grid-column"] { grid-column: 1 !important; }
+  .modal-action-btn .modal-action-label { display: none; }
+  .tarea-inicial-row { grid-template-columns: 1fr auto auto auto !important; }
+  .tarea-inicial-row .ti-fecha { display: none; }
+  .tarea-inicial-row .ti-resp { max-width: 90px; font-size: 11px; }
 }
