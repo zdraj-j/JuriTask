@@ -540,7 +540,7 @@ body {
 /* Botón nueva tarea en card */
 .card-nueva-tarea-row {
   padding: 7px 14px; border-top: 1px solid var(--border-light);
-  background: var(--surface-2);
+  background: var(--surface-2); display: flex; align-items: center; gap: 8px;
 }
 .btn-card-tarea {
   background: none; border: 1px dashed var(--border);
@@ -560,11 +560,25 @@ body {
 }
 .expand-panel.open { max-height: 3600px; opacity: 1; }
 .expand-panel-inner { padding: 0; }
-.expand-actions {
-  display: flex; align-items: center; gap: 8px;
-  padding: 10px 14px; border-bottom: 1px solid var(--border-light);
-  background: var(--surface); justify-content: flex-end;
+/* Action buttons embedded in card-nueva-tarea-row when expanded */
+.expand-act-btns {
+  display: inline-flex; align-items: center; gap: 4px; margin-left: auto;
 }
+.expand-act-btns .btn-icon {
+  background: var(--surface); border: 1px solid var(--border);
+  border-radius: 6px; padding: 4px; cursor: pointer;
+  color: var(--text-muted); display: inline-flex; align-items: center;
+  transition: all .15s;
+}
+.expand-act-btns .btn-icon:hover { color: var(--accent); border-color: var(--accent); }
+.expand-act-btns .btn-icon-danger:hover { color: var(--danger); border-color: var(--danger); }
+
+/* Inline date + save button */
+.venc-inline-row {
+  display: flex; align-items: center; gap: 8px;
+}
+.venc-inline-row input[type="date"] { flex: 1; max-width: 200px; }
+.venc-inline-row .btn-small { margin: 0; white-space: nowrap; }
 
 /* ═══════════════════ DETAIL SECTIONS ═══════════ */
 .detail-section { padding: 14px 18px; border-bottom: 1px solid var(--border-light); }
@@ -1587,18 +1601,51 @@ body {
 
 /* Per-member completion checks */
 .act-member-checks {
-  display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px;
+  display: flex; gap: 5px; flex-wrap: wrap; margin-top: 5px;
 }
 .act-member-check {
-  display: inline-flex; align-items: center; gap: 3px;
-  font-size: 10px; color: var(--text-muted);
-  background: var(--surface-2); padding: 2px 6px;
-  border-radius: 12px; cursor: default;
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; color: var(--text-secondary);
+  background: var(--surface-3); padding: 3px 8px;
+  border-radius: 14px; cursor: default;
+  border: 1px solid var(--border-light); transition: all .15s;
 }
-.act-member-check.done { background: var(--success-light); color: var(--success); }
-.act-member-check input { width: 12px; height: 12px; margin: 0; cursor: pointer; }
-.act-member-check input:disabled { cursor: default; }
-.act-member-name { white-space: nowrap; }
+.act-member-check.done {
+  background: var(--success-light); color: var(--success);
+  border-color: var(--success-light);
+}
+.act-member-check input {
+  width: 13px; height: 13px; margin: 0; cursor: pointer;
+  accent-color: var(--success);
+}
+.act-member-check input:disabled { cursor: default; opacity: .6; }
+.act-member-name { white-space: nowrap; font-weight: 500; }
+
+/* Member picker in task rows (modal) */
+.ti-members {
+  grid-column: 1 / -1; display: flex; gap: 6px; flex-wrap: wrap;
+  align-items: center; margin-top: 2px;
+}
+.ti-members-label {
+  font-size: 11px; color: var(--text-muted); font-weight: 500; margin-right: 2px;
+}
+.ti-member-opt {
+  display: inline-flex; align-items: center; gap: 3px;
+  font-size: 11px; color: var(--text-secondary);
+  background: var(--surface-3); padding: 3px 8px;
+  border-radius: 14px; cursor: pointer;
+  border: 1px solid var(--border-light); transition: all .15s;
+}
+.ti-member-opt:has(input:checked) {
+  background: var(--accent-light); color: var(--accent);
+  border-color: var(--accent);
+}
+.ti-member-opt input { width: 12px; height: 12px; margin: 0; accent-color: var(--accent); }
+.ti-member-opt span { white-space: nowrap; }
+.act-assign-members {
+  display: flex; gap: 6px; flex-wrap: wrap; align-items: center;
+  margin: 6px 0;
+}
 
 /* ── Modal compact action row ────────────────────── */
 .modal-action-row {
