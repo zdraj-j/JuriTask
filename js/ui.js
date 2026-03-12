@@ -398,7 +398,6 @@ function openDetailExpand(t) {
       <button class="btn-icon" data-action="edit" title="Editar"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/></svg></button>
       <button class="btn-icon btn-icon-danger" data-action="delete" title="Eliminar"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
       <button class="btn-icon" data-action="close" title="Cerrar"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>`;
-
     actBtns.querySelector('[data-action="dup"]').addEventListener('click', e => {
       e.stopPropagation();
       const newT = JSON.parse(JSON.stringify(t));
@@ -423,7 +422,6 @@ function openDetailExpand(t) {
     });
     actBtns.querySelector('[data-action="close"]').addEventListener('click', e => { e.stopPropagation(); closeAllExpands(); });
     actBtns.addEventListener('click', e => e.stopPropagation());
-
     tareaRow.appendChild(actBtns);
   }
 
@@ -465,6 +463,9 @@ function buildDetailContent(t) {
   const p     = `det_${t.id}`;
   const hVenc = !!(t.gestion?.cumplimiento);
 
+  // Build multi-select options for new task assignment
+  const respOptsHtml = _buildMultiRespOptions([]);
+
   return `
     <div class="detail-section">
       <h3>Seguimiento <span class="etapa-badge${etapa==='seguimiento'?' seguimiento':''}" id="${p}_etapabadge">${etapa==='seguimiento'?'Seguimiento':'Gestión'}</span></h3>
@@ -476,18 +477,11 @@ function buildDetailContent(t) {
         <input type="text"  id="${p}_newActDesc"  placeholder="¿Qué se debe hacer?" />
         <div class="add-actividad-form-row">
           <input type="date" id="${p}_newActFecha" />
-          <select id="${p}_newActResp">${buildRespOptions(t.tipo||'abogado', t.abogado||'abogado1', t.abogado||'yo')}</select>
+          <div class="ti-resp-wrap">
+            <div class="ti-resp-display" id="${p}_newActRespDisplay">Asignar…</div>
+            <div class="ti-resp-dropdown" id="${p}_newActRespDropdown">${respOptsHtml}</div>
+          </div>
         </div>
-        ${(t.sharedWith && t.sharedWith.length > 0) ? (() => {
-          const myUid = AUTH?.userProfile?.uid;
-          const allM = [myUid, ...(t.sharedWith || [])].filter(Boolean);
-          const unique = [...new Set(allM)];
-          return '<div class="act-assign-members" id="' + p + '_assignMembers"><span class="ti-members-label">Asignar a:</span>' +
-            unique.map(uid => {
-              const name = uid === myUid ? 'Yo' : (typeof abogadoName === 'function' ? abogadoName(uid, t) : uid);
-              return '<label class="ti-member-opt"><input type="checkbox" value="' + uid + '" checked/><span>' + name.split(' ')[0] + '</span></label>';
-            }).join('') + '</div>';
-        })() : ''}
         <div class="add-actividad-btns">
           <button class="btn-small" id="${p}_addAct">+ Agregar</button>
           <button class="btn-small" id="${p}_cancelAct" style="background:var(--surface);color:var(--text-secondary);border:1px solid var(--border)">Cancelar</button>
@@ -532,24 +526,39 @@ function bindDetailContent(t, container, expandWrapper) {
     formNueva.style.display = open ? 'none' : 'block';
     if (!open) setTimeout(() => container.querySelector(`#${p}_newActDesc`)?.focus(), 60);
   });
+
+  // Multi-select for new task assignment
+  const respDisplay  = container.querySelector(`#${p}_newActRespDisplay`);
+  const respDropdown = container.querySelector(`#${p}_newActRespDropdown`);
+  let _newTaskAssigned = [];
+  if (respDisplay && respDropdown) {
+    respDisplay.addEventListener('click', e => { e.stopPropagation(); respDropdown.classList.toggle('open'); });
+    respDropdown.addEventListener('click', e => e.stopPropagation());
+    respDropdown.addEventListener('change', () => {
+      _newTaskAssigned = [...respDropdown.querySelectorAll('input:checked')].map(c => c.value);
+      _updateTiRespDisplay(respDisplay, _newTaskAssigned);
+    });
+    document.addEventListener('click', () => respDropdown.classList.remove('open'));
+  }
+
   container.querySelector(`#${p}_cancelAct`)?.addEventListener('click', () => { formNueva.style.display = 'none'; });
   container.querySelector(`#${p}_addAct`)?.addEventListener('click', () => {
     const desc  = container.querySelector(`#${p}_newActDesc`).value.trim();
     const fecha = container.querySelector(`#${p}_newActFecha`).value;
-    const resp  = container.querySelector(`#${p}_newActResp`).value;
     if (!desc) { showToast('Escribe una descripción.'); return; }
     pushHistory('Agregar tarea');
-    const assignedTo = [...(container.querySelectorAll(`#${p}_assignMembers input:checked`) || [])].map(c => c.value);
-    t.seguimiento.push({ descripcion: sentenceCase(desc), fecha, responsable: resp, estado: 'pendiente', urgente: false, attachments: [], completedBy: {}, assignedTo });
+    t.seguimiento.push({ descripcion: sentenceCase(desc), fecha, responsable: _newTaskAssigned[0] || 'yo', estado: 'pendiente', urgente: false, attachments: [], completedBy: {}, assignedTo: [..._newTaskAssigned] });
     container.querySelector(`#${p}_newActDesc`).value = '';
     container.querySelector(`#${p}_newActFecha`).value = '';
     formNueva.style.display = 'none';
-    // Notificar si la tarea se asigna a otro usuario (no a "yo" ni al propio, ni a abogados manuales)
-    if (typeof createNotification === 'function' && resp !== 'yo' && resp !== AUTH?.userProfile?.uid && !resp.startsWith('abogado_')) {
-      createNotification(resp, 'task_assigned',
-        `${AUTH?.userProfile?.displayName || 'Alguien'} te asignó una tarea en el trámite #${t.numero}: "${sentenceCase(desc)}"`,
-        { tramiteId: t.id });
-    }
+    // Notificar a cada asignado
+    _newTaskAssigned.forEach(uid => {
+      if (typeof createNotification === 'function' && uid !== 'yo' && uid !== AUTH?.userProfile?.uid && !uid.startsWith('abogado_')) {
+        createNotification(uid, 'task_assigned',
+          `${AUTH?.userProfile?.displayName || 'Alguien'} te asignó una tarea en el trámite #${t.numero}: "${sentenceCase(desc)}"`,
+          { tramiteId: t.id });
+      }
+    });
     if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
     saveAll(); refreshCardOnly(t);
     renderActividadesIn(t, container.querySelector(`#${p}_actividades`), container, expandWrapper);
@@ -607,11 +616,11 @@ function renderActividadesIn(t, listEl, container, expandWrapper) {
     const isDone = act.estado === 'realizado';
     div.className = 'actividad-item' + (act.urgente ? ' act-urgente' : '');
 
-    // Per-member completion for team tasks — only show for assigned members
+    // Per-member completion for team tasks — only for assigned members
     const isTeam = t.sharedWith && t.sharedWith.length > 0;
     const myUid  = AUTH?.userProfile?.uid;
     let memberChecksHtml = '';
-    if (isTeam && act.assignedTo && act.assignedTo.length > 0) {
+    if (isTeam && act.assignedTo && act.assignedTo.length > 1) {
       const uniqueMembers = [...new Set(act.assignedTo)];
       memberChecksHtml = '<div class="act-member-checks">' + uniqueMembers.map(uid => {
         const checked = act.completedBy[uid] ? 'checked' : '';
@@ -622,21 +631,33 @@ function renderActividadesIn(t, listEl, container, expandWrapper) {
     }
 
     const attCount = act.attachments.length;
+    // Build assignedTo display badges
+    let assignedHtml = '';
+    if (act.assignedTo && act.assignedTo.length > 0) {
+      assignedHtml = act.assignedTo.map(uid => {
+        const n = uid === myUid ? 'Yo' : (typeof abogadoName === 'function' ? abogadoName(uid, t) : uid);
+        return `<span class="actividad-resp">${n.split(' ')[0]}</span>`;
+      }).join('');
+    } else if (act.responsable) {
+      assignedHtml = `<span class="actividad-resp">${abogadoName(act.responsable, t)}</span>`;
+    }
     div.innerHTML = `
       <div class="actividad-check-wrap"><label class="round-check-wrap"><input type="checkbox" class="act-main-check" ${isDone?'checked':''}/><div class="round-check-box"></div></label></div>
       <div class="actividad-info">
         <div class="actividad-desc ${isDone?'done':''}" title="Doble clic para editar">${escapeHtml(act.descripcion)}</div>
         <div class="actividad-meta">
           <input type="date" value="${act.fecha||''}" />
-          ${act.responsable ? `<span class="actividad-resp">${abogadoName(act.responsable, t)}</span>` : ''}
-          <button class="act-attach-btn act-drive-btn" title="Adjuntar desde Drive" ${attCount>=5?'disabled':''}><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"/></svg></button>
-          <button class="act-attach-btn act-link-btn" title="Adjuntar enlace" ${attCount>=5?'disabled':''}><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/></svg></button>
+          ${assignedHtml}
+          <div class="act-actions-right">
+            <button class="act-attach-btn act-urg-btn ${act.urgente?'active':''}" title="${act.urgente?'Quitar urgente':'Marcar urgente'}"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></button>
+            <button class="act-attach-btn act-drive-btn" title="Adjuntar" ${attCount>=5?'disabled':''}><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"/></svg></button>
+            <button class="act-attach-btn act-link-btn" title="Adjuntar enlace" ${attCount>=5?'disabled':''}><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/></svg></button>
+            <button class="actividad-delete" title="Eliminar">✕</button>
+          </div>
         </div>
         ${memberChecksHtml}
         <div class="act-attachments-row" data-idx="${i}"></div>
-      </div>
-      <button class="act-urg-btn ${act.urgente?'active':''}" title="${act.urgente?'Quitar urgente':'Marcar urgente'}">🔴</button>
-      <button class="actividad-delete" title="Eliminar">✕</button>`;
+      </div>`;
 
     // Render per-task attachments
     const attRow = div.querySelector('.act-attachments-row');
@@ -682,7 +703,7 @@ function renderActividadesIn(t, listEl, container, expandWrapper) {
     });
 
     // Per-member completion checks
-    if (isTeam && act.assignedTo && act.assignedTo.length > 0) {
+    if (isTeam && act.assignedTo && act.assignedTo.length > 1) {
       div.querySelectorAll('.act-member-check input').forEach(cb => {
         cb.addEventListener('change', e => {
           const uid = e.target.dataset.uid;
@@ -841,75 +862,110 @@ let modalTipoActual  = 'abogado';
 let modalScopeActual = 'private';
 let _tareasIniciales = [];
 
-function setModalTipo(tipo) {
-  modalTipoActual = tipo;
-  const sel = document.getElementById('fTipo');
-  if (sel) sel.value = tipo;
-  // Ocultar opción equipo si no hay miembros
-  const eqOpt = sel?.querySelector('option[value="equipo"]');
-  if (eqOpt) eqOpt.style.display = (typeof _teamMembers !== 'undefined' && _teamMembers.length) ? '' : 'none';
-  const abWrap = document.getElementById('fAbogadoWrap');
-  const tmWrap = document.getElementById('fTeamMembersWrap');
-  if (abWrap) abWrap.style.display = tipo === 'abogado' ? '' : 'none';
-  if (tmWrap) {
-    tmWrap.style.display = tipo === 'equipo' ? '' : 'none';
-    if (tipo === 'equipo') _populateTeamCheckboxes();
-  }
-}
+let _modalAssignedUids = []; // Selected UIDs in the "Asignar a" multi-select
 
-function _populateTeamCheckboxes(selectedUids) {
-  const list = document.getElementById('fTeamMembersList');
-  if (!list || typeof _teamMembers === 'undefined') return;
-  list.innerHTML = '';
-  if (!_teamMembers.length) {
-    list.innerHTML = '<p style="font-size:12px;color:var(--text-muted);padding:6px">No hay miembros en tu equipo.</p>';
-    return;
+function populateModalAssign(selectedUids) {
+  const dropdown = document.getElementById('fAsignarDropdown');
+  const display  = document.getElementById('fAsignarDisplay');
+  if (!dropdown || !display) return;
+
+  const myUid = AUTH?.userProfile?.uid;
+  const opts = [];
+  // "Solo yo" option
+  opts.push({ value: 'yo', label: 'Solo yo' });
+  // Team members
+  if (typeof _teamMembers !== 'undefined') {
+    _teamMembers.forEach(m => {
+      opts.push({ value: m.uid, label: m.displayName || m.email || m.uid });
+    });
   }
-  _teamMembers.forEach(m => {
-    const checked = selectedUids ? selectedUids.includes(m.uid) : true;
-    const row = document.createElement('label');
-    row.className = 'team-member-row';
-    row.innerHTML = `<input type="checkbox" value="${m.uid}" ${checked ? 'checked' : ''}/> <span>${m.displayName || m.email}</span>`;
-    list.appendChild(row);
+  // Manual colaboradores
+  (STATE.config.abogados || []).forEach(a => {
+    if (!opts.find(o => o.value === a.key)) opts.push({ value: a.key, label: a.nombre });
+  });
+
+  dropdown.innerHTML = opts.map(o => {
+    const checked = selectedUids.includes(o.value) ? 'checked' : '';
+    return `<label class="ms-opt"><input type="checkbox" value="${o.value}" ${checked}/><span>${o.label}</span></label>`;
+  }).join('');
+
+  _modalAssignedUids = [...selectedUids];
+  _updateModalAssignDisplay();
+
+  // Handle mutual exclusion: "Solo yo" unchecks others and vice versa
+  dropdown.querySelectorAll('input').forEach(cb => {
+    cb.addEventListener('change', () => {
+      if (cb.value === 'yo' && cb.checked) {
+        dropdown.querySelectorAll('input').forEach(o => { if (o !== cb) o.checked = false; });
+      } else if (cb.checked) {
+        const yoCb = dropdown.querySelector('input[value="yo"]');
+        if (yoCb) yoCb.checked = false;
+      }
+      _modalAssignedUids = [...dropdown.querySelectorAll('input:checked')].map(c => c.value);
+      _updateModalAssignDisplay();
+    });
   });
 }
 
-function setModalScope(scope) {
-  modalScopeActual = scope;
-  document.getElementById('scopeBtnPrivate')?.classList.toggle('active', scope === 'private');
-  document.getElementById('scopeBtnTeam')?.classList.toggle('active',    scope === 'team');
+function _updateModalAssignDisplay() {
+  const display = document.getElementById('fAsignarDisplay');
+  if (!display) return;
+  if (!_modalAssignedUids.length) { display.textContent = 'Seleccionar…'; return; }
+  if (_modalAssignedUids.includes('yo')) { display.textContent = 'Solo yo'; return; }
+  const names = _modalAssignedUids.map(uid => {
+    if (typeof _teamMembers !== 'undefined') { const m = _teamMembers.find(x => x.uid === uid); if (m) return (m.displayName || m.email).split(' ')[0]; }
+    const a = (STATE.config.abogados || []).find(x => x.key === uid); if (a) return a.nombre.split(' ')[0];
+    return uid.substring(0, 8);
+  });
+  display.textContent = names.join(', ');
 }
 
-function addTareaRow(desc = '', fecha = '', resp = '') {
+function _getModalTipoFromAssign() {
+  if (_modalAssignedUids.includes('yo') || !_modalAssignedUids.length) return 'propio';
+  const teamUids = (typeof _teamMembers !== 'undefined') ? _teamMembers.map(m => m.uid) : [];
+  const hasTeamMember = _modalAssignedUids.some(uid => teamUids.includes(uid));
+  return hasTeamMember ? 'equipo' : 'abogado';
+}
+
+function addTareaRow(desc = '', fecha = '', resp = '', assignedTo = []) {
   const list = document.getElementById('tareasInicialesList');
   list.querySelector('.tareas-empty-hint')?.remove();
 
   const idx = _tareasIniciales.length;
-  _tareasIniciales.push({ descripcion: desc, fecha, responsable: resp || (STATE.config.abogados[0]?.key || 'yo'), estado: 'pendiente', urgente: false, attachments: [], completedBy: {}, assignedTo: [] });
-
-  // Build member checkboxes for team tasks
-  let memberPickerHtml = '';
-  if (modalTipoActual === 'equipo' && typeof _teamMembers !== 'undefined' && _teamMembers.length) {
-    const myUid = AUTH?.userProfile?.uid;
-    const allM = [myUid ? { uid: myUid, displayName: 'Yo' } : null, ..._teamMembers].filter(Boolean);
-    const unique = allM.filter((m, i, a) => a.findIndex(x => x.uid === m.uid) === i);
-    memberPickerHtml = '<div class="ti-members"><span class="ti-members-label">Asignar:</span>' +
-      unique.map(m => `<label class="ti-member-opt"><input type="checkbox" value="${m.uid}" checked/><span>${m.uid === myUid ? 'Yo' : (m.displayName || m.email || m.uid).split(' ')[0]}</span></label>`).join('') + '</div>';
-    // Pre-fill assignedTo with all members
-    _tareasIniciales[idx].assignedTo = unique.map(m => m.uid);
-  }
+  _tareasIniciales.push({ descripcion: desc, fecha, responsable: resp || 'yo', estado: 'pendiente', urgente: false, attachments: [], completedBy: {}, assignedTo: assignedTo.length ? assignedTo : [] });
 
   const row = document.createElement('div'); row.className = 'tarea-inicial-row'; row.dataset.idx = idx;
+
+  // Build multi-select for task assignment
+  const respOpts = _buildMultiRespOptions(assignedTo);
   row.innerHTML = `
     <input type="text"  class="ti-desc"  placeholder="¿Qué hacer?"  value="${escapeAttr(desc)}" />
     <input type="date"  class="ti-fecha" value="${fecha}" />
-    <select class="ti-resp">${buildRespOptions(modalTipoActual, document.getElementById('fAbogado')?.value || 'yo', resp)}</select>
-    <button class="ti-drive" title="Adjuntar desde Drive"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"/></svg></button>
-    <button class="ti-link" title="Adjuntar enlace"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/></svg></button>
-    <button class="ti-urg ${_tareasIniciales[idx].urgente ? 'active' : ''}" title="Marcar urgente">🔴</button>
-    <button class="ti-del" title="Eliminar">✕</button>
-    ${memberPickerHtml}
+    <div class="ti-resp-wrap">
+      <div class="ti-resp-display" title="Asignar a">Asignar…</div>
+      <div class="ti-resp-dropdown">${respOpts}</div>
+    </div>
+    <div class="ti-actions-right">
+      <button class="ti-urg ${_tareasIniciales[idx].urgente ? 'active' : ''}" title="Marcar urgente"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></button>
+      <button class="ti-drive" title="Adjuntar"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"/></svg></button>
+      <button class="ti-link" title="Adjuntar enlace"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/></svg></button>
+      <button class="ti-del" title="Eliminar">✕</button>
+    </div>
     <div class="ti-atts"></div>`;
+
+  // Multi-select toggle for task assignment
+  const display = row.querySelector('.ti-resp-display');
+  const dropdown = row.querySelector('.ti-resp-dropdown');
+  display.addEventListener('click', e => { e.stopPropagation(); dropdown.classList.toggle('open'); });
+  dropdown.addEventListener('click', e => e.stopPropagation());
+  dropdown.addEventListener('change', () => {
+    const checked = [...dropdown.querySelectorAll('input:checked')].map(c => c.value);
+    _tareasIniciales[idx].assignedTo = checked;
+    _tareasIniciales[idx].responsable = checked[0] || 'yo';
+    _updateTiRespDisplay(display, checked);
+  });
+  _updateTiRespDisplay(display, assignedTo);
+  document.addEventListener('click', () => dropdown.classList.remove('open'), { once: false });
 
   const _renderTiAtts = () => {
     const c = row.querySelector('.ti-atts');
@@ -955,14 +1011,44 @@ function syncTareasFromDOM() {
     if (_tareasIniciales[i]) {
       _tareasIniciales[i].descripcion = sentenceCase(row.querySelector('.ti-desc')?.value?.trim() || '');
       _tareasIniciales[i].fecha       = row.querySelector('.ti-fecha')?.value || '';
-      _tareasIniciales[i].responsable = row.querySelector('.ti-resp')?.value || 'yo';
-      // Capture assigned members for team tasks
-      const memberChecks = row.querySelectorAll('.ti-member-opt input:checked');
-      if (memberChecks.length) {
-        _tareasIniciales[i].assignedTo = [...memberChecks].map(c => c.value);
+      // assignedTo is already updated via event listeners
+      if (!_tareasIniciales[i].assignedTo?.length) {
+        _tareasIniciales[i].responsable = 'yo';
       }
     }
   });
+}
+
+function _buildMultiRespOptions(selectedValues) {
+  const opts = [];
+  const myUid = AUTH?.userProfile?.uid;
+  if (myUid) opts.push({ value: myUid, label: 'Yo' });
+  if (typeof _teamMembers !== 'undefined') {
+    _teamMembers.forEach(m => {
+      if (m.uid !== myUid) opts.push({ value: m.uid, label: m.displayName || m.email || m.uid });
+    });
+  }
+  (STATE.config.abogados || []).forEach(a => {
+    if (!opts.find(o => o.value === a.key)) opts.push({ value: a.key, label: a.nombre });
+  });
+  if (!opts.find(o => o.value === 'yo')) opts.push({ value: 'yo', label: 'Yo mismo' });
+  return opts.map(o => {
+    const checked = selectedValues.includes(o.value) ? 'checked' : '';
+    return `<label class="ms-opt"><input type="checkbox" value="${o.value}" ${checked}/><span>${o.label}</span></label>`;
+  }).join('');
+}
+
+function _updateTiRespDisplay(display, values) {
+  if (!values.length) { display.textContent = 'Asignar…'; return; }
+  const myUid = AUTH?.userProfile?.uid;
+  const names = values.map(v => {
+    if (v === myUid || v === 'yo') return 'Yo';
+    if (typeof _teamMembers !== 'undefined') { const m = _teamMembers.find(x => x.uid === v); if (m) return (m.displayName || m.email).split(' ')[0]; }
+    const a = (STATE.config.abogados || []).find(x => x.key === v); if (a) return a.nombre.split(' ')[0];
+    return v.substring(0, 6);
+  });
+  display.textContent = names.join(', ');
+  display.title = names.join(', ');
 }
 
 let _modalAttachments = [];
@@ -984,9 +1070,6 @@ function openModal(tramite = null) {
   document.getElementById('fNumero').value           = tramite?.numero || '';
   document.getElementById('fDescripcion').value      = tramite?.descripcion || '';
   document.getElementById('fModulo').value           = tramite?.modulo || STATE.config.modulos[0]?.sigla || '';
-  const abSel = document.getElementById('fAbogado');
-  const abKey = tramite?.abogado || (STATE.config.abogados[0]?.key || 'abogado1');
-  abSel.value = ([...abSel.options].some(o => o.value === abKey)) ? abKey : (abSel.options[0]?.value || '');
   document.getElementById('fFechaVencimiento').value = tramite?.fechaVencimiento || '';
   document.getElementById('fNota').value             = '';
   document.getElementById('nuevaNotaFieldsModal').style.display = 'none';
@@ -995,17 +1078,16 @@ function openModal(tramite = null) {
   _modalAttachments = tramite?.attachments ? [...tramite.attachments] : [];
   _renderModalAttachments();
 
-  // Determinar tipo: si tiene sharedWith es 'equipo', si tiene abogado es 'abogado', sino 'propio'
-  const tipoModal = tramite?.sharedWith?.length ? 'equipo' : (tramite?.tipo || 'abogado');
-  setModalTipo(tipoModal);
-  if (tipoModal === 'equipo' && tramite?.sharedWith) {
-    _populateTeamCheckboxes(tramite.sharedWith);
+  // Populate the multi-select assign dropdown
+  let selectedUids = ['yo']; // default: solo yo
+  if (tramite?.sharedWith?.length) {
+    selectedUids = [...tramite.sharedWith];
+  } else if (tramite?.abogado) {
+    selectedUids = [tramite.abogado];
+  } else if (tramite?.tipo === 'propio' || (!tramite?.abogado && !tramite?.sharedWith?.length)) {
+    selectedUids = ['yo'];
   }
-  setModalScope(tramite?._scope || 'private');
-
-  // Mostrar colaborador si hay miembros del equipo
-  const sw = document.getElementById('fScopeWrap');
-  if (sw) sw.style.display = 'none'; // ya no se usa - scope derivado del tipo
+  populateModalAssign(selectedUids);
 
   document.getElementById('modalOverlay').classList.add('open');
   setTimeout(() => document.getElementById('fNumero')?.focus(), 120);
@@ -1022,13 +1104,17 @@ let isEditing = false;
 let editingId = null;
 
 async function saveTramite() {
-  const numero      = document.getElementById('fNumero').value.trim();
-  const desc        = sentenceCase(document.getElementById('fDescripcion').value.trim());
-  const modulo      = document.getElementById('fModulo').value;
-  const tipo        = modalTipoActual;
-  const colaborador = tipo === 'abogado' ? document.getElementById('fAbogado').value : null;
-  const teamUids    = tipo === 'equipo' ? [...document.querySelectorAll('#fTeamMembersList input:checked')].map(c => c.value) : [];
-  const venc        = document.getElementById('fFechaVencimiento').value;
+  const numero = document.getElementById('fNumero').value.trim();
+  const desc   = sentenceCase(document.getElementById('fDescripcion').value.trim());
+  const modulo = document.getElementById('fModulo').value;
+  const venc   = document.getElementById('fFechaVencimiento').value;
+
+  // Derive tipo from assign multi-select
+  const tipo        = _getModalTipoFromAssign();
+  const assignUids  = _modalAssignedUids.filter(u => u !== 'yo');
+  const teamMemUids = (typeof _teamMembers !== 'undefined') ? _teamMembers.map(m => m.uid) : [];
+  const teamUids    = assignUids.filter(u => teamMemUids.includes(u));
+  const colaborador = tipo === 'abogado' ? assignUids[0] : null;
 
   if (!numero || !modulo) { showToast('Completa: número y módulo.'); return; }
   if (tipo === 'equipo' && !teamUids.length) { showToast('Selecciona al menos un miembro del equipo.'); return; }
@@ -1047,7 +1133,7 @@ async function saveTramite() {
       if (!t) { showToast('Error: no se encontró el trámite.'); return; }
       pushHistory(`Editar trámite #${numero}`);
       Object.assign(t, { numero, descripcion: desc, modulo, tipo: tipo === 'equipo' ? 'abogado' : tipo, fechaVencimiento: venc });
-      if (tipo === 'abogado') { t.abogado = colaborador; delete t.sharedWith; }
+      if (tipo === 'abogado') { t.abogado = colaborador; delete t.sharedWith; t._scope = 'team'; }
       else if (tipo === 'equipo') { delete t.abogado; t.sharedWith = teamUids; t._scope = 'team'; }
       else { delete t.abogado; delete t.sharedWith; t._scope = 'private'; }
       if (tareasValidas.length) t.seguimiento.unshift(...tareasValidas);
@@ -1057,7 +1143,7 @@ async function saveTramite() {
       showToast('Trámite actualizado.');
     } else {
       pushHistory(`Crear trámite #${numero}`);
-      const scope = (tipo === 'equipo' || (tipo === 'abogado' && colaborador)) ? 'team' : 'private';
+      const scope = (tipo === 'equipo' || tipo === 'abogado') ? 'team' : 'private';
       const newT = {
         id: genId(), numero, descripcion: desc, modulo,
         tipo: tipo === 'equipo' ? 'abogado' : tipo,
