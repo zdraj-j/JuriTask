@@ -385,20 +385,22 @@ function openDetailExpand(t) {
   closeAllExpands();
   if (alreadyOpen) return;
 
-  wrapper.querySelector('.tramite-card').classList.add('card-open');
+  const card = wrapper.querySelector('.tramite-card');
+  card.classList.add('card-open');
 
-  let panel = wrapper.querySelector('.expand-panel');
-  if (!panel) {
-    panel             = document.createElement('div'); panel.className = 'expand-panel';
-    const inner       = document.createElement('div'); inner.className = 'expand-panel-inner';
-    const actBar      = document.createElement('div'); actBar.className = 'expand-actions';
-    actBar.innerHTML  = `
-      <button class="btn-icon" data-action="dup"    title="Duplicar">⧉</button>
-      <button class="btn-icon" data-action="edit"   title="Editar">✎</button>
-      <button class="btn-icon btn-icon-danger" data-action="delete" title="Eliminar">🗑</button>
-      <button class="btn-icon modal-close"    data-action="close"  title="Cerrar">✕</button>`;
+  // Insert action buttons into the card-nueva-tarea-row
+  const tareaRow = card.querySelector('.card-nueva-tarea-row');
+  if (tareaRow && !tareaRow.querySelector('.expand-act-btns')) {
+    const actBtns = document.createElement('div');
+    actBtns.className = 'expand-act-btns';
+    actBtns.innerHTML = `
+      <button class="btn-icon" data-action="dup" title="Duplicar"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="14" height="14" x="8" y="8" rx="2"/><path d="M4 16c-1.1 0-2-.9-2-2V4c0-1.1.9-2 2-2h10c1.1 0 2 .9 2 2"/></svg></button>
+      <button class="btn-icon" data-action="edit" title="Editar"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/></svg></button>
+      <button class="btn-icon btn-icon-danger" data-action="delete" title="Eliminar"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 6h18"/><path d="M19 6v14c0 1-1 2-2 2H7c-1 0-2-1-2-2V6"/><path d="M8 6V4c0-1 1-2 2-2h4c1 0 2 1 2 2v2"/></svg></button>
+      <button class="btn-icon" data-action="close" title="Cerrar"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M18 6 6 18"/><path d="m6 6 12 12"/></svg></button>`;
 
-    actBar.querySelector('[data-action="dup"]').addEventListener('click', () => {
+    actBtns.querySelector('[data-action="dup"]').addEventListener('click', e => {
+      e.stopPropagation();
       const newT = JSON.parse(JSON.stringify(t));
       newT.id = genId(); newT.numero = t.numero + '-copia';
       newT.terminado = false; newT.terminadoEn = null; newT.creadoEn = new Date().toISOString();
@@ -408,8 +410,9 @@ function openDetailExpand(t) {
       if (typeof saveTramiteFS === 'function') saveTramiteFS(newT);
       saveAll(); renderAll(); showToast(`Trámite duplicado como #${newT.numero}.`);
     });
-    actBar.querySelector('[data-action="edit"]').addEventListener('click', () => { closeAllExpands(); openModal(t); });
-    actBar.querySelector('[data-action="delete"]').addEventListener('click', () => {
+    actBtns.querySelector('[data-action="edit"]').addEventListener('click', e => { e.stopPropagation(); closeAllExpands(); openModal(t); });
+    actBtns.querySelector('[data-action="delete"]').addEventListener('click', e => {
+      e.stopPropagation();
       if (confirm('¿Eliminar este trámite?')) {
         pushHistory(`Eliminar trámite #${t.numero}`);
         STATE.tramites = STATE.tramites.filter(x => x.id !== t.id);
@@ -418,9 +421,16 @@ function openDetailExpand(t) {
         saveAll(); closeAllExpands(); renderAll(); showToast('Trámite eliminado.');
       }
     });
-    actBar.querySelector('[data-action="close"]').addEventListener('click', closeAllExpands);
+    actBtns.querySelector('[data-action="close"]').addEventListener('click', e => { e.stopPropagation(); closeAllExpands(); });
+    actBtns.addEventListener('click', e => e.stopPropagation());
 
-    inner.appendChild(actBar);
+    tareaRow.appendChild(actBtns);
+  }
+
+  let panel = wrapper.querySelector('.expand-panel');
+  if (!panel) {
+    panel             = document.createElement('div'); panel.className = 'expand-panel';
+    const inner       = document.createElement('div'); inner.className = 'expand-panel-inner';
     const content = document.createElement('div');
     content.innerHTML = buildDetailContent(t);
     inner.appendChild(content);
@@ -433,7 +443,10 @@ function openDetailExpand(t) {
 
 function closeAllExpands() {
   document.querySelectorAll('.expand-panel.open').forEach(p => p.classList.remove('open'));
-  document.querySelectorAll('.tramite-card.card-open').forEach(c => c.classList.remove('card-open'));
+  document.querySelectorAll('.tramite-card.card-open').forEach(c => {
+    c.classList.remove('card-open');
+    c.querySelector('.expand-act-btns')?.remove();
+  });
   currentDetailId = null;
 }
 
@@ -448,21 +461,11 @@ function closeDetail() {
 // CONTENIDO DE DETALLE
 // ============================================================
 function buildDetailContent(t) {
-  const esP   = esPropio(t);
   const etapa = computeEtapa(t);
   const p     = `det_${t.id}`;
   const hVenc = !!(t.gestion?.cumplimiento);
 
-  const gestionHtml = esP ? '' : `
-    <div class="detail-section">
-      <h3>Gestión</h3>
-      <div class="checks-row">
-        <label class="check-label"><input type="checkbox" id="${p}_analisis" ${t.gestion.analisis?'checked':''}/><span class="check-custom"></span> Análisis</label>
-        <label class="check-label"><input type="checkbox" id="${p}_cumplimiento" ${t.gestion.cumplimiento?'checked':''}/><span class="check-custom"></span> Cumplimiento</label>
-      </div>
-    </div>`;
-
-  return `${gestionHtml}
+  return `
     <div class="detail-section">
       <h3>Seguimiento <span class="etapa-badge${etapa==='seguimiento'?' seguimiento':''}" id="${p}_etapabadge">${etapa==='seguimiento'?'Seguimiento':'Gestión'}</span></h3>
       <div id="${p}_actividades"></div>
@@ -475,6 +478,16 @@ function buildDetailContent(t) {
           <input type="date" id="${p}_newActFecha" />
           <select id="${p}_newActResp">${buildRespOptions(t.tipo||'abogado', t.abogado||'abogado1', t.abogado||'yo')}</select>
         </div>
+        ${(t.sharedWith && t.sharedWith.length > 0) ? (() => {
+          const myUid = AUTH?.userProfile?.uid;
+          const allM = [myUid, ...(t.sharedWith || [])].filter(Boolean);
+          const unique = [...new Set(allM)];
+          return '<div class="act-assign-members" id="' + p + '_assignMembers"><span class="ti-members-label">Asignar a:</span>' +
+            unique.map(uid => {
+              const name = uid === myUid ? 'Yo' : (typeof abogadoName === 'function' ? abogadoName(uid, t) : uid);
+              return '<label class="ti-member-opt"><input type="checkbox" value="' + uid + '" checked/><span>' + name.split(' ')[0] + '</span></label>';
+            }).join('') + '</div>';
+        })() : ''}
         <div class="add-actividad-btns">
           <button class="btn-small" id="${p}_addAct">+ Agregar</button>
           <button class="btn-small" id="${p}_cancelAct" style="background:var(--surface);color:var(--text-secondary);border:1px solid var(--border)">Cancelar</button>
@@ -483,8 +496,10 @@ function buildDetailContent(t) {
     </div>
     <div class="detail-section detail-vencimiento-section${hVenc?' hidden-venc':''}" id="${p}_vencSection">
       <h3>Fecha de vencimiento</h3>
-      <div class="form-grid"><div class="form-group"><label>Fecha</label><input type="date" id="${p}_vencimiento" value="${t.fechaVencimiento||''}" /></div></div>
-      <button class="btn-small" id="${p}_saveVenc" style="margin-top:10px">Guardar fecha</button>
+      <div class="venc-inline-row">
+        <input type="date" id="${p}_vencimiento" value="${t.fechaVencimiento||''}" />
+        <button class="btn-small" id="${p}_saveVenc">Guardar</button>
+      </div>
     </div>
     <div class="detail-section">
       <h3>Notas</h3>
@@ -500,30 +515,12 @@ function buildDetailContent(t) {
 // BIND DETALLE — con debounce en edición inline
 // ============================================================
 function bindDetailContent(t, container, expandWrapper) {
-  const p   = `det_${t.id}`;
-  const esP = esPropio(t);
+  const p = `det_${t.id}`;
 
   // Debounce helper para guardado inline (300ms)
   function makeSaveDebounced(fn) {
     let timer = null;
     return (...args) => { clearTimeout(timer); timer = setTimeout(() => fn(...args), 300); };
-  }
-
-  if (!esP) {
-    container.querySelector(`#${p}_analisis`)?.addEventListener('change', e => {
-      pushHistory(e.target.checked ? 'Marcar análisis' : 'Desmarcar análisis');
-      t.gestion.analisis = e.target.checked; saveAll(); refreshCardOnly(t);
-    });
-    container.querySelector(`#${p}_cumplimiento`)?.addEventListener('change', e => {
-      pushHistory(e.target.checked ? 'Marcar cumplimiento' : 'Desmarcar cumplimiento');
-      t.gestion.cumplimiento = e.target.checked;
-      const badge = container.querySelector(`#${p}_etapabadge`);
-      const etapa = computeEtapa(t);
-      if (badge) { badge.textContent = etapa==='seguimiento'?'Seguimiento':'Gestión'; badge.className='etapa-badge'+(etapa==='seguimiento'?' seguimiento':''); }
-      container.querySelector(`#${p}_vencSection`)?.classList.toggle('hidden-venc', e.target.checked);
-      if (e.target.checked) { crearTareaRequerimiento(t); renderActividadesIn(t, container.querySelector(`#${p}_actividades`), container, expandWrapper); showToast('✓ Cumplimiento marcado. Tarea automática creada.'); }
-      saveAll(); refreshCardOnly(t);
-    });
   }
 
   renderActividadesIn(t, container.querySelector(`#${p}_actividades`), container, expandWrapper);
@@ -542,7 +539,8 @@ function bindDetailContent(t, container, expandWrapper) {
     const resp  = container.querySelector(`#${p}_newActResp`).value;
     if (!desc) { showToast('Escribe una descripción.'); return; }
     pushHistory('Agregar tarea');
-    t.seguimiento.push({ descripcion: sentenceCase(desc), fecha, responsable: resp, estado: 'pendiente', urgente: false });
+    const assignedTo = [...(container.querySelectorAll(`#${p}_assignMembers input:checked`) || [])].map(c => c.value);
+    t.seguimiento.push({ descripcion: sentenceCase(desc), fecha, responsable: resp, estado: 'pendiente', urgente: false, attachments: [], completedBy: {}, assignedTo });
     container.querySelector(`#${p}_newActDesc`).value = '';
     container.querySelector(`#${p}_newActFecha`).value = '';
     formNueva.style.display = 'none';
@@ -604,17 +602,17 @@ function renderActividadesIn(t, listEl, container, expandWrapper) {
   sorted.forEach(({ act, origIdx: i }) => {
     if (!act.attachments) act.attachments = [];
     if (!act.completedBy) act.completedBy = {};
+    if (!act.assignedTo) act.assignedTo = [];
     const div    = document.createElement('div');
     const isDone = act.estado === 'realizado';
     div.className = 'actividad-item' + (act.urgente ? ' act-urgente' : '');
 
-    // Per-member completion for team tasks
+    // Per-member completion for team tasks — only show for assigned members
     const isTeam = t.sharedWith && t.sharedWith.length > 0;
     const myUid  = AUTH?.userProfile?.uid;
     let memberChecksHtml = '';
-    if (isTeam) {
-      const allMembers = [myUid, ...(t.sharedWith || [])].filter(Boolean);
-      const uniqueMembers = [...new Set(allMembers)];
+    if (isTeam && act.assignedTo && act.assignedTo.length > 0) {
+      const uniqueMembers = [...new Set(act.assignedTo)];
       memberChecksHtml = '<div class="act-member-checks">' + uniqueMembers.map(uid => {
         const checked = act.completedBy[uid] ? 'checked' : '';
         const isMe = uid === myUid;
@@ -631,8 +629,8 @@ function renderActividadesIn(t, listEl, container, expandWrapper) {
         <div class="actividad-meta">
           <input type="date" value="${act.fecha||''}" />
           ${act.responsable ? `<span class="actividad-resp">${abogadoName(act.responsable, t)}</span>` : ''}
-          <button class="act-attach-btn act-drive-btn" title="Adjuntar desde Drive" ${attCount>=5?'disabled':''}><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 87.3 78" fill="none"><path d="M6.6 66.85L3.3 61.25l27.35-47.4h7.45z" fill="#0066DA"/><path d="M57.6 78H29.7l13.85-24h27.9z" fill="#00AC47"/><path d="M84 61.25L57.6 13.85H42.1l26.4 47.4z" fill="#EA4335"/></svg></button>
-          <button class="act-attach-btn act-link-btn" title="Adjuntar enlace" ${attCount>=5?'disabled':''}><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
+          <button class="act-attach-btn act-drive-btn" title="Adjuntar desde Drive" ${attCount>=5?'disabled':''}><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"/></svg></button>
+          <button class="act-attach-btn act-link-btn" title="Adjuntar enlace" ${attCount>=5?'disabled':''}><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/></svg></button>
         </div>
         ${memberChecksHtml}
         <div class="act-attachments-row" data-idx="${i}"></div>
@@ -684,14 +682,13 @@ function renderActividadesIn(t, listEl, container, expandWrapper) {
     });
 
     // Per-member completion checks
-    if (isTeam) {
+    if (isTeam && act.assignedTo && act.assignedTo.length > 0) {
       div.querySelectorAll('.act-member-check input').forEach(cb => {
         cb.addEventListener('change', e => {
           const uid = e.target.dataset.uid;
           act.completedBy[uid] = e.target.checked;
-          // Auto-mark as done if all members checked
-          const allMembers = [myUid, ...(t.sharedWith || [])].filter(Boolean);
-          const uniqueMembers = [...new Set(allMembers)];
+          // Auto-mark as done if all assigned members checked
+          const uniqueMembers = [...new Set(act.assignedTo)];
           const allDone = uniqueMembers.every(u => act.completedBy[u]);
           act.estado = allDone ? 'realizado' : 'pendiente';
           if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
@@ -888,17 +885,30 @@ function addTareaRow(desc = '', fecha = '', resp = '') {
   list.querySelector('.tareas-empty-hint')?.remove();
 
   const idx = _tareasIniciales.length;
-  _tareasIniciales.push({ descripcion: desc, fecha, responsable: resp || (STATE.config.abogados[0]?.key || 'yo'), estado: 'pendiente', urgente: false, attachments: [], completedBy: {} });
+  _tareasIniciales.push({ descripcion: desc, fecha, responsable: resp || (STATE.config.abogados[0]?.key || 'yo'), estado: 'pendiente', urgente: false, attachments: [], completedBy: {}, assignedTo: [] });
+
+  // Build member checkboxes for team tasks
+  let memberPickerHtml = '';
+  if (modalTipoActual === 'equipo' && typeof _teamMembers !== 'undefined' && _teamMembers.length) {
+    const myUid = AUTH?.userProfile?.uid;
+    const allM = [myUid ? { uid: myUid, displayName: 'Yo' } : null, ..._teamMembers].filter(Boolean);
+    const unique = allM.filter((m, i, a) => a.findIndex(x => x.uid === m.uid) === i);
+    memberPickerHtml = '<div class="ti-members"><span class="ti-members-label">Asignar:</span>' +
+      unique.map(m => `<label class="ti-member-opt"><input type="checkbox" value="${m.uid}" checked/><span>${m.uid === myUid ? 'Yo' : (m.displayName || m.email || m.uid).split(' ')[0]}</span></label>`).join('') + '</div>';
+    // Pre-fill assignedTo with all members
+    _tareasIniciales[idx].assignedTo = unique.map(m => m.uid);
+  }
 
   const row = document.createElement('div'); row.className = 'tarea-inicial-row'; row.dataset.idx = idx;
   row.innerHTML = `
     <input type="text"  class="ti-desc"  placeholder="¿Qué hacer?"  value="${escapeAttr(desc)}" />
     <input type="date"  class="ti-fecha" value="${fecha}" />
     <select class="ti-resp">${buildRespOptions(modalTipoActual, document.getElementById('fAbogado')?.value || 'yo', resp)}</select>
-    <button class="ti-drive" title="Adjuntar desde Drive"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 87.3 78" fill="none"><path d="M6.6 66.85L3.3 61.25l27.35-47.4h7.45z" fill="#0066DA"/><path d="M57.6 78H29.7l13.85-24h27.9z" fill="#00AC47"/><path d="M84 61.25L57.6 13.85H42.1l26.4 47.4z" fill="#EA4335"/></svg></button>
-    <button class="ti-link" title="Adjuntar enlace"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/></svg></button>
+    <button class="ti-drive" title="Adjuntar desde Drive"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"/></svg></button>
+    <button class="ti-link" title="Adjuntar enlace"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/></svg></button>
     <button class="ti-urg ${_tareasIniciales[idx].urgente ? 'active' : ''}" title="Marcar urgente">🔴</button>
     <button class="ti-del" title="Eliminar">✕</button>
+    ${memberPickerHtml}
     <div class="ti-atts"></div>`;
 
   const _renderTiAtts = () => {
@@ -946,6 +956,11 @@ function syncTareasFromDOM() {
       _tareasIniciales[i].descripcion = sentenceCase(row.querySelector('.ti-desc')?.value?.trim() || '');
       _tareasIniciales[i].fecha       = row.querySelector('.ti-fecha')?.value || '';
       _tareasIniciales[i].responsable = row.querySelector('.ti-resp')?.value || 'yo';
+      // Capture assigned members for team tasks
+      const memberChecks = row.querySelectorAll('.ti-member-opt input:checked');
+      if (memberChecks.length) {
+        _tareasIniciales[i].assignedTo = [...memberChecks].map(c => c.value);
+      }
     }
   });
 }

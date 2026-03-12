@@ -158,6 +158,7 @@ function migrateTramite(t) {
     if (s.urgente === undefined) s.urgente = false;
     if (!s.attachments) s.attachments = [];
     if (!s.completedBy) s.completedBy = {};
+    if (!s.assignedTo) s.assignedTo = [];
   });
   // Migrar proximaAccion antigua
   if (t.proximaAccion?.descripcion) {
