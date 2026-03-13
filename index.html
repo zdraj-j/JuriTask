@@ -655,37 +655,21 @@
           <input type="text" id="fDescripcion" placeholder="Describe el trámite…" />
         </div>
         <div class="form-group">
-          <label>Tipo</label>
-          <select id="fTipo">
-            <option value="abogado">Compartido</option>
-            <option value="equipo">Equipo</option>
-            <option value="propio">Solo yo</option>
-          </select>
-        </div>
-        <div class="form-group">
           <label>Vencimiento</label>
           <input type="date" id="fFechaVencimiento" />
         </div>
         <div class="form-group" id="fAbogadoWrap" style="grid-column: 1 / -1">
-          <label>Colaborador</label>
-          <select id="fAbogado"></select>
-        </div>
-        <div class="form-group" id="fTeamMembersWrap" style="grid-column: 1 / -1; display:none">
-          <label>Miembros del equipo</label>
-          <div id="fTeamMembersList" class="team-member-list" style="max-height:120px;overflow-y:auto"></div>
-        </div>
-        <div class="form-group" id="fScopeWrap" style="grid-column: 1 / -1; display:none">
-          <label>Alcance</label>
-          <div class="toggle-group">
-            <button type="button" class="toggle-btn active" id="scopeBtnPrivate">Privado</button>
-            <button type="button" class="toggle-btn" id="scopeBtnTeam">Equipo</button>
+          <label>Asignar a</label>
+          <div class="multi-select-wrap" id="fAsignarWrap">
+            <div class="multi-select-display" id="fAsignarDisplay">Seleccionar…</div>
+            <div class="multi-select-dropdown" id="fAsignarDropdown"></div>
           </div>
         </div>
       </div>
 
       <!-- Botones compactos: Drive + Tarea + Nota + Enlace -->
       <div class="modal-action-row" id="modalActionRow">
-        <button type="button" class="modal-action-btn" id="btnDriveModal" title="Adjuntar desde Google Drive"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"/></svg><span class="modal-action-label">Adjuntar</span></button>
+        <button type="button" class="modal-action-btn" id="btnDriveModal" title="Adjuntar archivo"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"/></svg><span class="modal-action-label">Adjuntar</span></button>
         <button type="button" class="modal-action-btn" id="btnAgregarTareaModal" title="Nueva tarea"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg><span class="modal-action-label">Tarea</span></button>
         <button type="button" class="modal-action-btn" id="btnMostrarNotaModal" title="Nueva nota"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/></svg><span class="modal-action-label">Nota</span></button>
         <button type="button" class="modal-action-btn" id="btnEnlaceModal" title="Adjuntar enlace"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/></svg><span class="modal-action-label">Enlace</span></button>

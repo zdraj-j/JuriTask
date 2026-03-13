@@ -102,9 +102,14 @@ function init() {
   // ── Nuevo trámite ────────────────────────────────────────
   document.getElementById('newTramiteBtn')?.addEventListener('click',      () => openModal());
   document.getElementById('newTramiteBtnEmpty')?.addEventListener('click', () => openModal());
-  document.getElementById('fTipo')?.addEventListener('change', e => setModalTipo(e.target.value));
-  document.getElementById('scopeBtnPrivate')?.addEventListener('click', () => setModalScope('private'));
-  document.getElementById('scopeBtnTeam')?.addEventListener('click',   () => setModalScope('team'));
+  // Modal assign multi-select toggle
+  const asignDisplay = document.getElementById('fAsignarDisplay');
+  const asignDrop    = document.getElementById('fAsignarDropdown');
+  if (asignDisplay && asignDrop) {
+    asignDisplay.addEventListener('click', e => { e.stopPropagation(); asignDrop.classList.toggle('open'); });
+    asignDrop.addEventListener('click', e => e.stopPropagation());
+    document.addEventListener('click', () => asignDrop.classList.remove('open'));
+  }
 
   document.getElementById('btnAgregarTareaModal')?.addEventListener('click', () => addTareaRow());
   document.getElementById('btnMostrarNotaModal')?.addEventListener('click', () => {
