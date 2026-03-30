@@ -463,8 +463,14 @@ function buildDetailContent(t) {
   const p     = `det_${t.id}`;
   const hVenc = !!(t.gestion?.cumplimiento);
 
-  // Build multi-select options for new task assignment
-  const respOptsHtml = _buildMultiRespOptions([]);
+  // Build multi-select options scoped to this tramite's participants
+  const isPropio = !t.sharedWith?.length && !t.abogado;
+  const respOptsHtml = isPropio ? '' : _buildTramiteRespOptions(t, []);
+  const respSelectHtml = isPropio ? '' : `
+          <div class="ti-resp-wrap">
+            <div class="ti-resp-display" id="${p}_newActRespDisplay">Asignar…</div>
+            <div class="ti-resp-dropdown" id="${p}_newActRespDropdown">${respOptsHtml}</div>
+          </div>`;
 
   return `
     <div class="detail-section">
@@ -476,11 +482,7 @@ function buildDetailContent(t) {
       <div class="add-actividad-form" id="${p}_formNuevaTarea" style="display:none">
         <input type="text"  id="${p}_newActDesc"  placeholder="¿Qué se debe hacer?" />
         <div class="add-actividad-form-row">
-          <input type="date" id="${p}_newActFecha" />
-          <div class="ti-resp-wrap">
-            <div class="ti-resp-display" id="${p}_newActRespDisplay">Asignar…</div>
-            <div class="ti-resp-dropdown" id="${p}_newActRespDropdown">${respOptsHtml}</div>
-          </div>
+          <input type="date" id="${p}_newActFecha" />${respSelectHtml}
         </div>
         <div class="add-actividad-btns">
           <button class="btn-small" id="${p}_addAct">+ Agregar</button>
@@ -631,15 +633,18 @@ function renderActividadesIn(t, listEl, container, expandWrapper) {
     }
 
     const attCount = act.attachments.length;
-    // Build assignedTo display badges
+    // Build assignedTo display badges (skip for propio tramites — always "Yo")
+    const isPropio = !t.sharedWith?.length && !t.abogado;
     let assignedHtml = '';
-    if (act.assignedTo && act.assignedTo.length > 0) {
-      assignedHtml = act.assignedTo.map(uid => {
-        const n = uid === myUid ? 'Yo' : (typeof abogadoName === 'function' ? abogadoName(uid, t) : uid);
-        return `<span class="actividad-resp">${n.split(' ')[0]}</span>`;
-      }).join('');
-    } else if (act.responsable) {
-      assignedHtml = `<span class="actividad-resp">${abogadoName(act.responsable, t)}</span>`;
+    if (!isPropio) {
+      if (act.assignedTo && act.assignedTo.length > 0) {
+        assignedHtml = act.assignedTo.map(uid => {
+          const n = uid === myUid ? 'Yo' : (typeof abogadoName === 'function' ? abogadoName(uid, t) : uid);
+          return `<span class="actividad-resp">${n.split(' ')[0]}</span>`;
+        }).join('');
+      } else if (act.responsable && act.responsable !== 'yo') {
+        assignedHtml = `<span class="actividad-resp">${abogadoName(act.responsable, t)}</span>`;
+      }
     }
     div.innerHTML = `
       <div class="actividad-check-wrap"><label class="round-check-wrap"><input type="checkbox" class="act-main-check" ${isDone?'checked':''}/><div class="round-check-box"></div></label></div>
@@ -936,15 +941,19 @@ function addTareaRow(desc = '', fecha = '', resp = '', assignedTo = []) {
 
   const row = document.createElement('div'); row.className = 'tarea-inicial-row'; row.dataset.idx = idx;
 
-  // Build multi-select for task assignment
-  const respOpts = _buildMultiRespOptions(assignedTo);
-  row.innerHTML = `
-    <input type="text"  class="ti-desc"  placeholder="¿Qué hacer?"  value="${escapeAttr(desc)}" />
-    <input type="date"  class="ti-fecha" value="${fecha}" />
+  // Build multi-select scoped to who was selected in the modal "Asignar a"
+  // Only show assignment selector if there are multiple participants
+  const modalAssigned = _modalAssignedUids.filter(u => u !== 'yo');
+  const isModalPropio = !modalAssigned.length || _modalAssignedUids.includes('yo');
+  const respOpts = isModalPropio ? '' : _buildModalTareaRespOptions(assignedTo);
+  const respHtml = isModalPropio ? '' : `
     <div class="ti-resp-wrap">
       <div class="ti-resp-display" title="Asignar a">Asignar…</div>
       <div class="ti-resp-dropdown">${respOpts}</div>
-    </div>
+    </div>`;
+  row.innerHTML = `
+    <input type="text"  class="ti-desc"  placeholder="¿Qué hacer?"  value="${escapeAttr(desc)}" />
+    <input type="date"  class="ti-fecha" value="${fecha}" />${respHtml}
     <div class="ti-actions-right">
       <button class="ti-urg ${_tareasIniciales[idx].urgente ? 'active' : ''}" title="Marcar urgente"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></button>
       <button class="ti-drive" title="Adjuntar"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"/></svg></button>
@@ -953,19 +962,21 @@ function addTareaRow(desc = '', fecha = '', resp = '', assignedTo = []) {
     </div>
     <div class="ti-atts"></div>`;
 
-  // Multi-select toggle for task assignment
+  // Multi-select toggle for task assignment (only if dropdown exists)
   const display = row.querySelector('.ti-resp-display');
   const dropdown = row.querySelector('.ti-resp-dropdown');
-  display.addEventListener('click', e => { e.stopPropagation(); dropdown.classList.toggle('open'); });
-  dropdown.addEventListener('click', e => e.stopPropagation());
-  dropdown.addEventListener('change', () => {
-    const checked = [...dropdown.querySelectorAll('input:checked')].map(c => c.value);
-    _tareasIniciales[idx].assignedTo = checked;
-    _tareasIniciales[idx].responsable = checked[0] || 'yo';
-    _updateTiRespDisplay(display, checked);
-  });
-  _updateTiRespDisplay(display, assignedTo);
-  document.addEventListener('click', () => dropdown.classList.remove('open'), { once: false });
+  if (display && dropdown) {
+    display.addEventListener('click', e => { e.stopPropagation(); dropdown.classList.toggle('open'); });
+    dropdown.addEventListener('click', e => e.stopPropagation());
+    dropdown.addEventListener('change', () => {
+      const checked = [...dropdown.querySelectorAll('input:checked')].map(c => c.value);
+      _tareasIniciales[idx].assignedTo = checked;
+      _tareasIniciales[idx].responsable = checked[0] || 'yo';
+      _updateTiRespDisplay(display, checked);
+    });
+    _updateTiRespDisplay(display, assignedTo);
+    document.addEventListener('click', () => dropdown.classList.remove('open'), { once: false });
+  }
 
   const _renderTiAtts = () => {
     const c = row.querySelector('.ti-atts');
@@ -1031,7 +1042,69 @@ function _buildMultiRespOptions(selectedValues) {
   (STATE.config.abogados || []).forEach(a => {
     if (!opts.find(o => o.value === a.key)) opts.push({ value: a.key, label: a.nombre });
   });
-  if (!opts.find(o => o.value === 'yo')) opts.push({ value: 'yo', label: 'Yo mismo' });
+  return opts.map(o => {
+    const checked = selectedValues.includes(o.value) ? 'checked' : '';
+    return `<label class="ms-opt"><input type="checkbox" value="${o.value}" ${checked}/><span>${o.label}</span></label>`;
+  }).join('');
+}
+
+/**
+ * Build assignment options for initial tasks in the modal,
+ * scoped to the people selected in the modal's "Asignar a".
+ */
+function _buildModalTareaRespOptions(selectedValues) {
+  const opts = [];
+  const myUid = AUTH?.userProfile?.uid;
+  if (myUid) opts.push({ value: myUid, label: 'Yo' });
+
+  const assignedPeople = _modalAssignedUids.filter(u => u !== 'yo');
+  assignedPeople.forEach(uid => {
+    if (uid === myUid) return;
+    let label = uid;
+    if (typeof _teamMembers !== 'undefined') {
+      const m = _teamMembers.find(x => x.uid === uid);
+      if (m) { label = m.displayName || m.email || uid; }
+    }
+    const a = (STATE.config.abogados || []).find(x => x.key === uid);
+    if (a) label = a.nombre;
+    opts.push({ value: uid, label });
+  });
+
+  return opts.map(o => {
+    const checked = selectedValues.includes(o.value) ? 'checked' : '';
+    return `<label class="ms-opt"><input type="checkbox" value="${o.value}" ${checked}/><span>${o.label}</span></label>`;
+  }).join('');
+}
+
+/**
+ * Build assignment options scoped to a specific tramite:
+ * - propio: only "Yo" (single, no multi-select needed)
+ * - abogado (manual collaborator): "Yo" + the specific collaborator
+ * - equipo (sharedWith): "Yo" + only the team members in sharedWith
+ */
+function _buildTramiteRespOptions(t, selectedValues) {
+  const opts = [];
+  const myUid = AUTH?.userProfile?.uid;
+  if (myUid) opts.push({ value: myUid, label: 'Yo' });
+
+  if (t.sharedWith && t.sharedWith.length > 0) {
+    // Team tramite: show only team members assigned to this tramite
+    t.sharedWith.forEach(uid => {
+      if (uid === myUid) return;
+      let label = uid;
+      if (typeof _teamMembers !== 'undefined') {
+        const m = _teamMembers.find(x => x.uid === uid);
+        if (m) label = m.displayName || m.email || uid;
+      }
+      opts.push({ value: uid, label });
+    });
+  } else if (t.abogado) {
+    // Manual collaborator tramite: show only "Yo" + that collaborator
+    const a = (STATE.config.abogados || []).find(x => x.key === t.abogado);
+    opts.push({ value: t.abogado, label: a ? a.nombre : t.abogado });
+  }
+  // For propio: only "Yo" is shown (already added above)
+
   return opts.map(o => {
     const checked = selectedValues.includes(o.value) ? 'checked' : '';
     return `<label class="ms-opt"><input type="checkbox" value="${o.value}" ${checked}/><span>${o.label}</span></label>`;
