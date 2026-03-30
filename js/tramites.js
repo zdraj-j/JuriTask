@@ -247,8 +247,8 @@ function sortActives(list) {
     const pfb = proximaFechaSeguimiento(b) || FAR;
     let cmp = 0;
     if      (sortBy === 'vencimiento')  { cmp = (a.fechaVencimiento||FAR).localeCompare(b.fechaVencimiento||FAR); }
-    else if (sortBy === 'seguimiento')  { cmp = pfa.localeCompare(pfb); }
-    else if (sortBy === 'mixto')        { const ma=[a.fechaVencimiento,pfa].filter(x=>x!==FAR).sort()[0]||FAR, mb=[b.fechaVencimiento,pfb].filter(x=>x!==FAR).sort()[0]||FAR; cmp=ma.localeCompare(mb); }
+    else if (sortBy === 'seguimiento')  { const ma=[a.fechaVencimiento,pfa].filter(x=>x!==FAR).sort()[0]||FAR, mb=[b.fechaVencimiento,pfb].filter(x=>x!==FAR).sort()[0]||FAR; cmp=ma.localeCompare(mb); }
+    else if (sortBy === 'creacion')     { cmp = (a.creadoEn||'').localeCompare(b.creadoEn||''); }
     else if (sortBy === 'abogado')      { cmp = abogadoName(a.abogado||'yo').localeCompare(abogadoName(b.abogado||'yo')); }
     else if (sortBy === 'numero')       { cmp = (parseInt(a.numero)||0) - (parseInt(b.numero)||0); }
     return cmp !== 0 ? cmp : manualOrder.indexOf(a.id) - manualOrder.indexOf(b.id);
