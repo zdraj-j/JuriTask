@@ -549,7 +549,10 @@ function bindDetailContent(t, container, expandWrapper) {
     const fecha = container.querySelector(`#${p}_newActFecha`).value;
     if (!desc) { showToast('Escribe una descripción.'); return; }
     pushHistory('Agregar tarea');
-    t.seguimiento.push({ descripcion: sentenceCase(desc), fecha, responsable: _newTaskAssigned[0] || 'yo', estado: 'pendiente', urgente: false, attachments: [], completedBy: {}, assignedTo: [..._newTaskAssigned] });
+    const myUid = AUTH?.userProfile?.uid;
+    const normalizedAssigned = _newTaskAssigned.map(u => u === myUid ? 'yo' : u);
+    const responsable = normalizedAssigned[0] || 'yo';
+    t.seguimiento.push({ descripcion: sentenceCase(desc), fecha, responsable, estado: 'pendiente', urgente: false, attachments: [], completedBy: {}, assignedTo: [...normalizedAssigned] });
     container.querySelector(`#${p}_newActDesc`).value = '';
     container.querySelector(`#${p}_newActFecha`).value = '';
     formNueva.style.display = 'none';
@@ -969,7 +972,8 @@ function addTareaRow(desc = '', fecha = '', resp = '', assignedTo = []) {
     display.addEventListener('click', e => { e.stopPropagation(); dropdown.classList.toggle('open'); });
     dropdown.addEventListener('click', e => e.stopPropagation());
     dropdown.addEventListener('change', () => {
-      const checked = [...dropdown.querySelectorAll('input:checked')].map(c => c.value);
+      const myUid = AUTH?.userProfile?.uid;
+      const checked = [...dropdown.querySelectorAll('input:checked')].map(c => c.value === myUid ? 'yo' : c.value);
       _tareasIniciales[idx].assignedTo = checked;
       _tareasIniciales[idx].responsable = checked[0] || 'yo';
       _updateTiRespDisplay(display, checked);
@@ -1276,10 +1280,17 @@ function renderReport() {
     if (!esP && !t.gestion?.analisis) {
       if (!filtro || filtro === abT) items.push({ t, tipo:'analisis', fecha:t.fechaVencimiento||'', cls:'today', tarea:'Falta realizar análisis', resp:abT, urgente:false });
     }
+    const myUid = AUTH?.userProfile?.uid;
+    const isMe  = u => u === 'yo' || u === myUid;
     (t.seguimiento||[]).filter(s => s.estado==='pendiente' && s.fecha && s.fecha<=hoy).forEach(s => {
-      const r = s.responsable||'yo';
-      const m = !filtro || (r==='yo'&&filtro==='yo') || (r!=='yo'&&filtro===r);
-      if (m) items.push({ t, tipo:'tarea', fecha:s.fecha, cls:s.fecha<hoy?'overdue':'today', tarea:s.descripcion, resp:r, urgente:!!(s.urgente) });
+      const assignees = (s.assignedTo && s.assignedTo.length) ? s.assignedTo : [s.responsable || 'yo'];
+      const matchesFilter = !filtro
+        || (filtro === 'yo' && (isMe(s.responsable) || assignees.some(isMe)))
+        || assignees.some(a => a === filtro);
+      if (matchesFilter) {
+        const r = isMe(s.responsable) ? 'yo' : (s.responsable || 'yo');
+        items.push({ t, tipo:'tarea', fecha:s.fecha, cls:s.fecha<hoy?'overdue':'today', tarea:s.descripcion, resp:r, urgente:!!(s.urgente) });
+      }
     });
   });
 

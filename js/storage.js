@@ -11,6 +11,10 @@ const THEMES = [
   { id:'oscuro',  nombre:'Oscuro',  swatches:['#0f1117','#1a1d27','#6e8efb','#e8eaf0'] },
   { id:'sepia',   nombre:'Sepia',   swatches:['#f5f0e8','#fdf8f0','#8b6c2e','#2c2416'] },
   { id:'pizarra', nombre:'Pizarra', swatches:['#1e2533','#26304a','#58a6f0','#d4daf0'] },
+  { id:'menta',   nombre:'Menta',   swatches:['#eaf6ef','#ffffff','#0f9b6e','#1c3a2e'] },
+  { id:'rosa',    nombre:'Rosa',    swatches:['#fbeef1','#ffffff','#c2185b','#3a1c25'] },
+  { id:'carbon',  nombre:'Carbón',  swatches:['#0a0a0c','#16161a','#a78bfa','#ececf1'] },
+  { id:'marina',  nombre:'Marina',  swatches:['#0b1c30','#11253e','#38bdf8','#dbeafe'] },
 ];
 
 // ============================================================
