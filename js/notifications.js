@@ -6,6 +6,89 @@
 
 let _notifUnsubscribe = null;
 let _notifList        = [];
+let _stagnantNotifs   = [];
+let _stagnantTimer    = null;
+const STAGNANT_KEY    = 'jt_stagnant_since';
+const STAGNANT_THRESHOLD_MS = 30 * 60 * 1000;
+const STAGNANT_CHECK_MS     = 60 * 1000;
+
+function _loadStagnantSince() {
+  try { return JSON.parse(localStorage.getItem(STAGNANT_KEY) || '{}'); } catch(_) { return {}; }
+}
+function _saveStagnantSince(map) {
+  try { localStorage.setItem(STAGNANT_KEY, JSON.stringify(map)); } catch(_) {}
+}
+
+function _isTramiteStagnant(t) {
+  if (t.terminado) return null;
+  if (!t.fechaVencimiento) return 'sin_venc';
+  const pendientes = (t.seguimiento || []).filter(s => s.estado === 'pendiente');
+  if (t.gestion?.cumplimiento && pendientes.length === 0) return 'sin_pendientes';
+  return null;
+}
+
+function _stagnantMessage(t, motivo) {
+  const num = t.numero || t.id;
+  if (motivo === 'sin_venc') return `Trámite #${num} sin fecha de vencimiento. Asígnale una o ciérralo.`;
+  return `Trámite #${num} ya cumplido y sin tareas pendientes. Agrega una tarea o ciérralo.`;
+}
+
+function _runStagnantCheck() {
+  if (typeof STATE === 'undefined' || !Array.isArray(STATE.tramites)) return;
+  const now = Date.now();
+  const since = _loadStagnantSince();
+  const newStagnantNotifs = [];
+  const validKeys = new Set();
+  let changed = false;
+
+  STATE.tramites.forEach(t => {
+    const motivo = _isTramiteStagnant(t);
+    if (!motivo) return;
+    const key = `${t.id}|${motivo}`;
+    validKeys.add(key);
+
+    if (!since[key]) { since[key] = now; changed = true; }
+    if (now - since[key] >= STAGNANT_THRESHOLD_MS) {
+      newStagnantNotifs.push({
+        id: `local_${key}`,
+        local: true,
+        tramiteId: t.id,
+        type: 'stagnant_' + motivo,
+        message: _stagnantMessage(t, motivo),
+        createdAt: new Date(since[key]).toISOString(),
+        read: false,
+      });
+    }
+  });
+
+  Object.keys(since).forEach(k => {
+    if (!validKeys.has(k)) { delete since[k]; changed = true; }
+  });
+
+  if (changed) _saveStagnantSince(since);
+
+  const prevIds = _stagnantNotifs.map(n => n.id).join('|');
+  const newIds  = newStagnantNotifs.map(n => n.id).join('|');
+  _stagnantNotifs = newStagnantNotifs;
+
+  if (prevIds !== newIds) {
+    const totalUnread = _notifList.filter(n => !n.read).length + _stagnantNotifs.length;
+    _updateNotifBadge(totalUnread);
+    const panel = document.getElementById('notifPanel');
+    if (panel?.classList.contains('open')) _renderNotifPanel();
+  }
+}
+
+function startStagnantChecker() {
+  if (_stagnantTimer) return;
+  _runStagnantCheck();
+  _stagnantTimer = setInterval(_runStagnantCheck, STAGNANT_CHECK_MS);
+}
+
+function stopStagnantChecker() {
+  if (_stagnantTimer) { clearInterval(_stagnantTimer); _stagnantTimer = null; }
+  _stagnantNotifs = [];
+}
 
 // ============================================================
 // INICIAR LISTENER
@@ -22,13 +105,14 @@ function initNotifications() {
     .limit(30)
     .onSnapshot(snap => {
       _notifList = snap.docs.map(d => ({ id: d.id, ...d.data() }));
-      const unread = _notifList.filter(n => !n.read).length;
+      const unread = _notifList.filter(n => !n.read).length + _stagnantNotifs.length;
       _updateNotifBadge(unread);
     }, () => {/* silenciar errores de permisos */});
 }
 
 function stopNotifications() {
   if (_notifUnsubscribe) { _notifUnsubscribe(); _notifUnsubscribe = null; }
+  stopStagnantChecker();
 }
 
 // ============================================================
@@ -73,7 +157,8 @@ function _renderNotifPanel() {
   const panel = document.getElementById('notifPanel');
   if (!panel) return;
 
-  if (!_notifList.length) {
+  const all = [..._stagnantNotifs, ..._notifList];
+  if (!all.length) {
     panel.innerHTML = '<p class="notif-empty">Sin notificaciones.</p>';
     return;
   }
@@ -83,13 +168,23 @@ function _renderNotifPanel() {
       <span>Notificaciones</span>
       <button class="notif-clear-btn" onclick="_clearAllNotifications()">Borrar todo</button>
     </div>
-    ${_notifList.map(n => `
-      <div class="notif-item${n.read ? '' : ' unread'}">
+    ${all.map(n => {
+      const cursor = n.local && n.tramiteId ? ' style="cursor:pointer"' : '';
+      const tid    = n.local && n.tramiteId ? ` data-tramite-id="${escapeAttr(n.tramiteId)}"` : '';
+      return `
+      <div class="notif-item${n.read ? '' : ' unread'}${n.local ? ' notif-local' : ''}"${cursor}${tid}>
         <div class="notif-msg">${escapeHtml(n.message || '')}</div>
         ${n.fromName ? `<div class="notif-from">De: ${escapeHtml(n.fromName)}</div>` : ''}
         <div class="notif-time">${_notifTimeAgo(n.createdAt)}</div>
-      </div>
-    `).join('')}`;
+      </div>`;
+    }).join('')}`;
+
+  panel.querySelectorAll('.notif-item[data-tramite-id]').forEach(el => {
+    el.addEventListener('click', () => {
+      const id = el.dataset.tramiteId;
+      if (id && typeof openDetail === 'function') openDetail(id);
+    });
+  });
 }
 
 function _notifTimeAgo(isoStr) {

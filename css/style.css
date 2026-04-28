@@ -117,6 +117,126 @@
   --icon-active-filter: brightness(0) saturate(100%) invert(55%) sepia(70%) saturate(800%) hue-rotate(185deg) brightness(105%);
 }
 
+/* ── TEMA: MENTA ──────────────────────────────────── */
+[data-theme="menta"] {
+  --bg:            #eaf6ef;
+  --surface:       #ffffff;
+  --surface-2:     #f1faf4;
+  --surface-3:     #e3f0e8;
+  --border:        #cfe5d6;
+  --border-light:  #dceee2;
+  --text-primary:  #14322a;
+  --text-secondary:#446b5a;
+  --text-muted:    #8aae9e;
+  --accent:        #0f9b6e;
+  --accent-hover:  #0c7e5a;
+  --accent-light:  #d3efe0;
+  --success:       #16a34a;
+  --success-light: #d4f5dc;
+  --warning:       #d97706;
+  --warning-light: #fef3c7;
+  --danger:        #b91c1c;
+  --danger-light:  #fde0e0;
+  --shadow-sm:  0 1px 3px rgba(15,80,55,.08);
+  --shadow-md:  0 4px 16px rgba(15,80,55,.12);
+  --shadow-lg:  0 12px 36px rgba(15,80,55,.18);
+  --overlay-bg: rgba(8,30,22,.5);
+  --print-bg:   #fff;
+}
+
+/* ── TEMA: ROSA ───────────────────────────────────── */
+[data-theme="rosa"] {
+  --bg:            #fbeef1;
+  --surface:       #ffffff;
+  --surface-2:     #fef3f6;
+  --surface-3:     #f7e3ea;
+  --border:        #ecccd6;
+  --border-light:  #f3dde4;
+  --text-primary:  #381824;
+  --text-secondary:#754656;
+  --text-muted:    #b78a98;
+  --accent:        #c2185b;
+  --accent-hover:  #9c1148;
+  --accent-light:  #fad8e3;
+  --success:       #15803d;
+  --success-light: #d6f0db;
+  --warning:       #c2740b;
+  --warning-light: #fcecca;
+  --danger:        #b91c1c;
+  --danger-light:  #fde0e0;
+  --shadow-sm:  0 1px 3px rgba(80,15,45,.07);
+  --shadow-md:  0 4px 16px rgba(80,15,45,.10);
+  --shadow-lg:  0 12px 36px rgba(80,15,45,.16);
+  --overlay-bg: rgba(40,8,22,.48);
+  --print-bg:   #fff;
+}
+
+/* ── TEMA: CARBÓN ─────────────────────────────────── */
+[data-theme="carbon"] {
+  --bg:            #0a0a0c;
+  --surface:       #16161a;
+  --surface-2:     #1f1f25;
+  --surface-3:     #2a2a32;
+  --border:        #34343f;
+  --border-light:  #28282f;
+  --text-primary:  #ececf1;
+  --text-secondary:#9094a3;
+  --text-muted:    #5a5d6a;
+  --accent:        #a78bfa;
+  --accent-hover:  #8b6cf2;
+  --accent-light:  #2c1f55;
+  --success:       #4ade80;
+  --success-light: #082d18;
+  --warning:       #fbbf24;
+  --warning-light: #2d2008;
+  --danger:        #f87171;
+  --danger-light:  #2a0f0f;
+  --shadow-sm:  0 1px 3px rgba(0,0,0,.4);
+  --shadow-md:  0 4px 16px rgba(0,0,0,.5);
+  --shadow-lg:  0 12px 36px rgba(0,0,0,.7);
+  --overlay-bg: rgba(0,0,0,.78);
+  --print-bg:   #fff;
+}
+
+/* ── TEMA: MARINA ─────────────────────────────────── */
+[data-theme="marina"] {
+  --bg:            #0b1c30;
+  --surface:       #11253e;
+  --surface-2:     #173052;
+  --surface-3:     #1d3b66;
+  --border:        #244c7e;
+  --border-light:  #1d3f6c;
+  --text-primary:  #dbeafe;
+  --text-secondary:#7faedb;
+  --text-muted:    #3f5c80;
+  --accent:        #38bdf8;
+  --accent-hover:  #0ea5e9;
+  --accent-light:  #0e2845;
+  --success:       #4ade80;
+  --success-light: #082d18;
+  --warning:       #fbbf24;
+  --warning-light: #2d2008;
+  --danger:        #f87171;
+  --danger-light:  #2a0f0f;
+  --shadow-sm:  0 1px 3px rgba(0,0,0,.42);
+  --shadow-md:  0 4px 16px rgba(0,0,0,.52);
+  --shadow-lg:  0 12px 36px rgba(0,0,0,.72);
+  --overlay-bg: rgba(0,0,0,.72);
+  --print-bg:   #fff;
+}
+
+/* ── LOGO: invertir colores oscuros del PNG en temas oscuros ── */
+[data-theme="oscuro"] .logo-img,
+[data-theme="pizarra"] .logo-img,
+[data-theme="carbon"] .logo-img,
+[data-theme="marina"] .logo-img,
+[data-theme="oscuro"] .auth-logo-img,
+[data-theme="pizarra"] .auth-logo-img,
+[data-theme="carbon"] .auth-logo-img,
+[data-theme="marina"] .auth-logo-img {
+  filter: invert(1) hue-rotate(180deg) saturate(1.5) brightness(0.95);
+}
+
 /* ── CONSTANTES ─────────────────────────────────────── */
 :root {
   --radius:      12px;
@@ -1627,6 +1747,8 @@ body {
 .notif-from { font-size: 11px; color: var(--text-muted); margin-bottom: 2px; }
 .notif-time { font-size: 10px; color: var(--text-muted); }
 .notif-empty { font-size: 13px; color: var(--text-muted); text-align: center; padding: 24px 16px; font-style: italic; }
+.notif-item.notif-local { border-left: 3px solid var(--warning); }
+.notif-item.notif-local .notif-msg::before { content: '⚠ '; color: var(--warning); font-weight: 700; }
 
 /* ── Per-task attachments (Drive + links) ─────────── */
 .task-att-btn {

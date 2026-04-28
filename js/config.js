@@ -82,6 +82,8 @@ function init() {
 
   setupContainerDrop(document.getElementById('tramiteList'));
 
+  if (typeof startStagnantChecker === 'function') startStagnantChecker();
+
   // ── Confirm dialog ───────────────────────────────────────
   document.getElementById('confirmOk')?.addEventListener('click',     () => _confirmClose(true));
   document.getElementById('confirmCancel')?.addEventListener('click', () => _confirmClose(false));
@@ -211,6 +213,34 @@ function init() {
       .then(() => showToast('Reporte copiado.'))
       .catch(() => showToast('No se pudo copiar.'))
   );
+  document.getElementById('reportScreenshotBtn')?.addEventListener('click', async () => {
+    if (typeof html2canvas !== 'function') { showToast('Captura no disponible.'); return; }
+    const area = document.getElementById('reportContent');
+    if (!area) return;
+    const btn = document.getElementById('reportScreenshotBtn');
+    const orig = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Capturando…';
+    try {
+      const bg = getComputedStyle(document.body).backgroundColor || '#ffffff';
+      const canvas = await html2canvas(area, { backgroundColor: bg, scale: 2, useCORS: true, logging: false });
+      canvas.toBlob(async blob => {
+        if (!blob) { showToast('No se pudo generar la imagen.'); return; }
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+          showToast('✓ Captura copiada al portapapeles.');
+        } catch (_) {
+          // Fallback: descargar la imagen
+          const url = URL.createObjectURL(blob);
+          const a   = document.createElement('a'); a.href = url; a.download = `reporte-${today()}.png`;
+          a.click(); URL.revokeObjectURL(url);
+          showToast('Captura descargada (portapapeles no disponible).');
+        }
+      }, 'image/png');
+    } catch (e) {
+      console.error(e); showToast('Error al capturar.');
+    } finally {
+      btn.disabled = false; btn.textContent = orig;
+    }
+  });
 
   // ── Calendario ───────────────────────────────────────────
   document.getElementById('calPrev').addEventListener('click', () => {
