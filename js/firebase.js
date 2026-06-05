@@ -269,9 +269,16 @@ async function loadFromFirestore() {
 }
 
 // ─── GUARDAR TRÁMITE ──────────────────────────────────────────
-function saveTramiteFS(tramite) {
+function saveTramiteFS(tramite, targetUid) {
   if (!AUTH.userProfile?.uid) return Promise.resolve();
   const data = { ...tramite }; delete data.id;
+
+  // Edición admin: escribir directamente en la cuenta del usuario dueño,
+  // sin tocar la colección propia ni la lógica de compartidos.
+  if (targetUid && targetUid !== AUTH.userProfile.uid) {
+    return db.collection('users').doc(targetUid).collection('tramites').doc(tramite.id).set(data)
+      .catch(e => console.error('Error guardando trámite (edición admin):', e));
+  }
 
   const own = userRef().collection('tramites').doc(tramite.id).set(data)
     .catch(e => console.error('Error guardando trámite:', e));

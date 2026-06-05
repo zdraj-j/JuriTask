@@ -29,6 +29,22 @@ function showToast(msg, icon) {
 }
 
 // ============================================================
+// CIERRE DE DROPDOWNS DE ASIGNACIÓN (handler global único)
+// ============================================================
+// Antes cada dropdown registraba su propio listener en document; se acumulaban
+// indefinidamente. Ahora un único listener delegado cierra los que estén abiertos.
+let _dropdownCloserInstalled = false;
+function _installDropdownCloser() {
+  if (_dropdownCloserInstalled) return;
+  _dropdownCloserInstalled = true;
+  document.addEventListener('click', (e) => {
+    document.querySelectorAll('.ti-resp-dropdown.open').forEach(dd => {
+      if (!dd.contains(e.target)) dd.classList.remove('open');
+    });
+  });
+}
+
+// ============================================================
 // CONFIRM DIALOG (promesa)
 // ============================================================
 let _confirmResolve = null;
@@ -549,7 +565,7 @@ function bindDetailContent(t, container, expandWrapper) {
       _newTaskAssigned = [...respDropdown.querySelectorAll('input:checked')].map(c => c.value);
       _updateTiRespDisplay(respDisplay, _newTaskAssigned);
     });
-    document.addEventListener('click', () => respDropdown.classList.remove('open'));
+    _installDropdownCloser();
   }
 
   container.querySelector(`#${p}_cancelAct`)?.addEventListener('click', () => { formNueva.style.display = 'none'; });
@@ -988,7 +1004,7 @@ function addTareaRow(desc = '', fecha = '', resp = '', assignedTo = []) {
       _updateTiRespDisplay(display, checked);
     });
     _updateTiRespDisplay(display, assignedTo);
-    document.addEventListener('click', () => dropdown.classList.remove('open'), { once: false });
+    _installDropdownCloser();
   }
 
   const _renderTiAtts = () => {
@@ -1184,6 +1200,22 @@ function closeModal() {
   const m = document.getElementById('tramiteModal');
   m.classList.remove('draggable-active', 'is-dragging');
   m.style.left = ''; m.style.top = '';
+  _clearAdminEdit();   // si se cancela una edición admin, no dejar el trámite ajeno en STATE
+}
+
+// Edición admin de trámites ajenos: limpia el trámite cargado temporalmente
+// en STATE.tramites y el uid destino. No-op en flujos normales.
+function _clearAdminEdit() {
+  if (!window._adminSaveTarget) return;
+  const id = window._adminTempId;
+  if (id) {
+    const i = STATE.tramites.findIndex(x => x.id === id);
+    if (i !== -1) STATE.tramites.splice(i, 1);
+    const oi = STATE.order.indexOf(id);
+    if (oi !== -1) STATE.order.splice(oi, 1);
+  }
+  window._adminSaveTarget = null;
+  window._adminTempId = null;
 }
 
 let isEditing = false;
@@ -1213,19 +1245,27 @@ async function saveTramite() {
   const btn = document.getElementById('saveTramite');
   btn.disabled = true; btn.textContent = 'Guardando…';
 
+  // Edición admin de un trámite ajeno: se guarda en la cuenta del dueño.
+  const adminTarget = window._adminSaveTarget || null;
+
   try {
     if (isEditing) {
       const t = getById(editingId);
       if (!t) { showToast('Error: no se encontró el trámite.'); return; }
       pushHistory(`Editar trámite #${numero}`);
-      Object.assign(t, { numero, descripcion: desc, modulo, tipo: tipo === 'equipo' ? 'abogado' : tipo, fechaVencimiento: venc });
-      if (tipo === 'abogado') { t.abogado = colaborador; delete t.sharedWith; t._scope = 'team'; }
-      else if (tipo === 'equipo') { delete t.abogado; t.sharedWith = teamUids; t._scope = 'team'; }
-      else { delete t.abogado; delete t.sharedWith; t._scope = 'private'; }
-      if (tareasValidas.length) t.seguimiento.unshift(...tareasValidas);
-      if (notaInicial.length)   t.notas.push(...notaInicial);
+      Object.assign(t, { numero, descripcion: desc, modulo, fechaVencimiento: venc });
+      // En edición admin se preserva la asignación/compartido del dueño
+      // (el selector de asignación usa el equipo del admin, no el del dueño).
+      if (!adminTarget) {
+        t.tipo = tipo === 'equipo' ? 'abogado' : tipo;
+        if (tipo === 'abogado') { t.abogado = colaborador; delete t.sharedWith; t._scope = 'team'; }
+        else if (tipo === 'equipo') { delete t.abogado; t.sharedWith = teamUids; t._scope = 'team'; }
+        else { delete t.abogado; delete t.sharedWith; t._scope = 'private'; }
+      }
+      if (tareasValidas.length) (t.seguimiento ||= []).unshift(...tareasValidas);
+      if (notaInicial.length)   (t.notas ||= []).push(...notaInicial);
       if (_modalAttachments.length) t.attachments = [...(t.attachments || []), ..._modalAttachments];
-      if (typeof saveTramiteFS === 'function') await saveTramiteFS(t);
+      if (typeof saveTramiteFS === 'function') await saveTramiteFS(t, adminTarget);
       showToast('Trámite actualizado.');
     } else {
       pushHistory(`Crear trámite #${numero}`);
@@ -1254,6 +1294,7 @@ async function saveTramite() {
       }
       showToast(`Trámite creado${tareasValidas.length ? ' con ' + tareasValidas.length + ' tarea(s)' : ''}.`);
     }
+    _clearAdminEdit();   // quita el trámite ajeno del STATE antes de re-renderizar
     renderAll(); closeModal();
   } catch(e) {
     console.error(e); showToast('Error al guardar. Intenta de nuevo.');

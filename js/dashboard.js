@@ -869,15 +869,16 @@ function openAdminTramitesModal(u) {
         e.stopPropagation();
         const ok = await showConfirm(`Vas a editar el trámite #${t.numero} de ${u.displayName||u.email}. Cualquier cambio se guardará en su cuenta.`);
         if (!ok) return;
-        // Cargar el trámite en STATE temporalmente y abrir modal de edición
+        // Cargar el trámite en STATE temporalmente (getById lo necesita) y
+        // recordar que es temporal para poder retirarlo al guardar/cancelar.
         const existing = STATE.tramites.find(x => x.id === t.id);
-        if (!existing) STATE.tramites.push(t);
+        if (!existing) { STATE.tramites.push(t); window._adminTempId = t.id; }
+        else            window._adminTempId = null;
         overlay.classList.remove('open');
         if (typeof openModal === 'function') {
-          openModal(t);
-          // Cuando se guarde, también guardar en el uid del otro usuario
-          const origSave = window._adminSaveTarget;
+          // El guardado irá a la cuenta del otro usuario (ver saveTramite).
           window._adminSaveTarget = u.uid;
+          openModal(t);
         }
       });
       list.appendChild(row);
@@ -886,9 +887,6 @@ function openAdminTramitesModal(u) {
 
   overlay.classList.add('open');
 }
-
-// Intercept saveTramiteFS para admin editing otro usuario
-const _originalSaveTramiteFS = typeof saveTramiteFS !== 'undefined' ? saveTramiteFS : null;
 
 function initDashboard() {
   document.getElementById('dashRefreshBtn')?.addEventListener('click', () => {

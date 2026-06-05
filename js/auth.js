@@ -147,20 +147,25 @@ function openProfileModal() {
 
   panel.classList.add('open');
 
-  // Cerrar al hacer click fuera
+  // Cerrar al hacer click fuera — un único handler, retirado en cualquier cierre.
   setTimeout(() => {
-    function onOutside(e) {
+    _profileOutsideHandler = function(e) {
       if (!panel.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
         closeProfileModal();
-        document.removeEventListener('click', onOutside);
       }
-    }
-    document.addEventListener('click', onOutside);
+    };
+    document.addEventListener('click', _profileOutsideHandler);
   }, 50);
 }
 
+let _profileOutsideHandler = null;
+
 function closeProfileModal() {
   document.getElementById('profileOverlay')?.classList.remove('open');
+  if (_profileOutsideHandler) {
+    document.removeEventListener('click', _profileOutsideHandler);
+    _profileOutsideHandler = null;
+  }
 }
 
 // ── Modal editar perfil (desde config) ───────────────────────
