@@ -1022,6 +1022,34 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
 .report-item-resp { font-size: 11px; color: var(--text-muted); background: var(--surface); border-radius: 20px; padding: 1px 7px; }
 .report-empty { text-align: center; color: var(--text-muted); font-size: 13px; padding: 32px; }
 
+/* ═══════════════════ AGENDA ACCIONABLE ══════════ */
+.agenda-section { margin-bottom: 22px; }
+.agenda-section-title {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 13px; font-weight: 700; padding: 6px 12px;
+  border-radius: var(--radius-sm); margin-bottom: 10px;
+  background: var(--accent-light); color: var(--accent);
+}
+.agenda-section-title.danger  { background: var(--danger-light);  color: var(--danger); }
+.agenda-section-title.warning { background: var(--warning-light); color: var(--warning); }
+.agenda-item {
+  display: flex; gap: 12px; align-items: flex-start; padding: 11px 12px;
+  background: var(--surface-2); border-radius: var(--radius-sm);
+  margin-bottom: 6px; border-left: 3px solid var(--border); animation: cardIn 0.15s ease;
+}
+.agenda-item.overdue { border-left-color: var(--danger); }
+.agenda-item.today   { border-left-color: var(--warning); }
+.agenda-urgente { border-left-color: var(--danger) !important; background: var(--danger-light) !important; }
+.agenda-check { flex-shrink: 0; margin-top: 2px; }
+.agenda-done-btn { flex-shrink: 0; display: inline-flex; align-items: center; gap: 4px; }
+.agenda-body { flex: 1; min-width: 0; cursor: pointer; }
+.agenda-line { display: flex; align-items: center; gap: 8px; flex-wrap: wrap; margin-bottom: 2px; }
+.agenda-line svg.lucide { color: var(--danger); }
+.agenda-num { font-family: var(--mono); font-size: 12px; font-weight: 700; color: var(--accent); }
+.agenda-type { font-size: 11px; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px; }
+.agenda-desc { font-size: 13px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.agenda-task { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+
 /* ═══════════════════ CONFIGURACIÓN ══════════════ */
 .config-card {
   background: var(--surface); border-radius: var(--radius);

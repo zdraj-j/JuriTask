@@ -197,6 +197,8 @@ function renderAll() {
   badge.textContent = urgentes.length;
   badge.classList.toggle('hidden', urgentes.length === 0);
 
+  if (typeof _updateAgendaBadge === 'function') _updateAgendaBadge();
+
   renderList(document.getElementById('finishedList'), document.getElementById('emptyFinished'), applyFilters(STATE.tramites.filter(t => t.terminado), f));
 
   if (currentView === 'calendar') renderCalendar();
@@ -1405,6 +1407,148 @@ function renderReport() {
   if (urg.length) renderGroup('<i data-lucide="circle-alert"></i> Urgentes', urg, 'danger');
   renderGroup('<i data-lucide="triangle-alert"></i> Vencidos / Atrasados', venc, 'danger');
   renderGroup('<i data-lucide="calendar"></i> Para hoy', hoyI, 'warning');
+}
+
+// ============================================================
+// AGENDA ACCIONABLE
+// ============================================================
+// Reúne lo pendiente para hoy/atrasado conservando referencia al objeto de
+// seguimiento, para poder marcar tareas como hechas directamente.
+function _buildAgendaItems() {
+  const hoy = today();
+  const items = [];
+  STATE.tramites.filter(t => !t.terminado).forEach(t => {
+    if (t.fechaVencimiento && !t.gestion?.cumplimiento && t.fechaVencimiento <= hoy) {
+      items.push({ t, tipo: 'vencimiento', fecha: t.fechaVencimiento, cls: t.fechaVencimiento < hoy ? 'overdue' : 'today', urgente: false });
+    }
+    if (!esPropio(t) && !t.gestion?.analisis) {
+      items.push({ t, tipo: 'analisis', fecha: t.fechaVencimiento || '', cls: 'today', urgente: false });
+    }
+    (t.seguimiento || []).filter(s => s.estado === 'pendiente' && s.fecha && s.fecha <= hoy).forEach(s => {
+      items.push({ t, s, tipo: 'tarea', fecha: s.fecha, cls: s.fecha < hoy ? 'overdue' : 'today', urgente: !!s.urgente });
+    });
+  });
+  items.sort((a, b) => {
+    if (a.urgente !== b.urgente) return a.urgente ? -1 : 1;
+    if (a.cls !== b.cls) return a.cls === 'overdue' ? -1 : 1;
+    return (a.fecha || '').localeCompare(b.fecha || '');
+  });
+  return items;
+}
+
+function countAgendaPendientes() {
+  return _buildAgendaItems().length;
+}
+
+function _persistTramite(t) {
+  saveAll();
+  if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
+}
+
+function renderAgenda() {
+  const cont  = document.getElementById('agendaContent');
+  const empty = document.getElementById('emptyAgenda');
+  if (!cont) return;
+  const items = _buildAgendaItems();
+
+  if (!items.length) { cont.innerHTML = ''; if (empty) empty.style.display = ''; return; }
+  if (empty) empty.style.display = 'none';
+  cont.innerHTML = '';
+
+  const tipoLabel = {
+    vencimiento: '<i data-lucide="calendar"></i> Vencimiento',
+    tarea:       '<i data-lucide="pin"></i> Tarea',
+    analisis:    '<i data-lucide="search"></i> Análisis pendiente',
+  };
+
+  const renderGroup = (titulo, gItems, cls) => {
+    if (!gItems.length) return;
+    const sec = document.createElement('div'); sec.className = 'agenda-section';
+    const head = document.createElement('div');
+    head.className = `agenda-section-title ${cls}`;
+    head.innerHTML = `${titulo} (${gItems.length})`;
+    sec.appendChild(head);
+
+    gItems.forEach(item => {
+      const row = document.createElement('div');
+      row.className = `agenda-item ${item.cls}${item.urgente ? ' agenda-urgente' : ''}`;
+
+      const tareaText = item.tipo === 'vencimiento'
+        ? `Vence: ${formatDate(item.fecha)}`
+        : (item.tipo === 'analisis' ? 'Falta realizar el análisis' : escapeHtml(item.s.descripcion));
+
+      // Control de acción según tipo
+      let actionHtml;
+      if (item.tipo === 'tarea' || item.tipo === 'analisis') {
+        actionHtml = `<label class="agenda-check round-check-wrap" title="Marcar como hecho"><input type="checkbox" class="agenda-check-input"/><div class="round-check-box"></div></label>`;
+      } else {
+        actionHtml = `<button type="button" class="btn-small agenda-done-btn" title="Marcar vencimiento cumplido"><i data-lucide="check"></i> Cumplido</button>`;
+      }
+
+      row.innerHTML = `
+        ${actionHtml}
+        <div class="agenda-body">
+          <div class="agenda-line">
+            ${item.urgente ? '<i data-lucide="circle-alert"></i> ' : ''}<span class="agenda-num">#${escapeHtml(item.t.numero)}</span>
+            <span class="tag tag-modulo">${escapeHtml(item.t.modulo || '')}</span>
+            <span class="agenda-type">${tipoLabel[item.tipo] || ''}</span>
+          </div>
+          <div class="agenda-desc">${escapeHtml(item.t.descripcion || '(sin descripción)')}</div>
+          <div class="agenda-task">${tareaText}</div>
+        </div>`;
+
+      // Abrir detalle al hacer clic en el cuerpo
+      row.querySelector('.agenda-body').addEventListener('click', () => openDetail(item.t.id));
+
+      // Acción de completar
+      const chk = row.querySelector('.agenda-check-input');
+      if (chk) {
+        chk.addEventListener('change', () => {
+          if (item.tipo === 'tarea') {
+            pushHistory('Completar tarea'); item.s.estado = 'realizado';
+            _persistTramite(item.t);
+            showToast('Tarea completada.', null, { label: 'Deshacer', onClick: undo });
+          } else { // analisis
+            pushHistory('Marcar análisis'); item.t.gestion = item.t.gestion || {}; item.t.gestion.analisis = true;
+            _persistTramite(item.t);
+            showToast('Análisis marcado.', null, { label: 'Deshacer', onClick: undo });
+          }
+          renderAgenda(); _updateAgendaBadge();
+        });
+      }
+      const doneBtn = row.querySelector('.agenda-done-btn');
+      if (doneBtn) {
+        doneBtn.addEventListener('click', () => {
+          pushHistory('Marcar vencimiento cumplido');
+          item.t.gestion = item.t.gestion || {}; item.t.gestion.cumplimiento = true;
+          crearTareaRequerimiento(item.t);
+          _persistTramite(item.t);
+          showToast('Vencimiento marcado como cumplido.', null, { label: 'Deshacer', onClick: undo });
+          renderAgenda(); _updateAgendaBadge();
+        });
+      }
+
+      sec.appendChild(row);
+    });
+    cont.appendChild(sec);
+  };
+
+  const urg  = items.filter(i => i.urgente);
+  const venc = items.filter(i => !i.urgente && i.cls === 'overdue');
+  const hoyI = items.filter(i => !i.urgente && i.cls !== 'overdue');
+  renderGroup('<i data-lucide="circle-alert"></i> Urgentes', urg, 'danger');
+  renderGroup('<i data-lucide="triangle-alert"></i> Vencidos / Atrasados', venc, 'danger');
+  renderGroup('<i data-lucide="calendar"></i> Para hoy', hoyI, 'warning');
+
+  if (window.refreshIcons) window.refreshIcons();
+}
+
+function _updateAgendaBadge() {
+  const badge = document.getElementById('agendaBadge');
+  if (!badge) return;
+  const n = countAgendaPendientes();
+  badge.textContent = n;
+  badge.classList.toggle('hidden', n === 0);
 }
 
 function buildReportTextPlain() {
