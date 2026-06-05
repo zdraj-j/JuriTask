@@ -26,6 +26,7 @@ function switchView(view) {
   const titles = {
     all:       'Todos los trámites',
     today:     'Hoy / Vencidos',
+    agenda:    'Agenda',
     calendar:  'Calendario',
     finished:  'Terminados',
     config:    'Configuración',
@@ -36,17 +37,21 @@ function switchView(view) {
   const isConfig = view === 'config';
   const isCal    = view === 'calendar';
   const isDash   = view === 'dashboard';
+  const isAgenda = view === 'agenda';
   const hide     = isConfig || isCal || isDash;
+  // La agenda es una lista enfocada: oculta filtros/orden/columnas/reporte.
+  const hideTools = hide || isAgenda;
 
-  document.getElementById('sidebarFilters').style.display = hide ? 'none' : '';
-  document.getElementById('colSwitcher').style.display    = hide ? 'none' : '';
-  document.getElementById('sortWrap').style.display       = hide ? 'none' : '';
-  document.getElementById('mobOptsBtn').style.display     = hide ? 'none' : '';
-  document.getElementById('reportBtn').style.display      = hide ? 'none' : '';
+  document.getElementById('sidebarFilters').style.display = hideTools ? 'none' : '';
+  document.getElementById('colSwitcher').style.display    = hideTools ? 'none' : '';
+  document.getElementById('sortWrap').style.display       = hideTools ? 'none' : '';
+  document.getElementById('mobOptsBtn').style.display     = hideTools ? 'none' : '';
+  document.getElementById('reportBtn').style.display      = hideTools ? 'none' : '';
   document.getElementById('newTramiteBtn').style.display  = hide ? 'none' : '';
 
   if      (isConfig) { renderConfig(); syncConfigAccountUI(); }
   else if (isCal)    { renderCalendar(); }
+  else if (isAgenda) { renderAgenda(); }
   else if (isDash && typeof loadDashboardData === 'function') { loadDashboardData(); }
   else               { renderAll(); }
 }
@@ -142,6 +147,9 @@ function init() {
   document.getElementById('modalClose').addEventListener('click',   closeModal);
   document.getElementById('cancelModal').addEventListener('click',  closeModal);
   document.getElementById('saveTramite').addEventListener('click',  saveTramite);
+  // Plantillas
+  document.getElementById('fPlantilla')?.addEventListener('change', e => { if (e.target.value) applyPlantilla(e.target.value); });
+  document.getElementById('btnGuardarPlantilla')?.addEventListener('click', saveCurrentAsPlantilla);
   // Sin cierre al hacer click fuera — evita pérdida accidental de datos
   initDraggableModal(document.getElementById('tramiteModal'));
 

@@ -116,6 +116,7 @@
   <nav class="sidebar-nav">
     <button class="nav-item active"  data-view="all">      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 7v7"/><path d="M12 7v4"/><path d="M16 7v9"/></svg></span> Todos los trámites</button>
     <button class="nav-item"         data-view="today">    <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6v6l2 1"/><path d="M12.337 21.994a10 10 0 1 1 9.588-8.767"/><path d="m14 18 4 4 4-4"/><path d="M18 14v8"/></svg></span> Hoy / Vencidos<span class="badge" id="todayBadge">0</span></button>
+    <button class="nav-item"         data-view="agenda">   <span class="nav-icon"><i data-lucide="list-checks"></i></span> Agenda<span class="badge" id="agendaBadge">0</span></button>
     <button class="nav-item"         data-view="calendar"> <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M3 10h18"/><path d="M8 2v4"/><path d="M17 14h-6"/><path d="M13 18H7"/><path d="M7 14h.01"/><path d="M17 18h.01"/></svg></span> Calendario</button>
     <button class="nav-item"         data-view="finished"> <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span> Terminados</button>
     <button class="nav-item dash-nav-item" data-view="dashboard" style="display:none"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v1.258"/><path d="M16 3v5.46"/><path d="M21 9.118V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5.75"/><path d="M22 17.5c0 2.499-1.75 3.749-3.83 4.474a.5.5 0 0 1-.335-.005c-2.085-.72-3.835-1.97-3.835-4.47V14a.5.5 0 0 1 .5-.499c1 0 2.25-.6 3.12-1.36a.6.6 0 0 1 .76-.001c.875.765 2.12 1.36 3.12 1.36a.5.5 0 0 1 .5.5z"/><path d="M3 15h7"/><path d="M3 9h12.142"/><path d="M8 15v6"/><path d="M8 3v6"/></svg></span> Dashboard Admin</button>
@@ -201,6 +202,13 @@
       <div class="tramite-list" id="todayList"></div>
       <div class="empty-state" id="emptyToday">
         <div class="empty-icon"><i data-lucide="party-popper"></i></div><p>¡Sin pendientes urgentes!</p>
+      </div>
+    </div>
+
+    <div class="view" id="view-agenda">
+      <div id="agendaContent"></div>
+      <div class="empty-state" id="emptyAgenda" style="display:none">
+        <div class="empty-icon"><i data-lucide="party-popper"></i></div><p>¡Agenda al día! Sin tareas pendientes para hoy.</p>
       </div>
     </div>
 
@@ -501,6 +509,12 @@
         </div>
 
         <div class="config-section">
+          <h3>Plantillas de trámite</h3>
+          <p class="config-hint" style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Crea plantillas desde el modal de "Nuevo trámite" con el botón <i data-lucide="bookmark-plus" style="vertical-align:-2px"></i> Plantilla. Aquí puedes eliminarlas.</p>
+          <div id="plantillasList"></div>
+        </div>
+
+        <div class="config-section">
           <h3>Visualización</h3>
           <div class="config-vis-grid">
             <div class="config-vis-item">
@@ -650,6 +664,10 @@
       <button class="modal-close" id="modalClose"><i data-lucide="x"></i></button>
     </div>
     <div class="modal-body">
+      <div class="form-group" id="fPlantillaWrap" style="display:none;margin-bottom:14px">
+        <label>Usar plantilla</label>
+        <select id="fPlantilla"><option value="">— Sin plantilla —</option></select>
+      </div>
       <div class="form-grid form-grid-modal">
         <div class="form-group">
           <label>Número *</label>
@@ -682,6 +700,7 @@
         <button type="button" class="modal-action-btn" id="btnAgregarTareaModal" title="Nueva tarea"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg><span class="modal-action-label">Tarea</span></button>
         <button type="button" class="modal-action-btn" id="btnMostrarNotaModal" title="Nueva nota"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/></svg><span class="modal-action-label">Nota</span></button>
         <button type="button" class="modal-action-btn" id="btnEnlaceModal" title="Adjuntar enlace"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/></svg><span class="modal-action-label">Enlace</span></button>
+        <button type="button" class="modal-action-btn" id="btnGuardarPlantilla" title="Guardar este trámite como plantilla"><i data-lucide="bookmark-plus"></i><span class="modal-action-label">Plantilla</span></button>
       </div>
 
       <!-- Tareas iniciales -->
@@ -803,6 +822,9 @@
 
 <!-- 8. Selección múltiple / acciones en lote -->
 <script src="js/selection.js"></script>
+
+<!-- 8.b Paleta de comandos + atajos -->
+<script src="js/commandpalette.js"></script>
 
 <!-- 9. Orquestador general (debe ir de último) -->
 <script src="js/config.js"></script>
