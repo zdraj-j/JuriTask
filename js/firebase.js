@@ -18,6 +18,15 @@ const auth = firebase.auth();
 const db   = firebase.firestore();
 db.settings({ ignoreUndefinedProperties: true });
 
+// Persistencia offline: cachea los datos en IndexedDB para abrir la app y
+// consultar trámites sin conexión. Debe llamarse antes de cualquier otra
+// operación de Firestore.
+db.enablePersistence({ synchronizeTabs: true }).catch(err => {
+  // failed-precondition: varias pestañas abiertas sin synchronizeTabs;
+  // unimplemented: navegador sin soporte (p. ej. modo incógnito en algunos).
+  console.warn('Persistencia offline de Firestore no disponible:', err && err.code);
+});
+
 // URL de la app (para continueUrl en correos de verificación)
 const APP_URL = 'https://zdraj-j.github.io/JuriTask/';
 

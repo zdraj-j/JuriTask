@@ -2,10 +2,18 @@
 <html lang="es" data-theme="claro">
 <head>
   <meta charset="UTF-8" />
-  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>JuriTask</title>
   <link rel="icon" type="image/png" href="assets/logo/favicon.png" />
   <link rel="stylesheet" href="css/style.css" />
+  <!-- PWA -->
+  <link rel="manifest" href="manifest.json" />
+  <meta name="theme-color" content="#3d5af1" />
+  <meta name="mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
+  <meta name="apple-mobile-web-app-title" content="JuriTask" />
+  <link rel="apple-touch-icon" href="assets/logo/icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -33,7 +41,7 @@
     </div>
     <p class="auth-tagline">Gestión de trámites inteligente</p>
 
-    <div id="authError" class="auth-message" style="display:none"></div>
+    <div id="authError" class="auth-message" style="display:none" role="alert" aria-live="assertive"></div>
 
     <!-- LOGIN -->
     <form id="loginForm">
@@ -56,7 +64,7 @@
         <input type="email" id="resetEmail" placeholder="correo@ejemplo.com" autocomplete="email" />
       </div>
       <button type="submit" class="btn btn-primary auth-submit-btn">Enviar enlace</button>
-      <button type="button" class="auth-link-btn" id="backToLoginBtn">← Volver a iniciar sesión</button>
+      <button type="button" class="auth-link-btn" id="backToLoginBtn"><i data-lucide="arrow-left"></i> Volver a iniciar sesión</button>
     </form>
 
     <div class="auth-divider"><span>o</span></div>
@@ -88,7 +96,7 @@
     <p  id="waitMsg"   style="font-size:14px;color:var(--text-secondary,#4b5563);line-height:1.6;margin-bottom:24px"></p>
     <button id="waitAction" style="display:none;width:100%;padding:12px;background:var(--accent,#3d5af1);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:10px"></button>
     <button id="waitResend" style="display:none;width:100%;padding:11px;background:none;border:1px solid var(--border,#e2e4ea);border-radius:10px;font-size:13px;color:var(--text-secondary,#4b5563);cursor:pointer;margin-bottom:10px">Reenviar correo de verificación</button>
-    <button id="waitLogout" style="width:100%;padding:9px;background:none;border:none;font-size:12px;color:var(--text-muted,#9ca3af);cursor:pointer;text-decoration:underline">← Volver / Cerrar sesión</button>
+    <button id="waitLogout" style="width:100%;padding:9px;background:none;border:none;font-size:12px;color:var(--text-muted,#9ca3af);cursor:pointer;text-decoration:underline"><i data-lucide="arrow-left"></i> Volver / Cerrar sesión</button>
   </div>
 </div>
 
@@ -144,12 +152,13 @@
 
 <div class="app-layout">
   <header class="topbar">
-    <button class="menu-btn" id="menuBtn"><i data-lucide="menu"></i></button>
+    <button class="menu-btn" id="menuBtn" aria-label="Abrir menú"><i data-lucide="menu"></i></button>
     <div class="topbar-title" id="topbarTitle">Todos los trámites</div>
     <div class="topbar-center">
       <div class="search-wrap">
-        <input type="text" id="searchInput" placeholder="Buscar…" />
-        <span class="search-icon">⌕</span>
+        <span class="search-icon"><i data-lucide="search"></i></span>
+        <input type="text" id="searchInput" placeholder="Buscar…" aria-label="Buscar trámites" />
+        <button type="button" class="search-clear" id="searchClear" title="Limpiar búsqueda" aria-label="Limpiar búsqueda" style="display:none"><i data-lucide="x"></i></button>
       </div>
     </div>
     <div class="topbar-right">
@@ -172,7 +181,7 @@
       <button class="btn-icon notif-btn" id="notifBtn" title="Notificaciones" style="position:relative">
         <svg id="notifBellIcon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg><span class="notif-badge" id="notifBadge" style="display:none">0</span>
       </button>
-      <button class="btn-icon mob-opts-btn" id="mobOptsBtn" style="display:none"><i data-lucide="ellipsis-vertical"></i></button>
+      <button class="btn-icon mob-opts-btn" id="mobOptsBtn" style="display:none" aria-label="Más opciones"><i data-lucide="ellipsis-vertical"></i></button>
     </div>
     <!-- Panel de notificaciones -->
     <div class="notif-panel" id="notifPanel"></div>
@@ -404,7 +413,7 @@
 
       <!-- Modal crear equipo -->
       <div id="createTeamOverlay" class="overlay">
-        <div class="modal modal-sm">
+        <div class="modal modal-sm" role="dialog" aria-modal="true" aria-labelledby="createTeamTitle">
           <div class="modal-header">
             <h2 id="createTeamTitle">Crear equipo</h2>
             <button class="modal-close" id="createTeamClose"><i data-lucide="x"></i></button>
@@ -451,7 +460,7 @@
 
         <!-- Modal editar perfil (dentro de config) -->
         <div id="editProfileOverlay" class="overlay" style="z-index:600">
-          <div class="modal modal-sm">
+          <div class="modal modal-sm" role="dialog" aria-modal="true" aria-label="Editar perfil">
             <div class="modal-header">
               <h2>Editar perfil</h2>
               <button class="modal-close" id="editProfileClose"><i data-lucide="x"></i></button>
@@ -600,10 +609,10 @@
 
 <!-- ==================== OVERLAYS / MODALES ==================== -->
 
-<div id="toast" class="toast"></div>
+<div id="toast" class="toast" role="status" aria-live="polite" aria-atomic="true"></div>
 
 <div id="confirmOverlay" class="confirm-overlay">
-  <div class="confirm-box">
+  <div class="confirm-box" role="alertdialog" aria-modal="true" aria-labelledby="confirmMsg">
     <p id="confirmMsg" class="confirm-msg"></p>
     <div class="confirm-btns">
       <button class="btn btn-primary" id="confirmOk">Confirmar</button>
@@ -635,7 +644,7 @@
 
 <!-- MODAL NUEVO TRÁMITE -->
 <div id="modalOverlay" class="overlay">
-  <div id="tramiteModal" class="modal">
+  <div id="tramiteModal" class="modal" role="dialog" aria-modal="true" aria-labelledby="modalTitle">
     <div class="modal-header">
       <h2 id="modalTitle">Nuevo trámite</h2>
       <button class="modal-close" id="modalClose"><i data-lucide="x"></i></button>
@@ -695,14 +704,14 @@
 
 <!-- MODAL DETALLE -->
 <div id="detailOverlay" class="overlay">
-  <div id="detailModal" class="modal modal-detail" data-id="">
+  <div id="detailModal" class="modal modal-detail" data-id="" role="dialog" aria-modal="true" aria-labelledby="detailTitle">
     <div class="modal-header">
       <div>
         <h2 id="detailTitle"></h2>
         <p id="detailSubtitle" class="modal-subtitle"></p>
       </div>
       <div class="modal-header-actions">
-        <button class="btn-icon" title="Duplicar" onclick="_detailAction('duplicate')">⧉</button>
+        <button class="btn-icon" title="Duplicar" onclick="_detailAction('duplicate')"><i data-lucide="copy"></i></button>
         <button class="btn-icon" title="Editar"   onclick="_detailAction('edit')"><i data-lucide="pencil"></i></button>
         <button class="btn-icon btn-icon-danger" title="Eliminar" onclick="_detailAction('delete')"><i data-lucide="trash-2"></i></button>
         <button class="modal-close" onclick="closeDetail()"><i data-lucide="x"></i></button>
@@ -714,11 +723,11 @@
 
 <!-- MODAL REPORTE -->
 <div id="reportOverlay" class="overlay">
-  <div class="modal modal-report">
+  <div class="modal modal-report" role="dialog" aria-modal="true" aria-label="Reporte del día">
     <div class="modal-header">
       <div><h2>Reporte del día</h2><p id="reportSubtitle" class="modal-subtitle"></p></div>
       <div class="modal-header-actions">
-        <button class="btn-small" id="reportCopyBtn">⎘ Copiar</button>
+        <button class="btn-small" id="reportCopyBtn"><i data-lucide="copy"></i> Copiar</button>
         <button class="btn-small" id="reportScreenshotBtn" title="Captura al portapapeles"><i data-lucide="camera"></i> Captura</button>
         <button class="btn-small" id="reportPrintBtn"><i data-lucide="printer"></i> Imprimir</button>
         <button class="modal-close" id="reportClose"><i data-lucide="x"></i></button>
@@ -762,6 +771,8 @@
 <!-- 0.b Iconos (Lucide) + auto-refresh para HTML dinámico -->
 <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
 <script src="js/icons.js"></script>
+<!-- 0.c Accesibilidad: aria-labels + focus-trap en modales -->
+<script src="js/a11y.js"></script>
 
 <!-- 1. Firebase CDN (solo una vez, versión 10) -->
 <script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
@@ -790,8 +801,20 @@
 <!-- 7. Google Drive integration -->
 <script src="js/drive.js"></script>
 
-<!-- 8. Orquestador general (debe ir de último) -->
+<!-- 8. Selección múltiple / acciones en lote -->
+<script src="js/selection.js"></script>
+
+<!-- 9. Orquestador general (debe ir de último) -->
 <script src="js/config.js"></script>
+
+<!-- 10. PWA: registrar service worker -->
+<script>
+  if ('serviceWorker' in navigator) {
+    window.addEventListener('load', () => {
+      navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW no registrado:', err));
+    });
+  }
+</script>
 
 </body>
 </html>

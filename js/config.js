@@ -175,18 +175,36 @@ function init() {
   // ── Filtros ──────────────────────────────────────────────
   ['filterTipo','filterAbogado','filterModulo','filterResponsable','filterEtapa','filterScope']
     .forEach(id => document.getElementById(id)?.addEventListener('change', renderAll));
-  document.getElementById('searchInput').addEventListener('input', () => {
-    const q = document.getElementById('searchInput').value.trim();
+  let _searchTimer = null;
+  const searchInput = document.getElementById('searchInput');
+  const searchClear = document.getElementById('searchClear');
+  const runSearch = () => {
+    const q = searchInput.value.trim();
+    if (searchClear) searchClear.style.display = q ? 'flex' : 'none';
     if (q && currentView !== 'all' && currentView !== 'finished') {
       switchView('all');
-      document.getElementById('searchInput').value = q; // restore after switchView clears it
+      searchInput.value = q; // restore after switchView clears it
     }
     renderAll();
+  };
+  searchInput.addEventListener('input', () => {
+    // Debounce: evita re-render por cada tecla con muchos trámites.
+    if (searchClear) searchClear.style.display = searchInput.value.trim() ? 'flex' : 'none';
+    clearTimeout(_searchTimer);
+    _searchTimer = setTimeout(runSearch, 200);
+  });
+  searchClear?.addEventListener('click', () => {
+    clearTimeout(_searchTimer);
+    searchInput.value = '';
+    searchClear.style.display = 'none';
+    renderAll();
+    searchInput.focus();
   });
   document.getElementById('clearFilters').addEventListener('click', () => {
     ['filterTipo','filterAbogado','filterModulo','filterResponsable','filterEtapa','filterScope']
       .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
-    document.getElementById('searchInput').value = '';
+    searchInput.value = '';
+    if (searchClear) searchClear.style.display = 'none';
     renderAll();
   });
 

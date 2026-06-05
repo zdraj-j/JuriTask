@@ -63,7 +63,7 @@ async function renderBackupList() {
 }
 
 async function restoreBackup(id, b) {
-  if (!confirm(`¿Restaurar backup del ${new Date(b.creadoEn).toLocaleString('es-CO')}?\nSe reemplazarán todos los trámites actuales.`)) return;
+  if (!(await showConfirm(`¿Restaurar backup del ${new Date(b.creadoEn).toLocaleString('es-CO')}? Se reemplazarán todos los trámites actuales.`, { confirmLabel: 'Restaurar' }))) return;
   if (b.tramites) STATE.tramites = b.tramites;
   if (b.order)    STATE.order    = b.order;
   if (b.config)   STATE.config   = Object.assign({...DEFAULT_CONFIG}, b.config);
@@ -73,7 +73,7 @@ async function restoreBackup(id, b) {
 }
 
 async function deleteBackup(id) {
-  if (!confirm('¿Eliminar este backup?')) return;
+  if (!(await showConfirm('¿Eliminar este backup?', { danger: true, confirmLabel: 'Eliminar' }))) return;
   await db.collection('users').doc(AUTH.userProfile.uid).collection('backups').doc(id).delete();
   renderBackupList(); showToast('Backup eliminado.');
 }
@@ -536,7 +536,7 @@ function renderTeamsGrid(equipos) {
       </div>`;
     card.querySelector('[data-editteam]').addEventListener('click', () => openTeamModal(eq));
     card.querySelector('[data-delteam]').addEventListener('click', async () => {
-      if (!confirm(`¿Eliminar el equipo "${eq.nombre}"?`)) return;
+      if (!(await showConfirm(`¿Eliminar el equipo "${eq.nombre}"?`, { danger: true, confirmLabel: 'Eliminar' }))) return;
       await db.collection('teams').doc(eq.id).delete();
       for (const uid of (eq.members||[])) {
         await db.collection('users').doc(uid).update({ teamId: null }).catch(()=>{});
@@ -790,7 +790,7 @@ async function adminCreateUser() {
       showToast('Error: ' + (e.message || e.code));
     }
   } finally {
-    if (btn) { btn.disabled = false; btn.textContent = '＋ Crear usuario'; }
+    if (btn) { btn.disabled = false; btn.innerHTML = '<i data-lucide="circle-plus"></i> Crear usuario'; window.refreshIcons && window.refreshIcons(); }
   }
 }
 
