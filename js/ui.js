@@ -200,6 +200,8 @@ function renderAll() {
   renderList(document.getElementById('finishedList'), document.getElementById('emptyFinished'), applyFilters(STATE.tramites.filter(t => t.terminado), f));
 
   if (currentView === 'calendar') renderCalendar();
+
+  if (typeof selApplyToRendered === 'function') selApplyToRendered();   // re-marcar selección
 }
 
 // ============================================================
@@ -307,11 +309,17 @@ function buildCard(t) {
     });
   }
 
-  // Click en tarjeta → detalle
+  // Click en tarjeta → detalle (o selección si el modo selección está activo)
   card.addEventListener('click', e => {
     if (e.target.closest('.card-checks') || e.target.closest('.card-nueva-tarea-row')) return;
+    if (typeof selIsActive === 'function' && (selIsActive() || e.ctrlKey || e.metaKey)) {
+      e.preventDefault();
+      if (selIsActive()) selToggle(t.id); else selEnter(t.id);
+      return;
+    }
     openDetail(t.id);
   });
+  if (typeof attachLongPress === 'function') attachLongPress(card, t.id);
 
   // Checkboxes
   if (!t.terminado) {
