@@ -1,0 +1,18 @@
+{
+  "name": "JuriTask — Gestión de trámites",
+  "short_name": "JuriTask",
+  "description": "Gestión de trámites jurídicos: vencimientos, tareas, equipos y reportes.",
+  "lang": "es",
+  "dir": "ltr",
+  "start_url": "./index.html",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "portrait-primary",
+  "background_color": "#f0f2f7",
+  "theme_color": "#3d5af1",
+  "icons": [
+    { "src": "assets/logo/icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any" },
+    { "src": "assets/logo/icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any" },
+    { "src": "assets/logo/icon-maskable-512.png", "sizes": "512x512", "type": "image/png", "purpose": "maskable" }
+  ]
+}
