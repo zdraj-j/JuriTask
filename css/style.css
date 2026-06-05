@@ -328,6 +328,13 @@ body {
   background: var(--accent-light); color: var(--accent);
   font-weight: 600;
 }
+/* ── Iconos Lucide (heredan tamaño del texto contenedor) ── */
+svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; stroke-width: 2; }
+.tag svg.lucide, .seg-urg svg.lucide { width: 1.1em; height: 1.1em; }
+.empty-icon svg.lucide { width: 1em; height: 1em; vertical-align: middle; }
+.tag { gap: 4px; }
+.dash-metric-title svg.lucide { vertical-align: -0.15em; margin-right: 4px; }
+
 .nav-icon { font-size: 15px; width: 20px; text-align: center; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
 .nav-icon img, .btn-icon img { filter: var(--icon-base-filter, none); transition: opacity var(--transition), filter var(--transition); }
 .nav-icon img { opacity: .55; }
@@ -1105,7 +1112,9 @@ body {
   transition: opacity 0.2s, transform 0.2s;
   white-space: nowrap; box-shadow: var(--shadow-lg);
   max-width: 90vw; text-align: center;
+  display: inline-flex; align-items: center; gap: 8px;
 }
+.toast svg.lucide { width: 16px; height: 16px; }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 /* ═══════════════════ BOTTOM SHEET MÓVIL ════════ */

@@ -32,8 +32,10 @@ function formatDate(s) {
 }
 
 function formatDatetime(iso) {
-  try { return new Date(iso).toLocaleString('es-CO', { dateStyle:'short', timeStyle:'short' }); }
-  catch { return iso; }
+  if (!iso) return '';
+  const d = new Date(iso);
+  if (isNaN(d.getTime())) return iso;   // fecha inválida: devolver el original tal cual
+  return d.toLocaleString('es-CO', { dateStyle:'short', timeStyle:'short' });
 }
 
 function dateClass(s) {
@@ -201,6 +203,7 @@ function crearTareaRequerimiento(t) {
   const dias  = parseInt(STATE.config.autoReqDias) || 7;
   const texto = (STATE.config.autoReqTexto || '1er req').trim();
   const fecha = nDaysFromToday(dias);
+  if (!Array.isArray(t.seguimiento)) t.seguimiento = [];   // trámites importados/migrados podrían no tenerlo
   if (!t.seguimiento.some(s => s.descripcion === texto && s.fecha === fecha && s.estado === 'pendiente')) {
     const respCfg = STATE.config.autoReqResponsable || 'yo';
     const responsable = respCfg === 'auto' ? (esPropio(t) ? 'yo' : t.abogado) : respCfg;

@@ -47,10 +47,10 @@ async function renderBackupList() {
       row.style.cssText = 'display:flex;align-items:center;justify-content:space-between;padding:8px 0;border-bottom:1px solid var(--border-light);gap:8px';
       const fecha = new Date(b.creadoEn).toLocaleString('es-CO',{dateStyle:'short',timeStyle:'short'});
       const count = (b.tramites||[]).length;
-      row.innerHTML = `<span style="font-size:13px">📦 ${fecha} <span style="color:var(--text-muted)">(${count} trámites)</span></span>
+      row.innerHTML = `<span style="font-size:13px"><i data-lucide="package"></i> ${fecha} <span style="color:var(--text-muted)">(${count} trámites)</span></span>
         <div style="display:flex;gap:6px">
-          <button class="btn-small" data-restore="${doc.id}">↩ Restaurar</button>
-          <button class="btn-small btn-danger" data-del="${doc.id}">✕</button>
+          <button class="btn-small" data-restore="${doc.id}"><i data-lucide="undo-2"></i> Restaurar</button>
+          <button class="btn-small btn-danger" data-del="${doc.id}"><i data-lucide="x"></i></button>
         </div>`;
       row.querySelector('[data-restore]').addEventListener('click', () => restoreBackup(doc.id, b));
       row.querySelector('[data-del]').addEventListener('click',    () => deleteBackup(doc.id));
@@ -272,12 +272,12 @@ async function renderDashboard() {
               ${(u.displayName||u.email||'?').slice(0,2).toUpperCase()}
             </div>
             <div>
-              <div style="font-weight:600;font-size:13px">${u.displayName||'—'} ${blocked?'<span style="font-size:10px;background:var(--danger);color:#fff;padding:1px 5px;border-radius:6px">Bloqueado</span>':''}${isOriginalAdmin?'<span style="font-size:10px;background:var(--accent);color:#fff;padding:1px 5px;border-radius:6px;margin-left:4px">Admin principal</span>':''}</div>
+              <div style="font-weight:600;font-size:13px">${escapeHtml(u.displayName||'—')} ${blocked?'<span style="font-size:10px;background:var(--danger);color:#fff;padding:1px 5px;border-radius:6px">Bloqueado</span>':''}${isOriginalAdmin?'<span style="font-size:10px;background:var(--accent);color:#fff;padding:1px 5px;border-radius:6px;margin-left:4px">Admin principal</span>':''}</div>
               ${isMe ? '<span class="dash-self-badge">Tú</span>' : ''}
             </div>
           </div>
         </td>
-        <td class="dash-email">${u.email||'—'}</td>
+        <td class="dash-email">${escapeHtml(u.email||'—')}</td>
         <td>
           <select class="role-select" data-uid="${u.uid}" ${!canChangeRole?'disabled':''} style="font-size:12px;padding:3px 6px;border-radius:6px;border:1px solid var(--border)${!canChangeRole?';opacity:.6':''}">
             <option value="user"  ${u.role!=='admin'?'selected':''}>Usuario</option>
@@ -285,7 +285,7 @@ async function renderDashboard() {
           </select>
         </td>
         <td>${equipo
-          ? `<span style="font-size:12px;background:var(--accent-light);color:var(--accent);padding:2px 8px;border-radius:8px">${equipo.nombre}</span>`
+          ? `<span style="font-size:12px;background:var(--accent-light);color:var(--accent);padding:2px 8px;border-radius:8px">${escapeHtml(equipo.nombre)}</span>`
           : '<span style="color:var(--text-muted);font-size:12px">Sin equipo</span>'}</td>
         <td class="dash-num" style="${nVenc>0?'color:var(--danger)':''}">
           ${nAct} ${nVenc>0?`<span style="font-size:11px;color:var(--danger)">(${nVenc} venc.)</span>`:''}
@@ -320,7 +320,7 @@ async function renderDashboard() {
         if (!u.email) { showToast('Este usuario no tiene email registrado.'); return; }
         try {
           await auth.sendPasswordResetEmail(u.email);
-          showToast(`✓ Email de recuperación enviado a ${u.email}`);
+          showToast(`Email de recuperación enviado a ${u.email}`);
         } catch(e) { showToast('Error enviando email: ' + (e.message||e.code)); }
       });
       tr.querySelector('[data-togglecreate]')?.addEventListener('click', async () => {
@@ -379,7 +379,7 @@ async function renderDashboard() {
   const purgeBtn = document.getElementById('dashPurgeGhostsBtn');
   if (purgeBtn) {
     purgeBtn.style.display = _ghostUids.length ? '' : 'none';
-    purgeBtn.textContent = `🧹 Purgar ${_ghostUids.length} fantasma${_ghostUids.length !== 1 ? 's' : ''}`;
+    purgeBtn.innerHTML = `<i data-lucide="brush"></i> Purgar ${_ghostUids.length} fantasma${_ghostUids.length !== 1 ? 's' : ''}`;
     purgeBtn.onclick = purgeGhostUids;
   }
 
@@ -413,7 +413,7 @@ async function purgeGhostUids() {
     await db.collection('meta').doc('userIndex').update({
       uids: firebase.firestore.FieldValue.arrayRemove(..._ghostUids)
     });
-    showToast(`✓ ${_ghostUids.length} fantasma${_ghostUids.length !== 1 ? 's' : ''} eliminado${_ghostUids.length !== 1 ? 's' : ''} del índice.`);
+    showToast(`${_ghostUids.length} fantasma${_ghostUids.length !== 1 ? 's' : ''} eliminado${_ghostUids.length !== 1 ? 's' : ''} del índice.`);
     renderDashboard();
   } catch(e) {
     showToast('Error purgando: ' + (e.message || e.code));
@@ -450,7 +450,7 @@ function renderDashMetrics(activos, vencidos) {
 
   el.innerHTML = `
     <div class="dash-metric-card">
-      <div class="dash-metric-title">📊 Trámites por módulo</div>
+      <div class="dash-metric-title"><i data-lucide="bar-chart-3"></i> Trámites por módulo</div>
       ${moduloEntries.length
         ? moduloEntries.map(([m,n])=>`
           <div class="dash-metric-bar-row">
@@ -464,7 +464,7 @@ function renderDashMetrics(activos, vencidos) {
     </div>
 
     <div class="dash-metric-card">
-      <div class="dash-metric-title">⚖️ Trámites por abogado</div>
+      <div class="dash-metric-title"><i data-lucide="scale"></i> Trámites por abogado</div>
       ${abogadoEntries.length
         ? abogadoEntries.map(([a,n])=>`
           <div class="dash-metric-bar-row">
@@ -478,7 +478,7 @@ function renderDashMetrics(activos, vencidos) {
     </div>
 
     <div class="dash-metric-card">
-      <div class="dash-metric-title">✅ Estado de tareas</div>
+      <div class="dash-metric-title"><i data-lucide="circle-check"></i> Estado de tareas</div>
       <div style="display:flex;gap:20px;align-items:center;margin-top:8px">
         <div style="text-align:center">
           <div style="font-size:28px;font-weight:700;color:var(--warning)">${tareasPend}</div>
@@ -559,7 +559,7 @@ function openTeamModal(equipo = null) {
     const row = document.createElement('label');
     row.className = 'team-member-row';
     row.innerHTML = `<input type="checkbox" value="${u.uid}" ${checked?'checked':''}/>
-      <span>${u.displayName||u.email}${u.role==='admin'?' <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;color:var(--warning)"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg>':''}</span>`;
+      <span>${escapeHtml(u.displayName||u.email)}${u.role==='admin'?' <svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;color:var(--warning)"><path d="M11.562 3.266a.5.5 0 0 1 .876 0L15.39 8.87a1 1 0 0 0 1.516.294L21.183 5.5a.5.5 0 0 1 .798.519l-2.834 10.246a1 1 0 0 1-.956.734H5.81a1 1 0 0 1-.957-.734L2.02 6.02a.5.5 0 0 1 .798-.519l4.276 3.664a1 1 0 0 0 1.516-.294z"/><path d="M5 21h14"/></svg>':''}</span>`;
     list.appendChild(row);
   });
   overlay.classList.add('open');
@@ -599,7 +599,7 @@ async function saveTeam() {
       await db.collection('users').doc(uid).update({ teamId: null }).catch(()=>{});
     }
   }
-  showToast(`✓ Equipo "${nombre}" guardado.`);
+  showToast(`Equipo "${nombre}" guardado.`);
   closeTeamModal(); renderDashboard();
 }
 
@@ -683,22 +683,22 @@ function _renderPendingTable(pending) {
             ${(u.displayName||u.email||'?').slice(0,2).toUpperCase()}
           </div>
           <div>
-            <div style="font-weight:600;font-size:13px">${u.displayName||'(sin nombre)'}</div>
+            <div style="font-weight:600;font-size:13px">${escapeHtml(u.displayName||'(sin nombre)')}</div>
             <div style="font-size:11px;color:var(--text-muted)">${fecha}</div>
           </div>
         </div>
       </td>
-      <td class="dash-email">${u.email||'—'}</td>
-      <td><span style="font-size:11px;background:var(--warning-light,#fef3c7);color:var(--warning-dark,#92400e);padding:2px 8px;border-radius:20px;font-weight:600">⏳ Pendiente</span></td>
+      <td class="dash-email">${escapeHtml(u.email||'—')}</td>
+      <td><span style="font-size:11px;background:var(--warning-light,#fef3c7);color:var(--warning-dark,#92400e);padding:2px 8px;border-radius:20px;font-weight:600"><i data-lucide="hourglass"></i> Pendiente</span></td>
       <td>
         <div style="display:flex;gap:6px">
-          <button class="btn-small" style="background:var(--success,#16a34a);color:#fff;border:none;border-radius:8px" data-approve="${u.uid}">✓ Aprobar</button>
-          <button class="btn-small btn-danger" data-reject="${u.uid}">✕ Rechazar</button>
+          <button class="btn-small" style="background:var(--success,#16a34a);color:#fff;border:none;border-radius:8px" data-approve="${u.uid}"><i data-lucide="check"></i> Aprobar</button>
+          <button class="btn-small btn-danger" data-reject="${u.uid}"><i data-lucide="x"></i> Rechazar</button>
         </div>
       </td>`;
     tr.querySelector('[data-approve]').addEventListener('click', async () => {
       await db.collection('users').doc(u.uid).update({ approved: true, blocked: false });
-      showToast(`✓ ${u.displayName||u.email} aprobado. Ya puede acceder.`);
+      showToast(`${u.displayName||u.email} aprobado. Ya puede acceder.`);
       // El listener actualizará la tabla automáticamente
     });
     tr.querySelector('[data-reject]').addEventListener('click', async () => {
@@ -770,7 +770,7 @@ async function adminCreateUser() {
       if (resultEl) {
         resultEl.innerHTML = `
           <div style="background:var(--success-light,#f0fdf4);border:1px solid var(--success,#16a34a);border-radius:10px;padding:14px 16px;margin-top:10px">
-            <div style="font-size:13px;font-weight:600;color:var(--success,#16a34a);margin-bottom:4px">✓ Usuario creado</div>
+            <div style="font-size:13px;font-weight:600;color:var(--success,#16a34a);margin-bottom:4px"><i data-lucide="check"></i> Usuario creado</div>
             <div style="font-size:12px;color:var(--text-secondary)">
               <strong>${displayName}</strong> puede iniciar sesión con usuario <strong>${cleanUser}</strong> y la contraseña asignada.
             </div>
@@ -778,7 +778,7 @@ async function adminCreateUser() {
         setTimeout(() => { resultEl.innerHTML = ''; }, 8000);
       }
 
-      showToast(`✓ Usuario "${displayName}" creado.`);
+      showToast(`Usuario "${displayName}" creado.`);
       renderDashboard();
     } finally {
       try { await secondaryApp.delete(); } catch(_) {}
@@ -821,7 +821,7 @@ function openAdminTramitesModal(u) {
             <h2 id="adminTramitesTitle">Trámites del usuario</h2>
             <div class="modal-subtitle" id="adminTramitesSubtitle"></div>
           </div>
-          <button class="modal-close" id="adminTramitesClose">✕</button>
+          <button class="modal-close" id="adminTramitesClose"><i data-lucide="x"></i></button>
         </div>
         <div class="modal-body" style="padding:0">
           <div id="adminTramitesList" style="padding:16px"></div>
@@ -856,28 +856,29 @@ function openAdminTramitesModal(u) {
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
             <span style="font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent)">#${t.numero||'—'}</span>
             <span style="font-size:11px;background:var(--accent-light);color:var(--accent);padding:1px 6px;border-radius:8px">${t.modulo||''}</span>
-            ${t.terminado ? '<span style="font-size:11px;background:var(--success-light);color:var(--success);padding:1px 6px;border-radius:8px">✓ Terminado</span>' : ''}
+            ${t.terminado ? '<span style="font-size:11px;background:var(--success-light);color:var(--success);padding:1px 6px;border-radius:8px"><i data-lucide="check"></i> Terminado</span>' : ''}
             ${isVenc ? '<span style="font-size:11px;background:var(--danger-light);color:var(--danger);padding:1px 6px;border-radius:8px">Vencido</span>' : ''}
           </div>
           <div style="font-size:13px;font-weight:500;color:var(--text-primary);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.descripcion||'Sin descripción'}</div>
           ${venc ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px">Vence: ${formatDate(venc)}</div>` : ''}
         </div>
-        <button class="btn-small" data-adminedit="${t.id}" style="flex-shrink:0">✎ Editar</button>`;
+        <button class="btn-small" data-adminedit="${t.id}" style="flex-shrink:0"><i data-lucide="pencil"></i> Editar</button>`;
       row.addEventListener('mouseenter', () => row.style.background = 'var(--surface-2)');
       row.addEventListener('mouseleave', () => row.style.background = '');
       row.querySelector('[data-adminedit]').addEventListener('click', async (e) => {
         e.stopPropagation();
         const ok = await showConfirm(`Vas a editar el trámite #${t.numero} de ${u.displayName||u.email}. Cualquier cambio se guardará en su cuenta.`);
         if (!ok) return;
-        // Cargar el trámite en STATE temporalmente y abrir modal de edición
+        // Cargar el trámite en STATE temporalmente (getById lo necesita) y
+        // recordar que es temporal para poder retirarlo al guardar/cancelar.
         const existing = STATE.tramites.find(x => x.id === t.id);
-        if (!existing) STATE.tramites.push(t);
+        if (!existing) { STATE.tramites.push(t); window._adminTempId = t.id; }
+        else            window._adminTempId = null;
         overlay.classList.remove('open');
         if (typeof openModal === 'function') {
-          openModal(t);
-          // Cuando se guarde, también guardar en el uid del otro usuario
-          const origSave = window._adminSaveTarget;
+          // El guardado irá a la cuenta del otro usuario (ver saveTramite).
           window._adminSaveTarget = u.uid;
+          openModal(t);
         }
       });
       list.appendChild(row);
@@ -886,9 +887,6 @@ function openAdminTramitesModal(u) {
 
   overlay.classList.add('open');
 }
-
-// Intercept saveTramiteFS para admin editing otro usuario
-const _originalSaveTramiteFS = typeof saveTramiteFS !== 'undefined' ? saveTramiteFS : null;
 
 function initDashboard() {
   document.getElementById('dashRefreshBtn')?.addEventListener('click', () => {

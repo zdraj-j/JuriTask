@@ -128,26 +128,37 @@ function _updateNotifBadge(count) {
 // ============================================================
 // PANEL TOGGLE
 // ============================================================
+let _notifOutsideHandler = null;
+
+function _closeNotifPanel() {
+  const panel = document.getElementById('notifPanel');
+  if (panel) panel.classList.remove('open');
+  if (_notifOutsideHandler) {
+    document.removeEventListener('click', _notifOutsideHandler);
+    _notifOutsideHandler = null;
+  }
+}
+
 function toggleNotifPanel() {
   const panel = document.getElementById('notifPanel');
   const btn   = document.getElementById('notifBtn');
   if (!panel) return;
 
-  const isOpen = panel.classList.toggle('open');
-  if (isOpen) {
-    _renderNotifPanel();
-    _markAllRead();
-    // Cerrar al hacer click fuera
-    setTimeout(() => {
-      function onOut(e) {
-        if (!panel.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
-          panel.classList.remove('open');
-          document.removeEventListener('click', onOut);
-        }
+  // Cerrar si ya está abierto (también retira el listener "click fuera").
+  if (panel.classList.contains('open')) { _closeNotifPanel(); return; }
+
+  panel.classList.add('open');
+  _renderNotifPanel();
+  _markAllRead();
+  // Cerrar al hacer click fuera — un único handler, retirado en cualquier cierre.
+  setTimeout(() => {
+    _notifOutsideHandler = function(e) {
+      if (!panel.contains(e.target) && e.target !== btn && !btn.contains(e.target)) {
+        _closeNotifPanel();
       }
-      document.addEventListener('click', onOut);
-    }, 50);
-  }
+    };
+    document.addEventListener('click', _notifOutsideHandler);
+  }, 50);
 }
 
 // ============================================================
@@ -260,7 +271,7 @@ async function adminSendBroadcast(message, targetUid) {
   // Enviar a un usuario específico
   if (targetUid && targetUid !== 'all') {
     await createNotification(targetUid, 'admin_message', message.trim());
-    showToast('✓ Mensaje enviado.');
+    showToast('Mensaje enviado.');
     return;
   }
 
@@ -278,5 +289,5 @@ async function adminSendBroadcast(message, targetUid) {
   await Promise.all(targets.map(uid =>
     createNotification(uid, 'admin_message', message.trim())
   ));
-  showToast(`✓ Mensaje enviado a ${targets.length} usuario(s).`);
+  showToast(`Mensaje enviado a ${targets.length} usuario(s).`);
 }

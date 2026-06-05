@@ -98,7 +98,7 @@ function undo() {
     const t = getById(openId);
     if (t) { isModal ? openDetailModal(t) : openDetailExpand(t); }
   }
-  showToast(`↩ Deshecho: ${snap.label}`);
+  showToast(`Deshecho: ${snap.label}`, 'undo-2');
   _undoing = false;
 }
 
@@ -216,8 +216,13 @@ function loadAll() {
 function purgeExpiredFinished() {
   const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - 30);
   const before = STATE.tramites.length;
-  STATE.tramites = STATE.tramites.filter(
-    t => !t.terminado || new Date(t.terminadoEn) > cutoff
-  );
+  STATE.tramites = STATE.tramites.filter(t => {
+    if (!t.terminado) return true;
+    const ts = t.terminadoEn ? new Date(t.terminadoEn) : null;
+    // Sin fecha de terminado válida: conservar y sellar ahora (evita borrado accidental
+    // de trámites terminados sin timestamp; el contador de 30 días arranca desde hoy).
+    if (!ts || isNaN(ts.getTime())) { t.terminadoEn = new Date().toISOString(); return true; }
+    return ts > cutoff;
+  });
   if (STATE.tramites.length !== before) saveAll(true);
 }

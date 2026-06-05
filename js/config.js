@@ -29,9 +29,9 @@ function switchView(view) {
     calendar:  'Calendario',
     finished:  'Terminados',
     config:    'Configuración',
-    dashboard: '🛡 Dashboard Admin',
+    dashboard: '<i data-lucide="shield"></i> Dashboard Admin',
   };
-  document.getElementById('topbarTitle').textContent = titles[view] || '';
+  document.getElementById('topbarTitle').innerHTML = titles[view] || '';
 
   const isConfig = view === 'config';
   const isCal    = view === 'calendar';
@@ -218,7 +218,7 @@ function init() {
     const area = document.getElementById('reportContent');
     if (!area) return;
     const btn = document.getElementById('reportScreenshotBtn');
-    const orig = btn.textContent; btn.disabled = true; btn.textContent = '⏳ Capturando…';
+    const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Capturando…';
     try {
       const bg = getComputedStyle(document.body).backgroundColor || '#ffffff';
       const canvas = await html2canvas(area, { backgroundColor: bg, scale: 2, useCORS: true, logging: false });
@@ -226,7 +226,7 @@ function init() {
         if (!blob) { showToast('No se pudo generar la imagen.'); return; }
         try {
           await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-          showToast('✓ Captura copiada al portapapeles.');
+          showToast('Captura copiada al portapapeles.');
         } catch (_) {
           // Fallback: descargar la imagen
           const url = URL.createObjectURL(blob);
@@ -400,7 +400,7 @@ function init() {
   // ── Backup ───────────────────────────────────────────────
   document.getElementById('backupNowBtn')?.addEventListener('click', () => {
     if (typeof createBackup === 'function') {
-      createBackup().then(() => { showToast('✓ Backup creado.'); renderBackupList(); });
+      createBackup().then(() => { showToast('Backup creado.'); renderBackupList(); });
     } else {
       // Fallback: exportar JSON como backup
       exportData();
