@@ -56,7 +56,7 @@
         <input type="email" id="resetEmail" placeholder="correo@ejemplo.com" autocomplete="email" />
       </div>
       <button type="submit" class="btn btn-primary auth-submit-btn">Enviar enlace</button>
-      <button type="button" class="auth-link-btn" id="backToLoginBtn">← Volver a iniciar sesión</button>
+      <button type="button" class="auth-link-btn" id="backToLoginBtn"><i data-lucide="arrow-left"></i> Volver a iniciar sesión</button>
     </form>
 
     <div class="auth-divider"><span>o</span></div>
@@ -88,7 +88,7 @@
     <p  id="waitMsg"   style="font-size:14px;color:var(--text-secondary,#4b5563);line-height:1.6;margin-bottom:24px"></p>
     <button id="waitAction" style="display:none;width:100%;padding:12px;background:var(--accent,#3d5af1);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:10px"></button>
     <button id="waitResend" style="display:none;width:100%;padding:11px;background:none;border:1px solid var(--border,#e2e4ea);border-radius:10px;font-size:13px;color:var(--text-secondary,#4b5563);cursor:pointer;margin-bottom:10px">Reenviar correo de verificación</button>
-    <button id="waitLogout" style="width:100%;padding:9px;background:none;border:none;font-size:12px;color:var(--text-muted,#9ca3af);cursor:pointer;text-decoration:underline">← Volver / Cerrar sesión</button>
+    <button id="waitLogout" style="width:100%;padding:9px;background:none;border:none;font-size:12px;color:var(--text-muted,#9ca3af);cursor:pointer;text-decoration:underline"><i data-lucide="arrow-left"></i> Volver / Cerrar sesión</button>
   </div>
 </div>
 
@@ -148,8 +148,9 @@
     <div class="topbar-title" id="topbarTitle">Todos los trámites</div>
     <div class="topbar-center">
       <div class="search-wrap">
-        <input type="text" id="searchInput" placeholder="Buscar…" />
-        <span class="search-icon">⌕</span>
+        <span class="search-icon"><i data-lucide="search"></i></span>
+        <input type="text" id="searchInput" placeholder="Buscar…" aria-label="Buscar trámites" />
+        <button type="button" class="search-clear" id="searchClear" title="Limpiar búsqueda" aria-label="Limpiar búsqueda" style="display:none"><i data-lucide="x"></i></button>
       </div>
     </div>
     <div class="topbar-right">
@@ -702,7 +703,7 @@
         <p id="detailSubtitle" class="modal-subtitle"></p>
       </div>
       <div class="modal-header-actions">
-        <button class="btn-icon" title="Duplicar" onclick="_detailAction('duplicate')">⧉</button>
+        <button class="btn-icon" title="Duplicar" onclick="_detailAction('duplicate')"><i data-lucide="copy"></i></button>
         <button class="btn-icon" title="Editar"   onclick="_detailAction('edit')"><i data-lucide="pencil"></i></button>
         <button class="btn-icon btn-icon-danger" title="Eliminar" onclick="_detailAction('delete')"><i data-lucide="trash-2"></i></button>
         <button class="modal-close" onclick="closeDetail()"><i data-lucide="x"></i></button>
@@ -718,7 +719,7 @@
     <div class="modal-header">
       <div><h2>Reporte del día</h2><p id="reportSubtitle" class="modal-subtitle"></p></div>
       <div class="modal-header-actions">
-        <button class="btn-small" id="reportCopyBtn">⎘ Copiar</button>
+        <button class="btn-small" id="reportCopyBtn"><i data-lucide="copy"></i> Copiar</button>
         <button class="btn-small" id="reportScreenshotBtn" title="Captura al portapapeles"><i data-lucide="camera"></i> Captura</button>
         <button class="btn-small" id="reportPrintBtn"><i data-lucide="printer"></i> Imprimir</button>
         <button class="modal-close" id="reportClose"><i data-lucide="x"></i></button>

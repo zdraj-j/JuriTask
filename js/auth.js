@@ -110,8 +110,8 @@ function friendlyAuthError(code) {
 }
 
 // ── Logout ────────────────────────────────────────────────────
-function logout() {
-  if (!confirm('¿Cerrar sesión?')) return;
+async function logout() {
+  if (!(await showConfirm('¿Cerrar sesión?', { confirmLabel: 'Cerrar sesión' }))) return;
   AUTH.logout().catch(console.error);
 }
 

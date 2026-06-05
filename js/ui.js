@@ -11,7 +11,9 @@
 let _toastEl    = null;
 let _toastTimer = null;
 
-function showToast(msg, icon) {
+// action (opcional): { label, onClick } — muestra un botón dentro del toast
+// (p. ej. "Deshacer") útil sobre todo en móvil, donde no hay Ctrl+Z.
+function showToast(msg, icon, action) {
   if (!_toastEl) _toastEl = document.getElementById('toast');
   if (!_toastEl) return;                       // guard: #toast podría no existir
   msg = String(msg);
@@ -20,12 +22,22 @@ function showToast(msg, icon) {
     icon = /(error|no se pudo|no disponible|inv[áa]lid|incorrect|vac[íi]|m[áa]ximo|m[íi]nimo|completa|selecciona|escribe|no hay|no puedes|no coinciden|a[úu]n no|ya existe)/i.test(msg)
       ? 'circle-alert' : 'check';
   }
-  _toastEl.innerHTML = `<i data-lucide="${icon}"></i><span></span>`;
+  _toastEl.innerHTML = `<i data-lucide="${icon}"></i><span></span>` +
+    (action ? `<button type="button" class="toast-action"></button>` : '');
   _toastEl.querySelector('span').textContent = msg;   // texto vía textContent: sin riesgo XSS
+  if (action) {
+    const b = _toastEl.querySelector('.toast-action');
+    b.textContent = action.label || 'Deshacer';
+    b.onclick = () => {
+      _toastEl.classList.remove('show');
+      clearTimeout(_toastTimer);
+      try { action.onClick(); } catch (e) { console.error(e); }
+    };
+  }
   if (window.refreshIcons) window.refreshIcons();
   _toastEl.classList.add('show');
   clearTimeout(_toastTimer);
-  _toastTimer = setTimeout(() => _toastEl.classList.remove('show'), 2800);
+  _toastTimer = setTimeout(() => _toastEl.classList.remove('show'), action ? 5500 : 2800);
 }
 
 // ============================================================
@@ -49,11 +61,20 @@ function _installDropdownCloser() {
 // ============================================================
 let _confirmResolve = null;
 
-function showConfirm(msg) {
+function showConfirm(msg, opts = {}) {
   return new Promise(resolve => {
     _confirmResolve = resolve;
     document.getElementById('confirmMsg').textContent = msg;
+    const okBtn = document.getElementById('confirmOk');
+    if (okBtn) {
+      okBtn.textContent = opts.confirmLabel || 'Confirmar';
+      okBtn.classList.toggle('btn-danger', !!opts.danger);
+      okBtn.classList.toggle('btn-primary', !opts.danger);
+    }
+    const cancelBtn = document.getElementById('confirmCancel');
+    if (cancelBtn) cancelBtn.textContent = opts.cancelLabel || 'Cancelar';
     document.getElementById('confirmOverlay').classList.add('open');
+    setTimeout(() => okBtn?.focus(), 50);   // Enter confirma con teclado
   });
 }
 
@@ -274,7 +295,7 @@ function buildCard(t) {
   // Botón nueva tarea rápida
   if (!t.terminado) {
     const tareaRow = document.createElement('div'); tareaRow.className = 'card-nueva-tarea-row';
-    const btnT     = document.createElement('button'); btnT.className = 'btn-card-tarea'; btnT.textContent = '＋ Nueva tarea';
+    const btnT     = document.createElement('button'); btnT.className = 'btn-card-tarea'; btnT.innerHTML = '<i data-lucide="plus"></i> Nueva tarea';
     tareaRow.appendChild(btnT); card.appendChild(tareaRow);
     btnT.addEventListener('click', e => {
       e.stopPropagation(); openDetail(t.id);
@@ -308,12 +329,12 @@ function buildCard(t) {
         saveAll(); renderAll();
       });
     }
-    card.querySelector('.card-check-terminar').addEventListener('change', e => {
+    card.querySelector('.card-check-terminar').addEventListener('change', async e => {
       if (!e.target.checked) return; e.target.checked = false;
-      if (!confirm('¿Marcar este trámite como terminado?')) return;
+      if (!(await showConfirm('¿Marcar este trámite como terminado?', { confirmLabel: 'Terminar' }))) return;
       pushHistory('Terminar trámite'); t.terminado = true; t.terminadoEn = new Date().toISOString();
       if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
-      saveAll(); renderAll(); showToast('Trámite terminado.');
+      saveAll(); renderAll(); showToast('Trámite terminado.', null, { label: 'Deshacer', onClick: undo });
     });
     attachDragEvents(card, wrapper);
   }
@@ -435,14 +456,14 @@ function openDetailExpand(t) {
       saveAll(); renderAll(); showToast(`Trámite duplicado como #${newT.numero}.`);
     });
     actBtns.querySelector('[data-action="edit"]').addEventListener('click', e => { e.stopPropagation(); closeAllExpands(); openModal(t); });
-    actBtns.querySelector('[data-action="delete"]').addEventListener('click', e => {
+    actBtns.querySelector('[data-action="delete"]').addEventListener('click', async e => {
       e.stopPropagation();
-      if (confirm('¿Eliminar este trámite?')) {
+      if (await showConfirm('¿Eliminar este trámite?', { danger: true, confirmLabel: 'Eliminar' })) {
         pushHistory(`Eliminar trámite #${t.numero}`);
         STATE.tramites = STATE.tramites.filter(x => x.id !== t.id);
         STATE.order    = STATE.order.filter(id => id !== t.id);
         if (typeof deleteTramiteFS === 'function') deleteTramiteFS(t.id, t._scope || 'private');
-        saveAll(); closeAllExpands(); renderAll(); showToast('Trámite eliminado.');
+        saveAll(); closeAllExpands(); renderAll(); showToast('Trámite eliminado.', null, { label: 'Deshacer', onClick: undo });
       }
     });
     actBtns.querySelector('[data-action="close"]').addEventListener('click', e => { e.stopPropagation(); closeAllExpands(); });
@@ -502,7 +523,7 @@ function buildDetailContent(t) {
       <h3>Seguimiento <span class="etapa-badge${etapa==='seguimiento'?' seguimiento':''}" id="${p}_etapabadge">${etapa==='seguimiento'?'Seguimiento':'Gestión'}</span></h3>
       <div id="${p}_actividades"></div>
       <div class="nueva-tarea-toggle">
-        <button class="btn-nueva-tarea" id="${p}_btnNuevaTarea" type="button">＋ Nueva tarea</button>
+        <button class="btn-nueva-tarea" id="${p}_btnNuevaTarea" type="button"><i data-lucide="plus"></i> Nueva tarea</button>
       </div>
       <div class="add-actividad-form" id="${p}_formNuevaTarea" style="display:none">
         <input type="text"  id="${p}_newActDesc"  placeholder="¿Qué se debe hacer?" />
@@ -801,8 +822,8 @@ function renderActividadesIn(t, listEl, container, expandWrapper) {
       if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
       saveAll(); refreshCardOnly(t); renderActividadesIn(t, listEl, container, expandWrapper);
     });
-    div.querySelector('.actividad-delete').addEventListener('click', () => {
-      if (confirm('¿Eliminar esta tarea?')) {
+    div.querySelector('.actividad-delete').addEventListener('click', async () => {
+      if (await showConfirm('¿Eliminar esta tarea?', { danger: true, confirmLabel: 'Eliminar' })) {
         pushHistory('Eliminar tarea'); t.seguimiento.splice(i, 1);
         if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
         saveAll(); refreshCardOnly(t); renderActividadesIn(t, listEl, container, expandWrapper);
@@ -877,8 +898,8 @@ function renderNotasIn(t, listEl) {
         if (e.key === 'Enter' && (e.ctrlKey || e.metaKey)) { e.preventDefault(); ta.blur(); }
       });
     });
-    div.querySelector('.nota-delete').addEventListener('click', () => {
-      if (confirm('¿Eliminar esta nota?')) {
+    div.querySelector('.nota-delete').addEventListener('click', async () => {
+      if (await showConfirm('¿Eliminar esta nota?', { danger: true, confirmLabel: 'Eliminar' })) {
         pushHistory('Eliminar nota'); t.notas.splice(idx, 1);
         if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
         saveAll(); renderNotasIn(t, listEl);
@@ -1502,8 +1523,8 @@ function renderModulosList() {
   STATE.config.modulos.forEach((m, i) => {
     const row = document.createElement('div'); row.className = 'modulo-row';
     row.innerHTML = `<span class="modulo-sigla">${m.sigla}</span><span class="modulo-nombre">${m.nombre}</span><button class="modulo-delete"><i data-lucide="x"></i></button>`;
-    row.querySelector('.modulo-delete').addEventListener('click', () => {
-      if (confirm(`¿Eliminar módulo ${m.sigla}?`)) { STATE.config.modulos.splice(i,1); saveAll(); populateModuloSelects(); renderModulosList(); }
+    row.querySelector('.modulo-delete').addEventListener('click', async () => {
+      if (await showConfirm(`¿Eliminar módulo ${m.sigla}?`, { danger: true, confirmLabel: 'Eliminar' })) { STATE.config.modulos.splice(i,1); saveAll(); populateModuloSelects(); renderModulosList(); }
     });
     list.appendChild(row);
   });

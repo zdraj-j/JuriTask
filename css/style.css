@@ -447,7 +447,7 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
 /* Buscador */
 .search-wrap { position: relative; }
 .search-wrap input {
-  padding: 7px 34px 7px 13px;
+  padding: 7px 34px 7px 34px;
   border: 1px solid var(--border);
   border-radius: 20px;
   font-family: var(--font); font-size: 13px;
@@ -462,10 +462,21 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
   box-shadow: 0 0 0 3px var(--accent-light);
 }
 .search-icon {
-  position: absolute; right: 11px; top: 50%;
+  position: absolute; left: 11px; top: 50%;
   transform: translateY(-50%);
   color: var(--text-muted); font-size: 14px; pointer-events: none;
 }
+.search-clear {
+  position: absolute; right: 8px; top: 50%;
+  transform: translateY(-50%);
+  display: flex; align-items: center; justify-content: center;
+  width: 20px; height: 20px; padding: 0;
+  border: none; border-radius: 50%; cursor: pointer;
+  background: var(--surface-3); color: var(--text-muted);
+  transition: background var(--transition), color var(--transition);
+}
+.search-clear:hover { background: var(--danger-light); color: var(--danger); }
+.search-clear svg.lucide { width: 13px; height: 13px; }
 
 /* Orden */
 .sort-wrap select {
@@ -1115,6 +1126,14 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
   display: inline-flex; align-items: center; gap: 8px;
 }
 .toast svg.lucide { width: 16px; height: 16px; }
+.toast .toast-action {
+  margin-left: 4px; padding: 3px 10px;
+  background: rgba(255,255,255,.18); color: var(--surface);
+  border: none; border-radius: 12px; cursor: pointer;
+  font: inherit; font-weight: 600; font-size: 12px;
+  pointer-events: auto; white-space: nowrap;
+}
+.toast .toast-action:hover { background: rgba(255,255,255,.3); }
 .toast.show { opacity: 1; transform: translateX(-50%) translateY(0); }
 
 /* ═══════════════════ BOTTOM SHEET MÓVIL ════════ */

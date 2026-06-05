@@ -263,7 +263,7 @@ function sortActives(list) {
 // Los botones en el HTML usan onclick="_detailAction(cmd)" para
 // evitar problemas de timing con currentDetailId.
 // ============================================================
-function _detailAction(cmd) {
+async function _detailAction(cmd) {
   const modal = document.getElementById('detailModal');
   const id    = modal?.dataset.id;
   if (!id) return;
@@ -276,13 +276,13 @@ function _detailAction(cmd) {
 
   } else if (cmd === 'delete') {
     const num = t.numero || id;
-    if (!confirm(`¿Eliminar el trámite #${num} "${t.descripcion}"?\nEsta acción no se puede deshacer.`)) return;
+    if (!(await showConfirm(`¿Eliminar el trámite #${num} "${t.descripcion}"? Esta acción no se puede deshacer.`, { danger: true, confirmLabel: 'Eliminar' }))) return;
     pushHistory(`Eliminar trámite #${num}`);
     closeDetail();
     STATE.tramites = STATE.tramites.filter(x => x.id !== id);
     STATE.order    = STATE.order.filter(x => x !== id);
     if (typeof deleteTramiteFS === 'function') deleteTramiteFS(id, t._scope || 'private');
-    saveAll(); renderAll(); showToast('Trámite eliminado.');
+    saveAll(); renderAll(); showToast('Trámite eliminado.', null, { label: 'Deshacer', onClick: undo });
 
   } else if (cmd === 'duplicate') {
     const newT = JSON.parse(JSON.stringify(t));
