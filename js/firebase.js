@@ -156,11 +156,11 @@ function showWaitScreen(type, extraData) {
   const logoutEl  = document.getElementById('waitLogout');
 
   if (type === 'verify') {
-    if (iconEl)  iconEl.textContent  = '📧';
+    if (iconEl)  { iconEl.innerHTML = '<i data-lucide="mail"></i>'; window.refreshIcons && window.refreshIcons(); }
     if (titleEl) titleEl.textContent = 'Verifica tu correo electrónico';
     if (msgEl)   msgEl.textContent   = `Enviamos un enlace de verificación a ${extraData || 'tu correo'}. Haz clic en el enlace y luego regresa aquí.`;
     if (actionEl) {
-      actionEl.textContent = '✓ Ya verifiqué mi correo';
+      actionEl.textContent = 'Ya verifiqué mi correo';
       actionEl.style.display = '';
       actionEl.onclick = async () => {
         actionEl.disabled = true;
@@ -173,35 +173,35 @@ function showWaitScreen(type, extraData) {
             location.reload();
           } else {
             actionEl.disabled = false;
-            actionEl.textContent = '✓ Ya verifiqué mi correo';
+            actionEl.textContent = 'Ya verifiqué mi correo';
             showToast('Aún no se detecta la verificación. Revisa tu correo o reenvíalo.');
           }
         } catch(e) {
           actionEl.disabled = false;
-          actionEl.textContent = '✓ Ya verifiqué mi correo';
+          actionEl.textContent = 'Ya verifiqué mi correo';
         }
       };
     }
     if (resendEl) {
       resendEl.style.display = '';
-      resendEl.textContent   = '↺ Reenviar correo de verificación';
+      resendEl.textContent   = 'Reenviar correo de verificación';
       resendEl.onclick = async () => {
         try {
           await AUTH.sendVerificationEmail(auth.currentUser);
-          showToast('✓ Correo reenviado.');
-          resendEl.textContent = '✓ Enviado';
-          setTimeout(() => { resendEl.textContent = '↺ Reenviar correo de verificación'; }, 3000);
+          showToast('Correo reenviado.');
+          resendEl.textContent = 'Enviado';
+          setTimeout(() => { resendEl.textContent = 'Reenviar correo de verificación'; }, 3000);
         } catch(e) { showToast('Error: ' + (e.message || e.code)); }
       };
     }
   } else if (type === 'pending') {
-    if (iconEl)  iconEl.textContent  = '⏳';
+    if (iconEl)  { iconEl.innerHTML = '<i data-lucide="hourglass"></i>'; window.refreshIcons && window.refreshIcons(); }
     if (titleEl) titleEl.textContent = 'Solicitud de acceso enviada';
     if (msgEl)   msgEl.textContent   = 'Tu correo fue verificado. Un administrador revisará tu solicitud y te dará acceso pronto. Puedes cerrar esta ventana y volver cuando recibas confirmación.';
     if (actionEl) actionEl.style.display = 'none';
     if (resendEl) resendEl.style.display = 'none';
   } else if (type === 'blocked') {
-    if (iconEl)  iconEl.textContent  = '🚫';
+    if (iconEl)  { iconEl.innerHTML = '<i data-lucide="ban"></i>'; window.refreshIcons && window.refreshIcons(); }
     if (titleEl) titleEl.textContent = 'Cuenta bloqueada';
     if (msgEl)   msgEl.textContent   = 'Tu cuenta ha sido bloqueada. Contacta al administrador para más información.';
     if (actionEl) actionEl.style.display = 'none';

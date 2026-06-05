@@ -39,7 +39,7 @@ function initAuthUI() {
     try {
       await AUTH.resetPassword(email);
       setAuthLoading(false);
-      showAuthError('✓ Enlace enviado. Revisa tu correo.', 'success');
+      showAuthError('Enlace enviado. Revisa tu correo.', 'success');
     } catch(err) {
       setAuthLoading(false);
       showAuthError(friendlyAuthError(err.code));

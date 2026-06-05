@@ -11,9 +11,18 @@
 let _toastEl    = null;
 let _toastTimer = null;
 
-function showToast(msg) {
+function showToast(msg, icon) {
   if (!_toastEl) _toastEl = document.getElementById('toast');
-  _toastEl.textContent = msg;
+  if (!_toastEl) return;                       // guard: #toast podría no existir
+  msg = String(msg);
+  if (!icon) {
+    // Heurística: mensajes de error/validación llevan icono de alerta.
+    icon = /(error|no se pudo|no disponible|inv[áa]lid|incorrect|vac[íi]|m[áa]ximo|m[íi]nimo|completa|selecciona|escribe|no hay|no puedes|no coinciden|a[úu]n no|ya existe)/i.test(msg)
+      ? 'circle-alert' : 'check';
+  }
+  _toastEl.innerHTML = `<i data-lucide="${icon}"></i><span></span>`;
+  _toastEl.querySelector('span').textContent = msg;   // texto vía textContent: sin riesgo XSS
+  if (window.refreshIcons) window.refreshIcons();
   _toastEl.classList.add('show');
   clearTimeout(_toastTimer);
   _toastTimer = setTimeout(() => _toastEl.classList.remove('show'), 2800);
@@ -179,7 +188,7 @@ function buildCard(t) {
   let vencHtml = '';
   if (showVenc) {
     const vcls  = vencClass(t.fechaVencimiento, t);
-    const lbl   = { overdue:'⚠ Vencido', today:'⚠ Hoy', soon:'⏰ Mañana', upcoming:'📅 Vence' }[vcls] || '📅 Vence';
+    const lbl   = { overdue:'<i data-lucide="triangle-alert"></i> Vencido', today:'<i data-lucide="triangle-alert"></i> Hoy', soon:'<i data-lucide="alarm-clock"></i> Mañana', upcoming:'<i data-lucide="calendar"></i> Vence' }[vcls] || '<i data-lucide="calendar"></i> Vence';
     const dias  = STATE.config.diasRestantes ? diasRestantesNum(t.fechaVencimiento) : null;
     const dtag  = dias !== null ? ` <span class="dias-restantes ${vcls}">${diasRestantesLabel(dias)}</span>` : '';
     vencHtml    = `<span class="venc-fecha ${vcls}">${lbl}: ${formatDate(t.fechaVencimiento)}</span>${dtag}`;
@@ -188,13 +197,13 @@ function buildCard(t) {
   // Alerta falta análisis (trámites compartidos sin análisis completado)
   const faltaAnalisis = !esP && !t.terminado && !t.gestion?.analisis;
   const faltaAnalisisHtml = faltaAnalisis
-    ? `<span class="tag-falta-analisis">⚠ Falta análisis</span>`
+    ? `<span class="tag-falta-analisis"><i data-lucide="triangle-alert"></i> Falta análisis</span>`
     : '';
 
   // Responsable — para trámites compartidos recibidos, mostrar quién los creó
   let respTag;
   if (esP) {
-    respTag = `<span class="tag tag-propio">👤 Propio</span>`;
+    respTag = `<span class="tag tag-propio"><i data-lucide="user"></i> Propio</span>`;
   } else {
     // Si el trámite viene de otra persona (_sharedFrom), mostrar su nombre
     const displayKey = (t._sharedFrom && t._sharedFrom !== AUTH?.userProfile?.uid)
@@ -207,7 +216,7 @@ function buildCard(t) {
   const etapaTag   = t.terminado ? `<span class="tag tag-terminado">Terminado</span>` : '';
   const pends      = (t.seguimiento||[]).filter(s => s.estado === 'pendiente');
   const tieneUrg   = pends.some(s => s.urgente);
-  const urgenteTag = tieneUrg ? `<span class="tag tag-urgente">🔴 Urgente</span>` : '';
+  const urgenteTag = tieneUrg ? `<span class="tag tag-urgente"><i data-lucide="circle-alert"></i> Urgente</span>` : '';
   const segHtml    = buildSeguimientoHtml(pends, t);
 
   // Checkboxes
@@ -279,7 +288,7 @@ function buildCard(t) {
       card.querySelector('.card-check-cumplimiento').addEventListener('change', e => {
         pushHistory(e.target.checked ? 'Marcar cumplimiento' : 'Desmarcar cumplimiento');
         t.gestion.cumplimiento = e.target.checked;
-        if (e.target.checked) { crearTareaRequerimiento(t); showToast('✓ Cumplimiento marcado. Tarea automática creada.'); }
+        if (e.target.checked) { crearTareaRequerimiento(t); showToast('Cumplimiento marcado. Tarea automática creada.'); }
         saveAll(); renderAll();
       });
     }
@@ -288,7 +297,7 @@ function buildCard(t) {
       if (!confirm('¿Marcar este trámite como terminado?')) return;
       pushHistory('Terminar trámite'); t.terminado = true; t.terminadoEn = new Date().toISOString();
       if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
-      saveAll(); renderAll(); showToast('Trámite terminado. ✓');
+      saveAll(); renderAll(); showToast('Trámite terminado.');
     });
     attachDragEvents(card, wrapper);
   }
@@ -304,9 +313,9 @@ function buildSeguimientoHtml(tareas, tramite) {
   return `<div class="card-seguimiento">
     ${shown.map(s => {
       const dc   = dateClass(s.fecha);
-      const urg  = s.urgente ? '<span class="seg-urg">🔴</span>' : '';
+      const urg  = s.urgente ? '<span class="seg-urg"><i data-lucide="circle-alert"></i></span>' : '';
       const fech = s.fecha  ? `<span class="seg-fecha ${dc}">${formatDate(s.fecha)}</span>` : '';
-      return `<div class="card-seg-item"><div class="seg-dot ${dc}"></div>${urg}<span class="seg-desc">${s.descripcion}</span>${fech}</div>`;
+      return `<div class="card-seg-item"><div class="seg-dot ${dc}"></div>${urg}<span class="seg-desc">${escapeHtml(s.descripcion)}</span>${fech}</div>`;
     }).join('')}
     ${extra > 0 ? `<div class="card-seg-more">+${extra} tarea${extra>1?'s':''} más</div>` : ''}
   </div>`;
@@ -328,7 +337,7 @@ function refreshCardOnly(t) {
     if (datesEl) {
       if (showVenc) {
         const vcls = vencClass(t.fechaVencimiento, t);
-        const lbl  = { overdue:'⚠ Vencido', today:'⚠ Hoy', soon:'⏰ Mañana', upcoming:'📅 Vence' }[vcls] || '📅 Vence';
+        const lbl  = { overdue:'<i data-lucide="triangle-alert"></i> Vencido', today:'<i data-lucide="triangle-alert"></i> Hoy', soon:'<i data-lucide="alarm-clock"></i> Mañana', upcoming:'<i data-lucide="calendar"></i> Vence' }[vcls] || '<i data-lucide="calendar"></i> Vence';
         const dias = STATE.config.diasRestantes ? diasRestantesNum(t.fechaVencimiento) : null;
         const dtag = dias !== null ? ` <span class="dias-restantes ${vcls}">${diasRestantesLabel(dias)}</span>` : '';
         datesEl.innerHTML = `<span class="venc-fecha ${vcls}">${lbl}: ${formatDate(t.fechaVencimiento)}</span>${dtag}`;
@@ -660,7 +669,7 @@ function renderActividadesIn(t, listEl, container, expandWrapper) {
             <button class="act-attach-btn act-urg-btn ${act.urgente?'active':''}" title="${act.urgente?'Quitar urgente':'Marcar urgente'}"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></button>
             <button class="act-attach-btn act-drive-btn" title="Adjuntar" ${attCount>=5?'disabled':''}><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"/></svg></button>
             <button class="act-attach-btn act-link-btn" title="Adjuntar enlace" ${attCount>=5?'disabled':''}><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/></svg></button>
-            <button class="actividad-delete" title="Eliminar">✕</button>
+            <button class="actividad-delete" title="Eliminar"><i data-lucide="x"></i></button>
           </div>
         </div>
         ${memberChecksHtml}
@@ -828,7 +837,7 @@ function renderNotasIn(t, listEl) {
   [...(t.notas || [])].sort((a, b) => a.fecha.localeCompare(b.fecha)).forEach(nota => {
     const idx = t.notas.indexOf(nota);
     const div = document.createElement('div'); div.className = 'nota-item';
-    div.innerHTML = `<div class="nota-text" title="Doble clic para editar">${escapeHtml(nota.texto)}</div><div class="nota-fecha">${formatDatetime(nota.fecha)}</div><button class="nota-delete">✕</button>`;
+    div.innerHTML = `<div class="nota-text" title="Doble clic para editar">${escapeHtml(nota.texto)}</div><div class="nota-fecha">${formatDatetime(nota.fecha)}</div><button class="nota-delete"><i data-lucide="x"></i></button>`;
     const textoEl = div.querySelector('.nota-text');
     textoEl.addEventListener('dblclick', () => {
       const ta = document.createElement('textarea'); ta.value=nota.texto; ta.className='nota-text-edit'; ta.rows=3;
@@ -961,7 +970,7 @@ function addTareaRow(desc = '', fecha = '', resp = '', assignedTo = []) {
       <button class="ti-urg ${_tareasIniciales[idx].urgente ? 'active' : ''}" title="Marcar urgente"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></button>
       <button class="ti-drive" title="Adjuntar"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"/></svg></button>
       <button class="ti-link" title="Adjuntar enlace"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/></svg></button>
-      <button class="ti-del" title="Eliminar">✕</button>
+      <button class="ti-del" title="Eliminar"><i data-lucide="x"></i></button>
     </div>
     <div class="ti-atts"></div>`;
 
@@ -1294,14 +1303,14 @@ function renderReport() {
     });
   });
 
-  if (!items.length) { contenido.innerHTML = '<div class="report-empty">🎉 ¡Sin novedades para hoy!</div>'; return; }
+  if (!items.length) { contenido.innerHTML = '<div class="report-empty"><i data-lucide="party-popper"></i> ¡Sin novedades para hoy!</div>'; return; }
   items.sort((a, b) => {
     if (a.urgente !== b.urgente) return a.urgente ? -1 : 1;
     if (a.cls !== b.cls) return a.cls==='overdue' ? -1 : 1;
     return (a.fecha||'').localeCompare(b.fecha||'');
   });
 
-  const tipoLabel = { vencimiento:'📅 Vencimiento', tarea:'📌 Tarea', analisis:'🔍 Análisis pendiente' };
+  const tipoLabel = { vencimiento:'<i data-lucide="calendar"></i> Vencimiento', tarea:'<i data-lucide="pin"></i> Tarea', analisis:'<i data-lucide="search"></i> Análisis pendiente' };
   const renderGroup = (titulo, gItems, cls) => {
     if (!gItems.length) return;
     const sec = document.createElement('div'); sec.className = 'report-section';
@@ -1312,10 +1321,10 @@ function renderReport() {
       const tareaText = item.tipo === 'vencimiento'
         ? `Vence: ${formatDate(item.fecha)}`
         : escapeHtml(item.tarea);
-      el.innerHTML = `<div class="report-item-num">${item.urgente?'🔴 ':''}#${item.t.numero}</div>
+      el.innerHTML = `<div class="report-item-num">${item.urgente?'<i data-lucide="circle-alert"></i> ':''}#${item.t.numero}</div>
         <div class="report-item-body">
           <div class="report-item-desc">${escapeHtml(item.t.descripcion)}</div>
-          <div class="report-item-tarea"><span class="tarea-label">${tipoLabel[item.tipo]||'📌'} — ${tareaText}</span></div>
+          <div class="report-item-tarea"><span class="tarea-label">${tipoLabel[item.tipo]||'<i data-lucide="pin"></i>'} — ${tareaText}</span></div>
           <div class="report-item-meta"><span class="report-item-resp">${item.t.modulo||''}</span>${item.resp?`<span class="report-item-resp">${abogadoName(item.resp)}</span>`:''}</div>
         </div>`;
       sec.appendChild(el);
@@ -1323,9 +1332,9 @@ function renderReport() {
     contenido.appendChild(sec);
   };
   const urg = items.filter(i => i.urgente), venc = items.filter(i => !i.urgente && i.cls==='overdue'), hoyI = items.filter(i => !i.urgente && i.cls!=='overdue');
-  if (urg.length) renderGroup('🔴 Urgentes', urg, 'danger');
-  renderGroup('⚠ Vencidos / Atrasados', venc, 'danger');
-  renderGroup('📅 Para hoy', hoyI, 'warning');
+  if (urg.length) renderGroup('<i data-lucide="circle-alert"></i> Urgentes', urg, 'danger');
+  renderGroup('<i data-lucide="triangle-alert"></i> Vencidos / Atrasados', venc, 'danger');
+  renderGroup('<i data-lucide="calendar"></i> Para hoy', hoyI, 'warning');
 }
 
 function buildReportTextPlain() {
@@ -1380,7 +1389,7 @@ function renderAbogadosList() {
       const saved = (STATE.config.abogados||[]).find(x => x.key === m.uid);
       const color = saved ? saved.color : '#6b7280';
       const row = document.createElement('div'); row.className = 'abogado-config-row';
-      row.innerHTML = `<span class="abogado-num">👤</span>
+      row.innerHTML = `<span class="abogado-num"><i data-lucide="user"></i></span>
         <span style="flex:1;font-size:13px;color:var(--text-primary)">${escapeAttr(m.displayName||m.email||m.uid)}</span>
         <input type="color" class="color-picker ab-color-team" value="${color}" title="Color" data-uid="${m.uid}"/>
         <span class="color-preview ab-preview" style="background:${color}"></span>`;
@@ -1409,7 +1418,7 @@ function renderAbogadosList() {
       row.innerHTML = `<input type="text" class="ab-nombre" value="${escapeAttr(a.nombre)}" placeholder="Nombre"/>
         <input type="color" class="color-picker ab-color" value="${a.color}" title="Color"/>
         <span class="color-preview ab-preview" style="background:${a.color}"></span>
-        <button class="btn-icon btn-icon-danger ab-delete" title="Eliminar">✕</button>`;
+        <button class="btn-icon btn-icon-danger ab-delete" title="Eliminar"><i data-lucide="x"></i></button>`;
       row.querySelector('.ab-color').addEventListener('input', e => row.querySelector('.ab-preview').style.background = e.target.value);
       row.querySelector('.ab-delete').addEventListener('click', async () => {
         const ok = await showConfirm(`¿Eliminar al colaborador "${a.nombre}"?`);
@@ -1451,7 +1460,7 @@ function renderModulosList() {
   const list = document.getElementById('modulosList'); if (!list) return; list.innerHTML = '';
   STATE.config.modulos.forEach((m, i) => {
     const row = document.createElement('div'); row.className = 'modulo-row';
-    row.innerHTML = `<span class="modulo-sigla">${m.sigla}</span><span class="modulo-nombre">${m.nombre}</span><button class="modulo-delete">✕</button>`;
+    row.innerHTML = `<span class="modulo-sigla">${m.sigla}</span><span class="modulo-nombre">${m.nombre}</span><button class="modulo-delete"><i data-lucide="x"></i></button>`;
     row.querySelector('.modulo-delete').addEventListener('click', () => {
       if (confirm(`¿Eliminar módulo ${m.sigla}?`)) { STATE.config.modulos.splice(i,1); saveAll(); populateModuloSelects(); renderModulosList(); }
     });

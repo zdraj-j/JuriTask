@@ -106,7 +106,7 @@ function buildRespOptions(tipoTramite, abogadoKey, selectedValue) {
   }
   // Siempre: yo mismo
   opts.push({ value: 'yo', label: 'Yo mismo' });
-  return opts.map(o => `<option value="${o.value}" ${o.value === selectedValue ? 'selected':''}>${o.label}</option>`).join('');
+  return opts.map(o => `<option value="${escapeAttr(o.value)}" ${o.value === selectedValue ? 'selected':''}>${escapeHtml(o.label)}</option>`).join('');
 }
 
 // ============================================================
@@ -186,9 +186,9 @@ function syncConfigAccountUI() {
   const avEl    = el('configAvatar');
   if (nameEl)  nameEl.textContent  = p.displayName || '';
   if (emailEl) emailEl.textContent = p.email || '';
-  if (roleEl)  roleEl.textContent  = p.role === 'admin' ? '👑 Administrador' : '👤 Usuario';
+  if (roleEl)  roleEl.innerHTML  = p.role === 'admin' ? '<i data-lucide="crown"></i> Administrador' : '<i data-lucide="user"></i> Usuario';
   if (avEl) {
-    if (p.photoURL) avEl.innerHTML = `<img src="${p.photoURL}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" />`;
+    if (p.photoURL) avEl.innerHTML = `<img src="${escapeAttr(p.photoURL)}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" />`;
     else avEl.textContent = (p.displayName || p.email || '?').slice(0, 2).toUpperCase();
   }
 
@@ -197,7 +197,7 @@ function syncConfigAccountUI() {
   const topNameEl = el('userNameDisplay');
   const badgeEl   = el('adminBadge');
   if (topAvEl) {
-    if (p.photoURL) topAvEl.innerHTML = `<img src="${p.photoURL}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" />`;
+    if (p.photoURL) topAvEl.innerHTML = `<img src="${escapeAttr(p.photoURL)}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" />`;
     else topAvEl.textContent = (p.displayName || p.email || '?').slice(0, 2).toUpperCase();
   }
   if (topNameEl) topNameEl.textContent = (p.displayName || '').split(' ')[0];

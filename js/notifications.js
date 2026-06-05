@@ -260,7 +260,7 @@ async function adminSendBroadcast(message, targetUid) {
   // Enviar a un usuario específico
   if (targetUid && targetUid !== 'all') {
     await createNotification(targetUid, 'admin_message', message.trim());
-    showToast('✓ Mensaje enviado.');
+    showToast('Mensaje enviado.');
     return;
   }
 
@@ -278,5 +278,5 @@ async function adminSendBroadcast(message, targetUid) {
   await Promise.all(targets.map(uid =>
     createNotification(uid, 'admin_message', message.trim())
   ));
-  showToast(`✓ Mensaje enviado a ${targets.length} usuario(s).`);
+  showToast(`Mensaje enviado a ${targets.length} usuario(s).`);
 }
