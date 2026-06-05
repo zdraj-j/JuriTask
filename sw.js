@@ -3,7 +3,7 @@
  * App-shell offline. NO cachea datos de Firestore/Auth (esos van siempre a la
  * red; la persistencia offline de datos la maneja el SDK de Firestore).
  */
-const VERSION = 'juritask-v4';
+const VERSION = 'juritask-v5';
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 
@@ -27,6 +27,7 @@ const SHELL_ASSETS = [
   './js/icons.js',
   './js/a11y.js',
   './js/selection.js',
+  './js/commandpalette.js',
   './assets/logo/logo.png',
   './assets/logo/favicon.png',
   './assets/logo/icon-192.png',
