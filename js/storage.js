@@ -40,6 +40,7 @@ const DEFAULT_CONFIG = {
     { sigla:'PRJ',  nombre:'Procesos judiciales' },
     { sigla:'TTL',  nombre:'Tutelas' },
   ],
+  plantillas: [],
   columns:    1,
   detailMode: 'expand',
   sortBy:     'vencimiento',

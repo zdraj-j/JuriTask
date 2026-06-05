@@ -1221,6 +1221,7 @@ function openModal(tramite = null) {
     selectedUids = ['yo'];
   }
   populateModalAssign(selectedUids);
+  populatePlantillaSelect();
 
   document.getElementById('modalOverlay').classList.add('open');
   setTimeout(() => document.getElementById('fNumero')?.focus(), 120);
@@ -1251,6 +1252,115 @@ function _clearAdminEdit() {
 
 let isEditing = false;
 let editingId = null;
+
+// ============================================================
+// PROMPT (promesa) — para nombrar plantillas, etc.
+// ============================================================
+let _promptResolve = null, _promptEl = null;
+function showPrompt(msg, def = '') {
+  return new Promise(resolve => {
+    _promptResolve = resolve;
+    if (!_promptEl) {
+      _promptEl = document.createElement('div');
+      _promptEl.className = 'confirm-overlay';
+      _promptEl.innerHTML = `<div class="confirm-box" role="dialog" aria-modal="true">
+        <p class="confirm-msg" id="_promptMsg"></p>
+        <input type="text" id="_promptInput" class="prompt-input" />
+        <div class="confirm-btns">
+          <button class="btn btn-primary" id="_promptOk">Guardar</button>
+          <button class="btn-small" id="_promptCancel">Cancelar</button>
+        </div></div>`;
+      document.body.appendChild(_promptEl);
+      const close = val => { _promptEl.classList.remove('open'); const r = _promptResolve; _promptResolve = null; if (r) r(val); };
+      _promptEl.querySelector('#_promptOk').addEventListener('click', () => close(_promptEl.querySelector('#_promptInput').value.trim() || null));
+      _promptEl.querySelector('#_promptCancel').addEventListener('click', () => close(null));
+      _promptEl.addEventListener('click', e => { if (e.target === _promptEl) close(null); });
+      _promptEl.querySelector('#_promptInput').addEventListener('keydown', e => {
+        if (e.key === 'Enter')  { e.preventDefault(); _promptEl.querySelector('#_promptOk').click(); }
+        if (e.key === 'Escape') { e.preventDefault(); _promptEl.querySelector('#_promptCancel').click(); }
+      });
+    }
+    _promptEl.querySelector('#_promptMsg').textContent = msg;
+    const input = _promptEl.querySelector('#_promptInput');
+    input.value = def;
+    _promptEl.classList.add('open');
+    setTimeout(() => { input.focus(); input.select(); }, 50);
+  });
+}
+
+// ============================================================
+// PLANTILLAS DE TRÁMITE
+// ============================================================
+function _daysFromToday(fecha) {
+  if (!fecha) return null;
+  return Math.round((new Date(fecha) - new Date(today())) / 86400000);
+}
+
+function populatePlantillaSelect() {
+  const wrap = document.getElementById('fPlantillaWrap');
+  const sel  = document.getElementById('fPlantilla');
+  if (!sel || !wrap) return;
+  const ps = STATE.config.plantillas || [];
+  if (isEditing || !ps.length) { wrap.style.display = 'none'; return; }
+  wrap.style.display = '';
+  sel.innerHTML = '<option value="">— Sin plantilla —</option>' +
+    ps.map(p => `<option value="${escapeAttr(p.id)}">${escapeHtml(p.nombre)}</option>`).join('');
+  sel.value = '';
+}
+
+function applyPlantilla(id) {
+  const p = (STATE.config.plantillas || []).find(x => x.id === id);
+  if (!p) return;
+  if (p.modulo)      document.getElementById('fModulo').value = p.modulo;
+  if (p.descripcion) document.getElementById('fDescripcion').value = p.descripcion;
+  _tareasIniciales = [];
+  document.getElementById('tareasInicialesList').innerHTML = '';
+  (p.tareas || []).forEach(t => {
+    const fecha = (t.dias != null) ? nDaysFromToday(t.dias) : '';
+    addTareaRow(t.descripcion || '', fecha, 'yo');
+  });
+  showToast(`Plantilla "${p.nombre}" aplicada.`);
+}
+
+async function saveCurrentAsPlantilla() {
+  syncTareasFromDOM();
+  const modulo = document.getElementById('fModulo').value;
+  const descripcion = sentenceCase(document.getElementById('fDescripcion').value.trim());
+  const tareas = _tareasIniciales.filter(t => t.descripcion)
+    .map(t => ({ descripcion: t.descripcion, dias: _daysFromToday(t.fecha) }));
+  if (!modulo && !tareas.length) { showToast('Define al menos un módulo o una tarea para la plantilla.'); return; }
+  const nombre = await showPrompt('Nombre de la plantilla', descripcion || modulo || 'Plantilla');
+  if (!nombre) return;
+  STATE.config.plantillas = STATE.config.plantillas || [];
+  STATE.config.plantillas.push({ id: genId(), nombre, modulo, descripcion, tareas });
+  saveAll();
+  populatePlantillaSelect();
+  showToast(`Plantilla "${nombre}" guardada.`);
+}
+
+function renderPlantillasList() {
+  const list = document.getElementById('plantillasList');
+  if (!list) return;
+  const ps = STATE.config.plantillas || [];
+  if (!ps.length) { list.innerHTML = '<p style="font-size:13px;color:var(--text-muted)">No hay plantillas guardadas.</p>'; return; }
+  list.innerHTML = '';
+  ps.forEach((p, i) => {
+    const row = document.createElement('div'); row.className = 'plantilla-row';
+    const nTareas = (p.tareas || []).length;
+    row.innerHTML = `<div class="plantilla-info">
+        <span class="plantilla-nombre">${escapeHtml(p.nombre)}</span>
+        <span class="plantilla-meta">${escapeHtml(p.modulo || '—')} · ${nTareas} tarea(s)</span>
+      </div>
+      <button class="btn-icon btn-icon-danger" title="Eliminar plantilla"><i data-lucide="trash-2"></i></button>`;
+    row.querySelector('button').addEventListener('click', async () => {
+      if (await showConfirm(`¿Eliminar la plantilla "${p.nombre}"?`, { danger: true, confirmLabel: 'Eliminar' })) {
+        STATE.config.plantillas.splice(i, 1); saveAll(); renderPlantillasList();
+      }
+    });
+    list.appendChild(row);
+  });
+  if (window.refreshIcons) window.refreshIcons();
+}
 
 async function saveTramite() {
   const numero = document.getElementById('fNumero').value.trim();
@@ -1569,7 +1679,7 @@ function renderConfig() {
   const cb1=document.getElementById('colorBar1'); if(cb1) cb1.value=STATE.config.colorBar1||'#f59e0b';
   const cb2=document.getElementById('colorBar2'); if(cb2) cb2.value=STATE.config.colorBar2||'#3b5bdb';
   const cb3=document.getElementById('colorBar3'); if(cb3) cb3.value=STATE.config.colorBar3||'#10b981';
-  updateBarPreviews(); setDetailMode(STATE.config.detailMode||'expand'); renderModulosList(); renderThemeGrid();
+  updateBarPreviews(); setDetailMode(STATE.config.detailMode||'expand'); renderModulosList(); renderPlantillasList(); renderThemeGrid();
   const arT=document.getElementById('autoReqToggle');       if(arT) arT.checked=STATE.config.autoReq!==false;
   const arX=document.getElementById('autoReqTexto');        if(arX) arX.value=STATE.config.autoReqTexto||'1er req';
   const arD=document.getElementById('autoReqDias');         if(arD) arD.value=STATE.config.autoReqDias??7;

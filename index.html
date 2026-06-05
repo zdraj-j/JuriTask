@@ -509,6 +509,12 @@
         </div>
 
         <div class="config-section">
+          <h3>Plantillas de trámite</h3>
+          <p class="config-hint" style="font-size:12px;color:var(--text-muted);margin-bottom:10px">Crea plantillas desde el modal de "Nuevo trámite" con el botón <i data-lucide="bookmark-plus" style="vertical-align:-2px"></i> Plantilla. Aquí puedes eliminarlas.</p>
+          <div id="plantillasList"></div>
+        </div>
+
+        <div class="config-section">
           <h3>Visualización</h3>
           <div class="config-vis-grid">
             <div class="config-vis-item">
@@ -658,6 +664,10 @@
       <button class="modal-close" id="modalClose"><i data-lucide="x"></i></button>
     </div>
     <div class="modal-body">
+      <div class="form-group" id="fPlantillaWrap" style="display:none;margin-bottom:14px">
+        <label>Usar plantilla</label>
+        <select id="fPlantilla"><option value="">— Sin plantilla —</option></select>
+      </div>
       <div class="form-grid form-grid-modal">
         <div class="form-group">
           <label>Número *</label>
@@ -690,6 +700,7 @@
         <button type="button" class="modal-action-btn" id="btnAgregarTareaModal" title="Nueva tarea"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 5v14"/><path d="M5 12h14"/></svg><span class="modal-action-label">Tarea</span></button>
         <button type="button" class="modal-action-btn" id="btnMostrarNotaModal" title="Nueva nota"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 20h9"/><path d="M16.376 3.622a1 1 0 0 1 3.002 3.002L7.368 18.635a2 2 0 0 1-.855.506l-2.872.838a.5.5 0 0 1-.62-.62l.838-2.872a2 2 0 0 1 .506-.854z"/></svg><span class="modal-action-label">Nota</span></button>
         <button type="button" class="modal-action-btn" id="btnEnlaceModal" title="Adjuntar enlace"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/></svg><span class="modal-action-label">Enlace</span></button>
+        <button type="button" class="modal-action-btn" id="btnGuardarPlantilla" title="Guardar este trámite como plantilla"><i data-lucide="bookmark-plus"></i><span class="modal-action-label">Plantilla</span></button>
       </div>
 
       <!-- Tareas iniciales -->

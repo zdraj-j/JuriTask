@@ -1050,6 +1050,21 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
 .agenda-desc { font-size: 13px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .agenda-task { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
 
+/* ═══════════════════ PROMPT / PLANTILLAS ════════ */
+.prompt-input {
+  width: 100%; margin: 4px 0 14px; padding: 9px 12px;
+  border: 1px solid var(--border); border-radius: var(--radius-sm);
+  font: inherit; font-size: 14px; background: var(--surface-2); color: var(--text-primary);
+}
+.prompt-input:focus { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
+.plantilla-row {
+  display: flex; align-items: center; justify-content: space-between; gap: 10px;
+  padding: 9px 4px; border-bottom: 1px solid var(--border-light);
+}
+.plantilla-info { display: flex; flex-direction: column; min-width: 0; }
+.plantilla-nombre { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+.plantilla-meta { font-size: 11px; color: var(--text-muted); }
+
 /* ═══════════════════ CONFIGURACIÓN ══════════════ */
 .config-card {
   background: var(--surface); border-radius: var(--radius);

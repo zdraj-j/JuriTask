@@ -147,6 +147,9 @@ function init() {
   document.getElementById('modalClose').addEventListener('click',   closeModal);
   document.getElementById('cancelModal').addEventListener('click',  closeModal);
   document.getElementById('saveTramite').addEventListener('click',  saveTramite);
+  // Plantillas
+  document.getElementById('fPlantilla')?.addEventListener('change', e => { if (e.target.value) applyPlantilla(e.target.value); });
+  document.getElementById('btnGuardarPlantilla')?.addEventListener('click', saveCurrentAsPlantilla);
   // Sin cierre al hacer click fuera — evita pérdida accidental de datos
   initDraggableModal(document.getElementById('tramiteModal'));
 
