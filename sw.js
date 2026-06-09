@@ -3,7 +3,7 @@
  * App-shell offline. NO cachea datos de Firestore/Auth (esos van siempre a la
  * red; la persistencia offline de datos la maneja el SDK de Firestore).
  */
-const VERSION = 'juritask-v5';
+const VERSION = 'juritask-v6';
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 
@@ -80,16 +80,20 @@ self.addEventListener('fetch', event => {
 
   const sameOrigin = url.origin === self.location.origin;
 
-  // Mismo origen: cache-first y refresco en segundo plano.
+  // Mismo origen: network-first. Así un despliegue nuevo (p. ej. handlers de
+  // cierre de modales en js/config.js) llega de inmediato; la caché solo sirve
+  // de respaldo offline. Antes era cache-first y dejaba JS viejo en uso un
+  // ciclo de carga, lo que hacía parecer "muertos" botones ya corregidos.
   if (sameOrigin) {
     event.respondWith((async () => {
       const cache = await caches.open(SHELL);
-      const cached = await cache.match(req);
-      const network = fetch(req).then(res => {
-        if (res && res.ok) cache.put(req, res.clone());
-        return res;
-      }).catch(() => null);
-      return cached || (await network) || Response.error();
+      try {
+        const fresh = await fetch(req);
+        if (fresh && fresh.ok) cache.put(req, fresh.clone());
+        return fresh;
+      } catch (_) {
+        return (await cache.match(req)) || Response.error();
+      }
     })());
     return;
   }

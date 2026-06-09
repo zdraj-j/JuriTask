@@ -835,6 +835,14 @@
     window.addEventListener('load', () => {
       navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW no registrado:', err));
     });
+    // Cuando un SW nuevo toma control, recargar una sola vez para correr el JS
+    // recién desplegado (evita quedarse con handlers viejos ya cacheados).
+    let _swReloaded = false;
+    navigator.serviceWorker.addEventListener('controllerchange', () => {
+      if (_swReloaded) return;
+      _swReloaded = true;
+      window.location.reload();
+    });
   }
 </script>
 
