@@ -1073,6 +1073,18 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
 .agenda-type { font-size: 11px; color: var(--text-muted); display: inline-flex; align-items: center; gap: 4px; }
 .agenda-desc { font-size: 13px; font-weight: 500; color: var(--text-primary); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 .agenda-task { font-size: 12px; color: var(--text-secondary); margin-top: 2px; }
+/* Mini-formulario: registrar la siguiente tarea al completar una */
+.agenda-item.agenda-next-form { display: block; border-left-color: var(--accent); background: var(--accent-light); animation: cardIn 0.15s ease; }
+.agenda-next { width: 100%; }
+.agenda-next-head { display: flex; align-items: center; gap: 6px; font-size: 12px; font-weight: 600; color: var(--accent); margin-bottom: 8px; }
+.agenda-next-head svg.lucide { width: 14px; height: 14px; color: var(--accent) !important; }
+.agenda-next-fields { display: flex; gap: 8px; flex-wrap: wrap; margin-bottom: 8px; }
+.agenda-next-desc { flex: 1; min-width: 180px; padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-family: var(--font); font-size: 13px; background: var(--surface); color: var(--text-primary); }
+.agenda-next-fecha { padding: 7px 10px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-family: var(--font); font-size: 13px; background: var(--surface); color: var(--text-primary); }
+.agenda-next-actions { display: flex; gap: 8px; flex-wrap: wrap; }
+.agenda-next-save { display: inline-flex; align-items: center; gap: 4px; }
+.agenda-next-skip { background: none; color: var(--text-secondary); border: 1px solid var(--border); }
+.agenda-next-skip:hover { background: var(--surface-2); color: var(--text-primary); }
 
 /* ═══════════════════ PALETA DE COMANDOS ═════════ */
 .cmd-overlay {
