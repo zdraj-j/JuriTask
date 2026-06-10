@@ -1525,17 +1525,27 @@ function renderReport() {
 // Reúne lo pendiente para hoy/atrasado conservando referencia al objeto de
 // seguimiento, para poder marcar tareas como hechas directamente.
 function _buildAgendaItems() {
-  const hoy = today();
+  const hoy   = today();
+  const myUid = AUTH?.userProfile?.uid;
+  const isMe  = u => u === 'yo' || u === myUid || !u; // sin responsable explícito ⇒ propio
   const items = [];
   STATE.tramites.filter(t => !t.terminado).forEach(t => {
+    const esP = esPropio(t);
     if (t.fechaVencimiento && !t.gestion?.cumplimiento && t.fechaVencimiento <= hoy) {
-      items.push({ t, tipo: 'vencimiento', fecha: t.fechaVencimiento, cls: t.fechaVencimiento < hoy ? 'overdue' : 'today', urgente: false });
+      // El vencimiento de un trámite propio lo gestiono yo; el de otro abogado, él.
+      const resp = esP ? 'yo' : (t.abogado || 'yo');
+      items.push({ t, tipo: 'vencimiento', fecha: t.fechaVencimiento, cls: t.fechaVencimiento < hoy ? 'overdue' : 'today', urgente: false, resp, mine: isMe(resp) });
     }
-    if (!esPropio(t) && !t.gestion?.analisis) {
-      items.push({ t, tipo: 'analisis', fecha: t.fechaVencimiento || '', cls: 'today', urgente: false });
+    if (!esP && !t.gestion?.analisis) {
+      // Análisis pendiente de un trámite que pertenece a otro abogado.
+      const resp = t.abogado || 'yo';
+      items.push({ t, tipo: 'analisis', fecha: t.fechaVencimiento || '', cls: 'today', urgente: false, resp, mine: isMe(resp) });
     }
     (t.seguimiento || []).filter(s => s.estado === 'pendiente' && s.fecha && s.fecha <= hoy).forEach(s => {
-      items.push({ t, s, tipo: 'tarea', fecha: s.fecha, cls: s.fecha < hoy ? 'overdue' : 'today', urgente: !!s.urgente });
+      const assignees = (s.assignedTo && s.assignedTo.length) ? s.assignedTo : [s.responsable || 'yo'];
+      const mine = isMe(s.responsable) || assignees.some(isMe);
+      const resp = mine ? 'yo' : (s.responsable || assignees[0] || 'yo');
+      items.push({ t, s, tipo: 'tarea', fecha: s.fecha, cls: s.fecha < hoy ? 'overdue' : 'today', urgente: !!s.urgente, resp, mine });
     });
   });
   items.sort((a, b) => {
@@ -1555,13 +1565,47 @@ function _persistTramite(t) {
   if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
 }
 
+// Actualiza el estado activo y los contadores de los botones Mías/De otros/Todas.
+function _syncAgendaScopeButtons(scope, allItems) {
+  const group = document.getElementById('agendaScopeGroup');
+  if (!group) return;
+  const mias  = allItems.filter(i => i.mine).length;
+  const otros = allItems.length - mias;
+  const counts = { mias, otros, all: allItems.length };
+  const labels = { mias: 'Mías', otros: 'De otros', all: 'Todas' };
+  group.querySelectorAll('.toggle-btn').forEach(btn => {
+    const s = btn.dataset.scope;
+    btn.classList.toggle('active', s === scope);
+    btn.textContent = `${labels[s]} (${counts[s] ?? 0})`;
+  });
+}
+
 function renderAgenda() {
   const cont  = document.getElementById('agendaContent');
   const empty = document.getElementById('emptyAgenda');
   if (!cont) return;
-  const items = _buildAgendaItems();
+  const allItems = _buildAgendaItems();
 
-  if (!items.length) { cont.innerHTML = ''; if (empty) empty.style.display = ''; return; }
+  // ── Filtro por responsabilidad (Mías / De otros / Todas) ──
+  const scope = STATE.config.agendaScope || 'mias';
+  _syncAgendaScopeButtons(scope, allItems);
+  const items = scope === 'mias'  ? allItems.filter(i => i.mine)
+              : scope === 'otros' ? allItems.filter(i => !i.mine)
+              : allItems;
+
+  if (!items.length) {
+    cont.innerHTML = '';
+    if (empty) {
+      empty.style.display = '';
+      const msg = empty.querySelector('p');
+      if (msg) msg.textContent = allItems.length
+        ? (scope === 'mias'  ? '¡Nada pendiente a tu cargo! Las tareas de otros están en «De otros».'
+         : scope === 'otros' ? 'No hay tareas pendientes a cargo de otros.'
+         : '¡Agenda al día! Sin tareas pendientes para hoy.')
+        : '¡Agenda al día! Sin tareas pendientes para hoy.';
+    }
+    return;
+  }
   if (empty) empty.style.display = 'none';
   cont.innerHTML = '';
 
@@ -1602,6 +1646,7 @@ function renderAgenda() {
             ${item.urgente ? '<i data-lucide="circle-alert"></i> ' : ''}<span class="agenda-num">#${escapeHtml(item.t.numero)}</span>
             <span class="tag tag-modulo">${escapeHtml(item.t.modulo || '')}</span>
             <span class="agenda-type">${tipoLabel[item.tipo] || ''}</span>
+            ${item.mine ? '' : `<span class="agenda-resp"><i data-lucide="user"></i> ${escapeHtml(abogadoName(item.resp, item.t))}</span>`}
           </div>
           <div class="agenda-desc">${escapeHtml(item.t.descripcion || '(sin descripción)')}</div>
           <div class="agenda-task">${tareaText}</div>
