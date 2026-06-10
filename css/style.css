@@ -635,6 +635,21 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
 .card-top-row { display: flex; align-items: center; gap: 5px; flex-wrap: wrap; margin-bottom: 4px; }
 .card-numero { font-family: var(--mono); font-size: 12px; font-weight: 600; color: var(--accent); letter-spacing: .3px; }
 
+/* Botón "copiar número de trámite" — aparece junto a cada número en todas las vistas */
+.copy-num-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  padding: 2px; margin-left: 1px; border: none; background: transparent;
+  color: var(--text-muted); cursor: pointer; border-radius: 4px;
+  vertical-align: middle; line-height: 0; opacity: .6; flex-shrink: 0;
+  transition: color var(--transition), background var(--transition), opacity var(--transition);
+}
+.copy-num-btn:hover  { color: var(--accent); background: var(--accent-light); opacity: 1; }
+.copy-num-btn:active { transform: scale(.9); }
+.copy-num-btn.copied { color: var(--success); opacity: 1; }
+.copy-num-btn svg.lucide { width: 13px; height: 13px; color: inherit; }
+/* La línea de agenda pinta los svg de rojo; el botón de copia conserva su propio color */
+.agenda-line .copy-num-btn svg.lucide { color: inherit; }
+
 /* Tags */
 .tag { display: inline-flex; align-items: center; padding: 2px 7px; border-radius: 20px; font-size: 10px; font-weight: 700; letter-spacing: .3px; }
 .tag-modulo { background: var(--accent-light); color: var(--accent); }
