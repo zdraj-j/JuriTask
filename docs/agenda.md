@@ -6,7 +6,8 @@ Lista enfocada de "lo que hay que hacer hoy o ya venció", pensada para ir
 ## Archivos
 
 - `js/ui.js` → `_buildAgendaItems()`, `renderAgenda()`, `countAgendaPendientes()`,
-  `_updateAgendaBadge()`, `_syncAgendaScopeButtons()`, `_persistTramite()`.
+  `_updateAgendaBadge()`, `_syncAgendaScopeButtons()`, `_showAgendaNextTaskForm()`,
+  `_persistTramite()`.
 - `index.html` → `#view-agenda` (barra de filtro `#agendaScopeGroup` + `#agendaContent`).
 - `js/config.js` → `switchView()` llama a `renderAgenda()`; listener del toggle
   de responsabilidad.
@@ -50,6 +51,28 @@ Cuando un ítem **no** es mío, se muestra un chip con el responsable
 pendientes (todas las responsabilidades), no solo las mías, para no perder de
 vista el volumen global. El desglose por responsabilidad va en los botones del
 toggle.
+
+## Encadenar "completar → siguiente tarea"
+
+Al marcar una **tarea** como realizada, su fila se transforma in situ en un
+mini-formulario (`_showAgendaNextTaskForm`) para registrar de inmediato la
+siguiente tarea del mismo trámite, sin tener que buscarlo:
+
+- Campos: descripción + fecha (la fecha viene precargada a **hoy + 7 días**,
+  editable). `Enter` guarda.
+- **Guardar** crea una nueva tarea de `seguimiento` en el mismo trámite,
+  heredando `responsable`/`assignedTo` de la tarea recién cerrada (así sigue
+  apareciendo en "Mías" si era tuya), notifica a los asignados externos y
+  re-renderiza la agenda.
+- **Listo, sin tarea** (o guardar con la descripción vacía) simplemente cierra
+  el formulario y refresca la agenda.
+
+Solo aplica al tipo `tarea`. Marcar un `analisis` o un `vencimiento` mantiene su
+comportamiento anterior (el vencimiento ya genera su requerimiento automático
+vía `crearTareaRequerimiento`).
+
+Para que **Deshacer** y otros flujos refresquen la lista cuando la agenda es la
+vista activa, `renderAll()` llama a `renderAgenda()` si `currentView === 'agenda'`.
 
 ## Persistencia
 

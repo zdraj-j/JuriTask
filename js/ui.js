@@ -202,6 +202,7 @@ function renderAll() {
   renderList(document.getElementById('finishedList'), document.getElementById('emptyFinished'), applyFilters(STATE.tramites.filter(t => t.terminado), f));
 
   if (currentView === 'calendar') renderCalendar();
+  if (currentView === 'agenda')   renderAgenda();
 
   if (typeof selApplyToRendered === 'function') selApplyToRendered();   // re-marcar selección
 }
@@ -1580,6 +1581,63 @@ function _syncAgendaScopeButtons(scope, allItems) {
   });
 }
 
+// Tras completar una tarea, transforma su fila en un mini-formulario para
+// registrar de inmediato la siguiente tarea del mismo trámite (hereda
+// responsable/asignados de la tarea recién cerrada).
+function _showAgendaNextTaskForm(row, t, prevTask) {
+  const defFecha = nDaysFromToday(7);
+  row.className = 'agenda-item agenda-next-form';
+  row.innerHTML = `
+    <div class="agenda-next">
+      <div class="agenda-next-head">
+        <i data-lucide="corner-down-right"></i> Siguiente tarea para
+        <span class="agenda-num">#${escapeHtml(t.numero)}</span>
+      </div>
+      <div class="agenda-next-fields">
+        <input type="text" class="agenda-next-desc" placeholder="¿Qué sigue? (deja vacío si no hay)" />
+        <input type="date" class="agenda-next-fecha" value="${defFecha}" />
+      </div>
+      <div class="agenda-next-actions">
+        <button type="button" class="btn-small agenda-next-save"><i data-lucide="plus"></i> Guardar</button>
+        <button type="button" class="btn-small agenda-next-skip">Listo, sin tarea</button>
+      </div>
+    </div>`;
+
+  const descEl  = row.querySelector('.agenda-next-desc');
+  const fechaEl = row.querySelector('.agenda-next-fecha');
+  setTimeout(() => descEl?.focus(), 60);
+
+  const close = () => { renderAgenda(); _updateAgendaBadge(); };
+
+  const save = () => {
+    const desc = descEl.value.trim();
+    if (!desc) { close(); return; } // sin descripción: equivale a "Listo"
+    pushHistory('Agregar tarea');
+    const assignedTo  = Array.isArray(prevTask?.assignedTo) ? [...prevTask.assignedTo] : [];
+    const responsable = prevTask?.responsable || assignedTo[0] || 'yo';
+    if (!Array.isArray(t.seguimiento)) t.seguimiento = [];
+    t.seguimiento.push({ descripcion: sentenceCase(desc), fecha: fechaEl.value || '', responsable, estado: 'pendiente', urgente: false, attachments: [], completedBy: {}, assignedTo });
+    // Notificar a los asignados que no sean yo
+    const myUid = AUTH?.userProfile?.uid;
+    assignedTo.forEach(uid => {
+      if (typeof createNotification === 'function' && uid !== 'yo' && uid !== myUid && !String(uid).startsWith('abogado_')) {
+        createNotification(uid, 'task_assigned',
+          `${AUTH?.userProfile?.displayName || 'Alguien'} te asignó una tarea en el trámite #${t.numero}: "${sentenceCase(desc)}"`,
+          { tramiteId: t.id });
+      }
+    });
+    _persistTramite(t);
+    showToast('Tarea agregada.', null, { label: 'Deshacer', onClick: undo });
+    close();
+  };
+
+  row.querySelector('.agenda-next-save').addEventListener('click', save);
+  row.querySelector('.agenda-next-skip').addEventListener('click', close);
+  descEl.addEventListener('keydown',  e => { if (e.key === 'Enter') { e.preventDefault(); save(); } });
+  fechaEl.addEventListener('keydown', e => { if (e.key === 'Enter') { e.preventDefault(); save(); } });
+  if (window.refreshIcons) window.refreshIcons();
+}
+
 function renderAgenda() {
   const cont  = document.getElementById('agendaContent');
   const empty = document.getElementById('emptyAgenda');
@@ -1663,11 +1721,15 @@ function renderAgenda() {
             pushHistory('Completar tarea'); item.s.estado = 'realizado';
             _persistTramite(item.t);
             showToast('Tarea completada.', null, { label: 'Deshacer', onClick: undo });
-          } else { // analisis
-            pushHistory('Marcar análisis'); item.t.gestion = item.t.gestion || {}; item.t.gestion.analisis = true;
-            _persistTramite(item.t);
-            showToast('Análisis marcado.', null, { label: 'Deshacer', onClick: undo });
+            // Encadenar: ofrecer registrar de inmediato la siguiente tarea
+            _showAgendaNextTaskForm(row, item.t, item.s);
+            _updateAgendaBadge();
+            return;
           }
+          // analisis
+          pushHistory('Marcar análisis'); item.t.gestion = item.t.gestion || {}; item.t.gestion.analisis = true;
+          _persistTramite(item.t);
+          showToast('Análisis marcado.', null, { label: 'Deshacer', onClick: undo });
           renderAgenda(); _updateAgendaBadge();
         });
       }
