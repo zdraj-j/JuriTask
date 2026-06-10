@@ -7,7 +7,7 @@ Lista enfocada de "lo que hay que hacer hoy o ya venció", pensada para ir
 
 - `js/ui.js` → `_buildAgendaItems()`, `renderAgenda()`, `countAgendaPendientes()`,
   `_updateAgendaBadge()`, `_syncAgendaScopeButtons()`, `_showAgendaNextTaskForm()`,
-  `_persistTramite()`.
+  `_aplazarTarea()`, `_installAgendaSnoozeCloser()`, `_persistTramite()`.
 - `index.html` → `#view-agenda` (barra de filtro `#agendaScopeGroup` + `#agendaContent`).
 - `js/config.js` → `switchView()` llama a `renderAgenda()`; listener del toggle
   de responsabilidad.
@@ -73,6 +73,22 @@ vía `crearTareaRequerimiento`).
 
 Para que **Deshacer** y otros flujos refresquen la lista cuando la agenda es la
 vista activa, `renderAll()` llama a `renderAgenda()` si `currentView === 'agenda'`.
+
+## Aplazar una tarea
+
+Cada ítem de tipo `tarea` tiene un botón-icono compacto (icono Lucide
+`alarm-clock`, sin texto) que abre un menú emergente con opciones rápidas:
+**Mañana**, **En 3 días**, **Próxima semana** y un selector **Otra fecha…**.
+
+`_aplazarTarea(seg, nuevaFecha)` mueve `seg.fecha` a la fecha elegida
+(`nDaysFromToday(n)` para los atajos), localiza el trámite dueño por referencia
+(`seguimiento.includes(seg)`), persiste, muestra toast con **Deshacer** y
+re-renderiza. Al mover la fecha al futuro, la tarea sale de la agenda de hoy y
+reaparece en su nueva fecha.
+
+El menú se cierra al hacer clic fuera vía `_installAgendaSnoozeCloser()` (listener
+global instalado una sola vez). Solo aplica a `tarea`: los vencimientos son
+fechas legales fijas y no se aplazan desde aquí.
 
 ## Persistencia
 

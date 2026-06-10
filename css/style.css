@@ -1100,6 +1100,32 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
 .agenda-next-save { display: inline-flex; align-items: center; gap: 4px; }
 .agenda-next-skip { background: none; color: var(--text-secondary); border: 1px solid var(--border); }
 .agenda-next-skip:hover { background: var(--surface-2); color: var(--text-primary); }
+/* Aplazar tarea: botón-icono compacto + menú emergente */
+.agenda-snooze-wrap { position: relative; flex-shrink: 0; align-self: center; }
+.agenda-snooze-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 30px; height: 30px; padding: 0; border: none; border-radius: 50%;
+  background: none; color: var(--text-muted); cursor: pointer; transition: all var(--transition);
+}
+.agenda-snooze-btn:hover { background: var(--surface-3); color: var(--accent); }
+.agenda-snooze-btn svg.lucide { width: 17px; height: 17px; }
+.agenda-snooze-menu {
+  display: none; position: absolute; right: 0; top: calc(100% + 4px); z-index: 30;
+  min-width: 168px; padding: 5px; background: var(--surface); border: 1px solid var(--border);
+  border-radius: var(--radius-sm); box-shadow: var(--shadow-lg, 0 8px 24px rgba(0,0,0,.18));
+}
+.agenda-snooze-menu.open { display: block; }
+.agenda-snooze-menu button[data-days] {
+  display: block; width: 100%; text-align: left; padding: 7px 10px; border: none;
+  background: none; border-radius: var(--radius-sm); cursor: pointer;
+  font-family: var(--font); font-size: 13px; color: var(--text-primary);
+}
+.agenda-snooze-menu button[data-days]:hover { background: var(--accent-light); color: var(--accent); }
+.agenda-snooze-custom {
+  display: flex; align-items: center; gap: 6px; padding: 7px 10px; margin-top: 3px;
+  border-top: 1px solid var(--border); font-size: 12px; color: var(--text-secondary);
+}
+.agenda-snooze-custom input { flex: 1; min-width: 0; padding: 4px 6px; border: 1px solid var(--border); border-radius: var(--radius-sm); font-family: var(--font); font-size: 12px; background: var(--surface-2); color: var(--text-primary); }
 
 /* ═══════════════════ PALETA DE COMANDOS ═════════ */
 .cmd-overlay {

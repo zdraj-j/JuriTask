@@ -1566,6 +1566,30 @@ function _persistTramite(t) {
   if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
 }
 
+// Aplaza una tarea de seguimiento moviendo su fecha (sale de la agenda de hoy
+// y reaparece en la nueva fecha). Localiza el trámite dueño para persistir.
+let _agendaSnoozeCloserInstalled = false;
+function _aplazarTarea(seg, nuevaFecha) {
+  if (!seg || !nuevaFecha) return;
+  const t = STATE.tramites.find(x => (x.seguimiento || []).includes(seg));
+  pushHistory('Aplazar tarea');
+  seg.fecha = nuevaFecha;
+  if (t) _persistTramite(t); else saveAll();
+  showToast(`Tarea aplazada al ${formatDate(nuevaFecha)}.`, null, { label: 'Deshacer', onClick: undo });
+  renderAgenda(); _updateAgendaBadge();
+}
+
+// Cierra cualquier menú de aplazar abierto al hacer clic fuera (una sola vez).
+function _installAgendaSnoozeCloser() {
+  if (_agendaSnoozeCloserInstalled) return;
+  _agendaSnoozeCloserInstalled = true;
+  document.addEventListener('click', e => {
+    document.querySelectorAll('.agenda-snooze-menu.open').forEach(m => {
+      if (!m.closest('.agenda-snooze-wrap')?.contains(e.target)) m.classList.remove('open');
+    });
+  });
+}
+
 // Actualiza el estado activo y los contadores de los botones Mías/De otros/Todas.
 function _syncAgendaScopeButtons(scope, allItems) {
   const group = document.getElementById('agendaScopeGroup');
@@ -1697,6 +1721,18 @@ function renderAgenda() {
         actionHtml = `<button type="button" class="btn-small agenda-done-btn" title="Marcar vencimiento cumplido"><i data-lucide="check"></i> Cumplido</button>`;
       }
 
+      // Control de aplazar (solo tareas: mueven su fecha hacia adelante)
+      const snoozeHtml = item.tipo === 'tarea' ? `
+        <div class="agenda-snooze-wrap">
+          <button type="button" class="agenda-snooze-btn" title="Aplazar tarea" aria-label="Aplazar tarea"><i data-lucide="alarm-clock"></i></button>
+          <div class="agenda-snooze-menu">
+            <button type="button" data-days="1">Mañana</button>
+            <button type="button" data-days="3">En 3 días</button>
+            <button type="button" data-days="7">Próxima semana</button>
+            <label class="agenda-snooze-custom">Otra fecha<input type="date" class="agenda-snooze-date" /></label>
+          </div>
+        </div>` : '';
+
       row.innerHTML = `
         ${actionHtml}
         <div class="agenda-body">
@@ -1708,7 +1744,8 @@ function renderAgenda() {
           </div>
           <div class="agenda-desc">${escapeHtml(item.t.descripcion || '(sin descripción)')}</div>
           <div class="agenda-task">${tareaText}</div>
-        </div>`;
+        </div>
+        ${snoozeHtml}`;
 
       // Abrir detalle al hacer clic en el cuerpo
       row.querySelector('.agenda-body').addEventListener('click', () => openDetail(item.t.id));
@@ -1743,6 +1780,26 @@ function renderAgenda() {
           showToast('Vencimiento marcado como cumplido.', null, { label: 'Deshacer', onClick: undo });
           renderAgenda(); _updateAgendaBadge();
         });
+      }
+
+      // Aplazar tarea
+      const snoozeBtn  = row.querySelector('.agenda-snooze-btn');
+      const snoozeMenu = row.querySelector('.agenda-snooze-menu');
+      if (snoozeBtn && snoozeMenu) {
+        snoozeBtn.addEventListener('click', e => {
+          e.stopPropagation();
+          const willOpen = !snoozeMenu.classList.contains('open');
+          document.querySelectorAll('.agenda-snooze-menu.open').forEach(m => m.classList.remove('open'));
+          snoozeMenu.classList.toggle('open', willOpen);
+        });
+        snoozeMenu.addEventListener('click', e => e.stopPropagation());
+        snoozeMenu.querySelectorAll('button[data-days]').forEach(btn => {
+          btn.addEventListener('click', () => _aplazarTarea(item.s, nDaysFromToday(parseInt(btn.dataset.days, 10))));
+        });
+        snoozeMenu.querySelector('.agenda-snooze-date')?.addEventListener('change', e => {
+          if (e.target.value) _aplazarTarea(item.s, e.target.value);
+        });
+        _installAgendaSnoozeCloser();
       }
 
       sec.appendChild(row);
