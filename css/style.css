@@ -943,8 +943,11 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
   background: var(--surface); border-radius: var(--radius);
   box-shadow: var(--shadow-lg); width: 560px; max-width: 95vw;
   max-height: 90vh; display: flex; flex-direction: column;
-  transform: translateY(16px); transition: transform var(--transition);
   overflow: hidden; border: 1px solid var(--border);
+  /* Sin translate en la entrada: la animación movía el botón de cerrar unos
+     px justo al abrir, y en táctil el click sintetizado caía al lado del
+     botón (cierre intermitente). La entrada la da el fundido del overlay. */
+  touch-action: manipulation;
 }
 .modal-overlay.open .modal { transform: translateY(0); }
 .modal.draggable-active { position: fixed; transform: none !important; transition: none; margin: 0; }
@@ -972,7 +975,12 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
      que un toque que caía al lado de la X "no hacía nada". */
   display: inline-flex; align-items: center; justify-content: center;
   min-width: 36px; min-height: 36px;
+  /* manipulation: sin delay de doble-tap ni clicks táctiles descartados. */
+  touch-action: manipulation;
 }
+/* La X es un <svg>/<i> dentro del botón; sin esto, en táctil el target del
+   click puede ser el icono hijo y perderse si se reposiciona. */
+.modal-close * { pointer-events: none; }
 .modal-close:hover { color: var(--text-primary); background: var(--surface-2); }
 .modal-body { flex: 1; overflow-y: auto; overflow-x: hidden; padding: 18px 20px; -webkit-overflow-scrolling: touch; }
 .detail-body { padding: 0; }
@@ -1674,7 +1682,7 @@ body.selection-mode .tramite-card { cursor: pointer; user-select: none; }
   .form-group.full { grid-column: 1; }
   .modal { max-width: 100vw; max-height: 92dvh; border-radius: var(--radius) var(--radius) 0 0; }
   .modal-close { min-width: 44px; min-height: 44px; }
-  .modal-overlay { align-items: flex-end; }
+  .overlay { align-items: flex-end; }
   .modal-large { width: 100vw; }
   .modal.draggable-active { position: relative; left: auto !important; top: auto !important; }
   .card-body { padding: 10px 12px; }
