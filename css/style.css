@@ -638,15 +638,19 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
 /* Botón "copiar número de trámite" — aparece junto a cada número en todas las vistas */
 .copy-num-btn {
   display: inline-flex; align-items: center; justify-content: center;
-  padding: 2px; margin-left: 1px; border: none; background: transparent;
-  color: var(--text-muted); cursor: pointer; border-radius: 4px;
+  width: 26px; height: 26px; padding: 0; margin: -4px 0 -4px 1px;
+  border: none; background: transparent;
+  color: var(--text-muted); cursor: pointer; border-radius: 6px;
   vertical-align: middle; line-height: 0; opacity: .6; flex-shrink: 0;
   transition: color var(--transition), background var(--transition), opacity var(--transition);
 }
 .copy-num-btn:hover  { color: var(--accent); background: var(--accent-light); opacity: 1; }
 .copy-num-btn:active { transform: scale(.9); }
 .copy-num-btn.copied { color: var(--success); opacity: 1; }
-.copy-num-btn svg.lucide { width: 13px; height: 13px; color: inherit; }
+.copy-num-btn svg.lucide { width: 14px; height: 14px; color: inherit; }
+/* El icono no captura clics: cualquier punto dentro del botón cuenta como clic
+   en el botón (los SVG de Lucide solo registrarían el clic sobre sus trazos). */
+.copy-num-btn > * { pointer-events: none; }
 /* La línea de agenda pinta los svg de rojo; el botón de copia conserva su propio color */
 .agenda-line .copy-num-btn svg.lucide { color: inherit; }
 
@@ -1109,6 +1113,8 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
 }
 .agenda-snooze-btn:hover { background: var(--surface-3); color: var(--accent); }
 .agenda-snooze-btn svg.lucide { width: 17px; height: 17px; }
+/* El icono no captura clics: todo el botón es zona clicleable. */
+.agenda-snooze-btn > * { pointer-events: none; }
 .agenda-snooze-menu {
   display: none; position: absolute; right: 0; top: calc(100% + 4px); z-index: 30;
   min-width: 168px; padding: 5px; background: var(--surface); border: 1px solid var(--border);
