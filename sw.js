@@ -39,7 +39,11 @@ self.addEventListener('install', event => {
   event.waitUntil((async () => {
     const cache = await caches.open(SHELL);
     // Cachear de forma resiliente: un fallo individual no aborta la instalación.
-    await Promise.allSettled(SHELL_ASSETS.map(url => cache.add(url)));
+    // `cache: 'reload'` evita poblar el shell con copias rancias de la caché HTTP
+    // del navegador (la causa de que JS viejo siguiera vivo tras un despliegue).
+    await Promise.allSettled(
+      SHELL_ASSETS.map(url => cache.add(new Request(url, { cache: 'reload' })))
+    );
     self.skipWaiting();
   })());
 });
@@ -88,7 +92,11 @@ self.addEventListener('fetch', event => {
     event.respondWith((async () => {
       const cache = await caches.open(SHELL);
       try {
-        const fresh = await fetch(req);
+        // `cache: 'reload'` fuerza ir a la red sin pasar por la caché HTTP del
+        // navegador, que podía devolver JS/CSS rancio aun siendo network-first
+        // (síntoma: botones nuevos "muertos" hasta abrir DevTools con la caché
+        // deshabilitada). Así un despliegue nuevo llega siempre de inmediato.
+        const fresh = await fetch(req, { cache: 'reload' });
         if (fresh && fresh.ok) cache.put(req, fresh.clone());
         return fresh;
       } catch (_) {
