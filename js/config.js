@@ -485,3 +485,26 @@ function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+// ────────────────────────────────────────────────────────────
+// Cierre delegado (red de seguridad). Siempre activo e independiente de init:
+// cualquier click/tap en un .modal-close cierra su overlay con la función de
+// cierre adecuada, aunque el handler por-elemento no se haya enganchado.
+// Idempotente con los handlers existentes (cerrar dos veces no daña).
+// ────────────────────────────────────────────────────────────
+document.addEventListener('click', e => {
+  const btn = e.target.closest('.modal-close, [data-modal-close]');
+  if (!btn) return;
+  const overlay = btn.closest('.overlay, .confirm-overlay, .modal-overlay');
+  if (!overlay) return;
+  const byId = {
+    modalOverlay:       'closeModal',
+    detailOverlay:      'closeDetail',
+    reportOverlay:      'closeReport',
+    createTeamOverlay:  'closeTeamModal',
+    editProfileOverlay: 'closeEditProfileModal',
+  };
+  const fn = byId[overlay.id];
+  if (fn && typeof window[fn] === 'function') window[fn]();
+  else overlay.classList.remove('open');
+});
