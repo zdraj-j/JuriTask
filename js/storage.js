@@ -53,6 +53,7 @@ const DEFAULT_CONFIG = {
   calendarShow: 'both',
   calendarShowNum: true,
   calendarShowDesc: true,
+  agendaScope: 'mias', // 'mias' | 'otros' | 'all' — filtro por responsabilidad en la Agenda
 };
 
 // ============================================================

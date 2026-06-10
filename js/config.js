@@ -228,6 +228,13 @@ function init() {
     document.querySelectorAll('#reportFilterGroup .toggle-btn').forEach(b => b.classList.toggle('active', b === btn));
     renderReport();
   });
+  // Filtro de responsabilidad de la Agenda (Mías / De otros / Todas)
+  document.getElementById('agendaScopeGroup')?.addEventListener('click', e => {
+    const btn = e.target.closest('[data-scope]'); if (!btn) return;
+    STATE.config.agendaScope = btn.dataset.scope;
+    saveAll();
+    renderAgenda();
+  });
   document.getElementById('reportPrintBtn').addEventListener('click', () => {
     const area = document.getElementById('reportContent');
     const div  = document.createElement('div'); div.id = 'reportPrintArea';

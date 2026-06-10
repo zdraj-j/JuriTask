@@ -1039,6 +1039,14 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
 .report-empty { text-align: center; color: var(--text-muted); font-size: 13px; padding: 32px; }
 
 /* ═══════════════════ AGENDA ACCIONABLE ══════════ */
+.agenda-filter-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
+.agenda-filter-label { font-size: 13px; font-weight: 500; color: var(--text-secondary); white-space: nowrap; }
+.agenda-resp {
+  display: inline-flex; align-items: center; gap: 4px;
+  font-size: 11px; font-weight: 600; color: var(--text-secondary);
+  background: var(--surface-3); padding: 1px 8px; border-radius: 10px;
+}
+.agenda-resp svg.lucide { width: 12px; height: 12px; color: var(--text-muted) !important; }
 .agenda-section { margin-bottom: 22px; }
 .agenda-section-title {
   display: inline-flex; align-items: center; gap: 6px;

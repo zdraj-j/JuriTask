@@ -206,6 +206,14 @@
     </div>
 
     <div class="view" id="view-agenda">
+      <div class="agenda-filter-bar">
+        <span class="agenda-filter-label">Responsable:</span>
+        <div id="agendaScopeGroup" class="toggle-group">
+          <button class="toggle-btn" data-scope="mias">Mías</button>
+          <button class="toggle-btn" data-scope="otros">De otros</button>
+          <button class="toggle-btn" data-scope="all">Todas</button>
+        </div>
+      </div>
       <div id="agendaContent"></div>
       <div class="empty-state" id="emptyAgenda" style="display:none">
         <div class="empty-icon"><i data-lucide="party-popper"></i></div><p>¡Agenda al día! Sin tareas pendientes para hoy.</p>
