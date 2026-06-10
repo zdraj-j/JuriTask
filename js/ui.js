@@ -287,7 +287,7 @@ function buildCard(t) {
       ${checksHtml}
       <div class="card-info">
         <div class="card-top-row">
-          <span class="card-numero">#${t.numero}</span>
+          <span class="card-numero">#${t.numero}</span>${copyNumBtn(t.numero)}
           <span class="tag tag-modulo">${t.modulo}</span>
           ${respTag}${etapaTag}${urgenteTag}
         </div>
@@ -422,7 +422,7 @@ function openDetail(id) {
 
 function openDetailModal(t) {
   closeAllExpands();
-  document.getElementById('detailTitle').textContent    = `Trámite #${t.numero}`;
+  document.getElementById('detailTitle').innerHTML      = `Trámite #${escapeHtml(t.numero)}${copyNumBtn(t.numero)}`;
   const ownerLabel = t.sharedWith?.length ? 'Equipo' : (esPropio(t) ? 'Propio' : abogadoName(t.abogado));
   document.getElementById('detailSubtitle').textContent = `${t.descripcion} · ${ownerLabel} · ${t.modulo}${t.fechaVencimiento ? ` · Vence: ${formatDate(t.fechaVencimiento)}` : ''}`;
   document.getElementById('detailModal').dataset.id     = t.id;
@@ -1504,7 +1504,7 @@ function renderReport() {
       const tareaText = item.tipo === 'vencimiento'
         ? `Vence: ${formatDate(item.fecha)}`
         : escapeHtml(item.tarea);
-      el.innerHTML = `<div class="report-item-num">${item.urgente?'<i data-lucide="circle-alert"></i> ':''}#${item.t.numero}</div>
+      el.innerHTML = `<div class="report-item-num">${item.urgente?'<i data-lucide="circle-alert"></i> ':''}#${item.t.numero}${copyNumBtn(item.t.numero)}</div>
         <div class="report-item-body">
           <div class="report-item-desc">${escapeHtml(item.t.descripcion)}</div>
           <div class="report-item-tarea"><span class="tarea-label">${tipoLabel[item.tipo]||'<i data-lucide="pin"></i>'} — ${tareaText}</span></div>
@@ -1591,7 +1591,7 @@ function _showAgendaNextTaskForm(row, t, prevTask) {
     <div class="agenda-next">
       <div class="agenda-next-head">
         <i data-lucide="corner-down-right"></i> Siguiente tarea para
-        <span class="agenda-num">#${escapeHtml(t.numero)}</span>
+        <span class="agenda-num">#${escapeHtml(t.numero)}</span>${copyNumBtn(t.numero)}
       </div>
       <div class="agenda-next-fields">
         <input type="text" class="agenda-next-desc" placeholder="¿Qué sigue? (deja vacío si no hay)" />
@@ -1701,7 +1701,7 @@ function renderAgenda() {
         ${actionHtml}
         <div class="agenda-body">
           <div class="agenda-line">
-            ${item.urgente ? '<i data-lucide="circle-alert"></i> ' : ''}<span class="agenda-num">#${escapeHtml(item.t.numero)}</span>
+            ${item.urgente ? '<i data-lucide="circle-alert"></i> ' : ''}<span class="agenda-num">#${escapeHtml(item.t.numero)}</span>${copyNumBtn(item.t.numero)}
             <span class="tag tag-modulo">${escapeHtml(item.t.modulo || '')}</span>
             <span class="agenda-type">${tipoLabel[item.tipo] || ''}</span>
             ${item.mine ? '' : `<span class="agenda-resp"><i data-lucide="user"></i> ${escapeHtml(abogadoName(item.resp, item.t))}</span>`}

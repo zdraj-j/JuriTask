@@ -94,6 +94,62 @@ function escapeAttr(str) {
   return String(str).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+// ============================================================
+// COPIAR NÚMERO DE TRÁMITE
+// ============================================================
+// Genera un pequeño icono (Lucide) que, al hacer clic, copia el número de
+// trámite al portapapeles. Se usa en todas las vistas (tarjetas, detalle,
+// agenda, reporte, panel admin…). El comportamiento se maneja con un único
+// handler delegado en fase de captura (ver _installCopyNumHandler) para que
+// el clic no dispare otras acciones de la fila (p. ej. abrir el detalle).
+function copyNumBtn(numero) {
+  const n = escapeAttr(String(numero ?? ''));
+  return `<button type="button" class="copy-num-btn" data-copynum="${n}" ` +
+         `title="Copiar número de trámite" aria-label="Copiar número de trámite ${n}">` +
+         `<i data-lucide="copy"></i></button>`;
+}
+
+function copyTextToClipboard(text) {
+  if (navigator.clipboard && navigator.clipboard.writeText) {
+    return navigator.clipboard.writeText(text);
+  }
+  // Fallback para contextos sin Clipboard API (http, navegadores viejos)
+  return new Promise((resolve, reject) => {
+    try {
+      const ta = document.createElement('textarea');
+      ta.value = text;
+      ta.style.position = 'fixed';
+      ta.style.opacity = '0';
+      document.body.appendChild(ta);
+      ta.focus(); ta.select();
+      const ok = document.execCommand('copy');
+      document.body.removeChild(ta);
+      ok ? resolve() : reject(new Error('execCommand failed'));
+    } catch (e) { reject(e); }
+  });
+}
+
+(function _installCopyNumHandler() {
+  if (window._copyNumHandlerInstalled) return;
+  window._copyNumHandlerInstalled = true;
+  // Fase de captura + stopPropagation: evita que el clic abra el detalle u
+  // otra acción de la fila contenedora.
+  document.addEventListener('click', e => {
+    const btn = e.target.closest && e.target.closest('.copy-num-btn');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    const num = btn.dataset.copynum || '';
+    copyTextToClipboard(num).then(() => {
+      btn.classList.add('copied');
+      setTimeout(() => btn.classList.remove('copied'), 1200);
+      if (typeof showToast === 'function') showToast(`Trámite #${num} copiado.`, 'copy');
+    }).catch(() => {
+      if (typeof showToast === 'function') showToast('No se pudo copiar el número.', 'circle-alert');
+    });
+  }, true);
+})();
+
 // Caché de nombres de UIDs (poblado cuando se cargan trámites compartidos)
 const _uidNameCache = {};
 

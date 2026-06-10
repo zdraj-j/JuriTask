@@ -393,7 +393,7 @@ async function renderDashboard() {
       vencidos.sort((a,b)=>(a.fechaVencimiento||'').localeCompare(b.fechaVencimiento||'')).forEach(t => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td class="dash-num">#${t.numero}</td>
+          <td class="dash-num">#${t.numero}${copyNumBtn(t.numero)}</td>
           <td>${t.descripcion||'—'}</td>
           <td>${AUTH.userProfile.displayName||AUTH.userProfile.email}</td>
           <td class="dash-danger">${formatDate(t.fechaVencimiento)}</td>
@@ -854,7 +854,7 @@ function openAdminTramitesModal(u) {
       row.innerHTML = `
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <span style="font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent)">#${t.numero||'—'}</span>
+            <span style="font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent)">#${t.numero||'—'}</span>${t.numero ? copyNumBtn(t.numero) : ''}
             <span style="font-size:11px;background:var(--accent-light);color:var(--accent);padding:1px 6px;border-radius:8px">${t.modulo||''}</span>
             ${t.terminado ? '<span style="font-size:11px;background:var(--success-light);color:var(--success);padding:1px 6px;border-radius:8px"><i data-lucide="check"></i> Terminado</span>' : ''}
             ${isVenc ? '<span style="font-size:11px;background:var(--danger-light);color:var(--danger);padding:1px 6px;border-radius:8px">Vencido</span>' : ''}
