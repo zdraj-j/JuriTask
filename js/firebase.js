@@ -321,9 +321,16 @@ function saveTramiteFS(tramite, targetUid) {
   return own;
 }
 
-function deleteTramiteFS(id) {
+function deleteTramiteFS(id, tramite) {
   if (!AUTH.userProfile?.uid) return;
-  const t = typeof getById === 'function' ? getById(id) : null;
+  // El llamador suele quitar el trámite de STATE ANTES de llamar aquí, por lo que
+  // getById(id) devolvería null y se perdería la limpieza de las copias
+  // compartidas (quedarían huérfanas en los miembros del equipo y podrían
+  // reaparecer). Por eso recibimos el objeto del trámite; getById es solo
+  // respaldo cuando no se pasa.
+  const t = (tramite && typeof tramite === 'object')
+    ? tramite
+    : (typeof getById === 'function' ? getById(id) : null);
   userRef().collection('tramites').doc(id).delete()
     .catch(e => console.error('Error eliminando trámite:', e));
   if (t && t._scope === 'team') {
