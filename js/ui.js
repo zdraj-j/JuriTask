@@ -473,7 +473,7 @@ function openDetailExpand(t) {
         pushHistory(`Eliminar trámite #${t.numero}`);
         STATE.tramites = STATE.tramites.filter(x => x.id !== t.id);
         STATE.order    = STATE.order.filter(id => id !== t.id);
-        if (typeof deleteTramiteFS === 'function') deleteTramiteFS(t.id, t._scope || 'private');
+        if (typeof deleteTramiteFS === 'function') deleteTramiteFS(t.id, t);
         saveAll(); closeAllExpands(); renderAll(); showToast('Trámite eliminado.', null, { label: 'Deshacer', onClick: undo });
       }
     });

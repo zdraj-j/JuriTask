@@ -337,7 +337,7 @@ async function _detailAction(cmd) {
     closeDetail();
     STATE.tramites = STATE.tramites.filter(x => x.id !== id);
     STATE.order    = STATE.order.filter(x => x !== id);
-    if (typeof deleteTramiteFS === 'function') deleteTramiteFS(id, t._scope || 'private');
+    if (typeof deleteTramiteFS === 'function') deleteTramiteFS(id, t);
     saveAll(); renderAll(); showToast('Trámite eliminado.', null, { label: 'Deshacer', onClick: undo });
 
   } else if (cmd === 'duplicate') {
