@@ -567,6 +567,10 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
 }
 .btn-icon:hover { background: var(--surface-2); color: var(--text-primary); }
 .btn-icon-danger:hover { background: var(--danger-light); color: var(--danger); border-color: var(--danger); }
+/* El icono no captura clics: todo el botón cuenta como zona de clic (evita que
+   un clic con micro-movimiento se pierda sobre los trazos del svg de Lucide).
+   Cubre las acciones de detalle: duplicar/editar/eliminar/cerrar. */
+.btn-icon > * { pointer-events: none; }
 
 /* ═══════════════════ MAIN CONTENT ════════════════ */
 .main-content {
@@ -825,6 +829,12 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
   border-radius: 4px; transition: color var(--transition); flex-shrink: 0;
 }
 .actividad-delete:hover { color: var(--danger); }
+/* El icono (svg de Lucide, solo trazos) no captura clics: así todo el botón es
+   zona clicleable y un clic con micro-movimiento del ratón no se pierde entre
+   mousedown y mouseup sobre distintos trazos (síntoma: el botón de eliminar
+   tarea "no funcionaba" en escritorio, pero sí en móvil con toque). */
+.actividad-delete > *,
+.act-attach-btn > * { pointer-events: none; }
 .act-urg-btn { opacity: .3; }
 .act-urg-btn:hover { opacity: .7; }
 .act-urg-btn.active { opacity: 1; color: var(--warning); }
