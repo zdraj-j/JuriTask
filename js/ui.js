@@ -138,6 +138,12 @@ let dragSrcId = null;
 
 function attachDragEvents(card, wrapper) {
   card.addEventListener('dragstart', e => {
+    // No iniciar el arrastre nativo si el gesto empieza sobre un control
+    // interactivo (botones de acción, checkboxes, fechas…). En escritorio, el
+    // arrastre nativo de la tarjeta se "comía" el clic de esos botones cuando
+    // había un micro-movimiento del ratón (síntoma: eliminar no respondía en PC
+    // pero sí en móvil, donde el toque no dispara arrastre nativo).
+    if (e.target.closest('button, input, textarea, select, a, label')) { e.preventDefault(); return; }
     dragSrcId = wrapper.dataset.id;
     card.classList.add('dragging');
     e.dataTransfer.effectAllowed = 'move';
