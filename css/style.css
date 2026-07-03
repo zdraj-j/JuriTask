@@ -888,6 +888,9 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
   color: var(--text-muted); font-size: 12px; padding: 2px 4px; border-radius: 4px;
 }
 .nota-delete:hover { color: var(--danger); }
+/* Icono sin captura de clic: todo el botón es zona clicleable (mismo motivo que
+   .actividad-delete — el botón de eliminar nota no respondía en escritorio). */
+.nota-delete > * { pointer-events: none; }
 .add-nota-row { display: flex; gap: 8px; align-items: flex-end; margin-top: 10px; }
 .add-nota-row textarea {
   flex: 1; padding: 8px 10px; border: 1px solid var(--border);
@@ -1248,6 +1251,7 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
 .modulo-nombre { flex: 1; font-size: 13px; color: var(--text-primary); }
 .modulo-delete { background: none; border: none; cursor: pointer; color: var(--text-muted); font-size: 13px; padding: 2px; border-radius: 4px; }
 .modulo-delete:hover { color: var(--danger); }
+.modulo-delete > * { pointer-events: none; }
 .modulo-add-row { flex-wrap: wrap; }
 .danger-zone { border: 1px solid var(--danger) !important; background: var(--danger-light); border-radius: var(--radius-sm); padding: 16px !important; }
 .danger-zone h3 { color: var(--danger) !important; }
@@ -1439,6 +1443,7 @@ body.selection-mode .tramite-card { cursor: pointer; user-select: none; }
 .ti-urg.active { opacity: 1; color: var(--warning); }
 .ti-del { background: none; border: none; cursor: pointer; color: var(--danger); font-size: 12px; opacity: .5; transition: opacity var(--transition); }
 .ti-del:hover { opacity: 1; }
+.ti-del > * { pointer-events: none; }
 
 /* Multi-select dropdown */
 .multi-select-wrap, .ti-resp-wrap { position: relative; }
