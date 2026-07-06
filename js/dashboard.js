@@ -67,7 +67,27 @@ async function restoreBackup(id, b) {
   if (b.tramites) STATE.tramites = b.tramites;
   if (b.order)    STATE.order    = b.order;
   if (b.config)   STATE.config   = Object.assign({...DEFAULT_CONFIG}, b.config);
-  saveAll(true); applyCssColors(); applyTheme(STATE.config.theme||'claro');
+
+  // Persistencia AUTORITATIVA. Con Firebase activo, saveAll solo programa una
+  // escritura debounced (800ms) que se pierde si el usuario recarga/cierra la
+  // pestaña justo después, y que además nunca borra los trámites divergentes.
+  // Como Firestore es la fuente de verdad al recargar, un restore "perdido"
+  // hace que los trámites reaparezcan un instante y vuelvan a desaparecer.
+  // Restauramos de forma síncrona y esperada para que quede persistido.
+  try {
+    if (typeof restoreToFirestore === 'function' && AUTH.userProfile?.uid) {
+      await restoreToFirestore(STATE.tramites, STATE.order, STATE.config);
+      if (typeof _flushSave === 'function') _flushSave(); // respaldo local inmediato
+    } else {
+      saveAll(true);
+    }
+  } catch (e) {
+    console.error('Error restaurando backup:', e);
+    showToast('No se pudo restaurar el backup. Revisa tu conexión e inténtalo de nuevo.');
+    return;
+  }
+
+  applyCssColors(); applyTheme(STATE.config.theme||'claro');
   populateModuloSelects(); updateAbogadoSelects(); renderAll();
   showToast('Backup restaurado.');
 }
