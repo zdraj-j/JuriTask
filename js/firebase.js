@@ -374,6 +374,47 @@ function saveConfigDebounced() {
   }, 800);
 }
 
+// ─── RESTAURAR BACKUP (escritura autoritativa e inmediata) ────
+// A diferencia de saveConfigDebounced (best-effort, 800ms, solo upsert), esto
+// persiste el backup COMPLETO de forma síncrona y esperada:
+//   1. sobrescribe/crea cada trámite del backup,
+//   2. ELIMINA los trámites que ya no existen en el backup, y
+//   3. escribe order + config de inmediato.
+// Así Firestore —que es la fuente de verdad al recargar (loadFromFirestore)—
+// queda exactamente igual al backup restaurado, sin depender del debounce que
+// se pierde si el usuario recarga o cierra la pestaña justo después.
+async function restoreToFirestore(tramites, order, config) {
+  if (!AUTH.userProfile?.uid) return;
+  const col       = userRef().collection('tramites');
+  const backup    = (tramites || []).filter(t => t && t.id);
+  const backupIds = new Set(backup.map(t => t.id));
+
+  // IDs actualmente en Firestore (para borrar los divergentes)
+  const existing = await col.get();
+
+  // Firestore limita cada batch a 500 operaciones
+  let batch = db.batch();
+  let ops   = 0;
+  const flush = async () => { if (ops) { await batch.commit(); batch = db.batch(); ops = 0; } };
+  const step  = () => { if (++ops >= 450) return flush(); };
+
+  // 1+2. Borrar los que ya no están en el backup
+  for (const doc of existing.docs) {
+    if (!backupIds.has(doc.id)) { batch.delete(doc.ref); await step(); }
+  }
+  // Sobrescribir/crear cada trámite del backup
+  for (const t of backup) {
+    const data = { ...t }; delete data.id;
+    batch.set(col.doc(t.id), data);
+    await step();
+  }
+  await flush();
+
+  // 3. order + config de inmediato
+  await userRef().collection('meta').doc('order').set({ order: order || [] });
+  await userRef().collection('meta').doc('config').set(config || STATE.config);
+}
+
 // ─── CAMBIOS DE SESIÓN ────────────────────────────────────────
 auth.onAuthStateChanged(async user => {
   const appEl     = document.getElementById('appContainer');

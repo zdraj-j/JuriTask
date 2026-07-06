@@ -89,7 +89,7 @@ function renderTaskAttachments(attachments, container, editable, onRemove) {
   attachments.forEach((att, idx) => {
     const btn = document.createElement('a');
     btn.className = 'task-att-btn';
-    btn.href = att.webViewLink || att.url || '#';
+    btn.href = safeHref(att.webViewLink || att.url);
     btn.target = '_blank';
     btn.rel = 'noopener noreferrer';
     btn.title = att.name || att.url || 'Adjunto';

@@ -67,7 +67,27 @@ async function restoreBackup(id, b) {
   if (b.tramites) STATE.tramites = b.tramites;
   if (b.order)    STATE.order    = b.order;
   if (b.config)   STATE.config   = Object.assign({...DEFAULT_CONFIG}, b.config);
-  saveAll(true); applyCssColors(); applyTheme(STATE.config.theme||'claro');
+
+  // Persistencia AUTORITATIVA. Con Firebase activo, saveAll solo programa una
+  // escritura debounced (800ms) que se pierde si el usuario recarga/cierra la
+  // pestaña justo después, y que además nunca borra los trámites divergentes.
+  // Como Firestore es la fuente de verdad al recargar, un restore "perdido"
+  // hace que los trámites reaparezcan un instante y vuelvan a desaparecer.
+  // Restauramos de forma síncrona y esperada para que quede persistido.
+  try {
+    if (typeof restoreToFirestore === 'function' && AUTH.userProfile?.uid) {
+      await restoreToFirestore(STATE.tramites, STATE.order, STATE.config);
+      if (typeof _flushSave === 'function') _flushSave(); // respaldo local inmediato
+    } else {
+      saveAll(true);
+    }
+  } catch (e) {
+    console.error('Error restaurando backup:', e);
+    showToast('No se pudo restaurar el backup. Revisa tu conexión e inténtalo de nuevo.');
+    return;
+  }
+
+  applyCssColors(); applyTheme(STATE.config.theme||'claro');
   populateModuloSelects(); updateAbogadoSelects(); renderAll();
   showToast('Backup restaurado.');
 }
@@ -393,11 +413,11 @@ async function renderDashboard() {
       vencidos.sort((a,b)=>(a.fechaVencimiento||'').localeCompare(b.fechaVencimiento||'')).forEach(t => {
         const tr = document.createElement('tr');
         tr.innerHTML = `
-          <td class="dash-num">#${t.numero}${copyNumBtn(t.numero)}</td>
-          <td>${t.descripcion||'—'}</td>
-          <td>${AUTH.userProfile.displayName||AUTH.userProfile.email}</td>
+          <td class="dash-num">#${escapeHtml(t.numero)}${copyNumBtn(t.numero)}</td>
+          <td>${escapeHtml(t.descripcion||'—')}</td>
+          <td>${escapeHtml(AUTH.userProfile.displayName||AUTH.userProfile.email)}</td>
           <td class="dash-danger">${formatDate(t.fechaVencimiento)}</td>
-          <td>${t.modulo||'—'}</td>`;
+          <td>${escapeHtml(t.modulo||'—')}</td>`;
         vbody.appendChild(tr);
       });
     }
@@ -468,7 +488,7 @@ function renderDashMetrics(activos, vencidos) {
       ${abogadoEntries.length
         ? abogadoEntries.map(([a,n])=>`
           <div class="dash-metric-bar-row">
-            <span class="dash-metric-bar-label">${a}</span>
+            <span class="dash-metric-bar-label">${escapeHtml(a)}</span>
             <div class="dash-metric-bar-track">
               <div class="dash-metric-bar-fill" style="width:${Math.round(n/maxAb*100)}%;background:var(--color-abogado1)"></div>
             </div>
@@ -854,12 +874,12 @@ function openAdminTramitesModal(u) {
       row.innerHTML = `
         <div style="flex:1;min-width:0">
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">
-            <span style="font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent)">#${t.numero||'—'}</span>${t.numero ? copyNumBtn(t.numero) : ''}
-            <span style="font-size:11px;background:var(--accent-light);color:var(--accent);padding:1px 6px;border-radius:8px">${t.modulo||''}</span>
+            <span style="font-family:var(--mono);font-size:12px;font-weight:700;color:var(--accent)">#${escapeHtml(t.numero||'—')}</span>${t.numero ? copyNumBtn(t.numero) : ''}
+            <span style="font-size:11px;background:var(--accent-light);color:var(--accent);padding:1px 6px;border-radius:8px">${escapeHtml(t.modulo||'')}</span>
             ${t.terminado ? '<span style="font-size:11px;background:var(--success-light);color:var(--success);padding:1px 6px;border-radius:8px"><i data-lucide="check"></i> Terminado</span>' : ''}
             ${isVenc ? '<span style="font-size:11px;background:var(--danger-light);color:var(--danger);padding:1px 6px;border-radius:8px">Vencido</span>' : ''}
           </div>
-          <div style="font-size:13px;font-weight:500;color:var(--text-primary);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${t.descripcion||'Sin descripción'}</div>
+          <div style="font-size:13px;font-weight:500;color:var(--text-primary);margin-top:2px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis">${escapeHtml(t.descripcion||'Sin descripción')}</div>
           ${venc ? `<div style="font-size:11px;color:var(--text-muted);margin-top:2px">Vence: ${formatDate(venc)}</div>` : ''}
         </div>
         <button class="btn-small" data-adminedit="${t.id}" style="flex-shrink:0"><i data-lucide="pencil"></i> Editar</button>`;
