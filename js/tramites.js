@@ -94,6 +94,19 @@ function escapeAttr(str) {
   return String(str).replace(/"/g,'&quot;').replace(/'/g,'&#39;');
 }
 
+// Sanea una URL para usarla como href: solo permite protocolos seguros.
+// Bloquea javascript:, data:, etc. (un compañero podría escribir directamente
+// en Firestore un adjunto con url "javascript:…" y ejecutarlo al hacer clic).
+function safeHref(url) {
+  const raw = String(url ?? '').trim();
+  if (!raw) return '#';
+  try {
+    const u = new URL(raw, window.location.href);
+    if (['http:', 'https:', 'mailto:'].includes(u.protocol)) return raw;
+  } catch (_) { /* URL inválida */ }
+  return '#';
+}
+
 // ============================================================
 // COPIAR NÚMERO DE TRÁMITE
 // ============================================================

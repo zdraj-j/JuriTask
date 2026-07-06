@@ -258,7 +258,7 @@ function buildCard(t) {
       ? t._sharedFrom
       : t.abogado;
     const col = abogadoColor(displayKey), bg = hexToRgba(col, 0.12);
-    respTag = `<span class="tag tag-abogado" style="background:${bg};color:${col}">${abogadoName(displayKey, t)}</span>`;
+    respTag = `<span class="tag tag-abogado" style="background:${bg};color:${col}">${escapeHtml(abogadoName(displayKey, t))}</span>`;
   }
 
   const etapaTag   = t.terminado ? `<span class="tag tag-terminado">Terminado</span>` : '';
@@ -293,8 +293,8 @@ function buildCard(t) {
       ${checksHtml}
       <div class="card-info">
         <div class="card-top-row">
-          <span class="card-numero">#${t.numero}</span>${copyNumBtn(t.numero)}
-          <span class="tag tag-modulo">${t.modulo}</span>
+          <span class="card-numero">#${escapeHtml(t.numero)}</span>${copyNumBtn(t.numero)}
+          <span class="tag tag-modulo">${escapeHtml(t.modulo)}</span>
           ${respTag}${etapaTag}${urgenteTag}
         </div>
         <div class="card-desc">${escapeHtml(t.descripcion || '(sin descripción)')}</div>
@@ -694,7 +694,7 @@ function renderActividadesIn(t, listEl, container, expandWrapper) {
         const checked = act.completedBy[uid] ? 'checked' : '';
         const isMe = uid === myUid;
         const name = isMe ? 'Yo' : (typeof abogadoName === 'function' ? abogadoName(uid, t) : uid);
-        return `<label class="act-member-check ${checked ? 'done' : ''}" title="${name}"><input type="checkbox" data-uid="${uid}" ${checked} ${!isMe ? 'disabled' : ''}/><span class="act-member-name">${name.split(' ')[0]}</span></label>`;
+        return `<label class="act-member-check ${checked ? 'done' : ''}" title="${escapeAttr(name)}"><input type="checkbox" data-uid="${escapeAttr(uid)}" ${checked} ${!isMe ? 'disabled' : ''}/><span class="act-member-name">${escapeHtml(name.split(' ')[0])}</span></label>`;
       }).join('') + '</div>';
     }
 
@@ -706,10 +706,10 @@ function renderActividadesIn(t, listEl, container, expandWrapper) {
       if (act.assignedTo && act.assignedTo.length > 0) {
         assignedHtml = act.assignedTo.map(uid => {
           const n = uid === myUid ? 'Yo' : (typeof abogadoName === 'function' ? abogadoName(uid, t) : uid);
-          return `<span class="actividad-resp">${n.split(' ')[0]}</span>`;
+          return `<span class="actividad-resp">${escapeHtml(n.split(' ')[0])}</span>`;
         }).join('');
       } else if (act.responsable && act.responsable !== 'yo') {
-        assignedHtml = `<span class="actividad-resp">${abogadoName(act.responsable, t)}</span>`;
+        assignedHtml = `<span class="actividad-resp">${escapeHtml(abogadoName(act.responsable, t))}</span>`;
       }
     }
     div.innerHTML = `
@@ -1510,11 +1510,11 @@ function renderReport() {
       const tareaText = item.tipo === 'vencimiento'
         ? `Vence: ${formatDate(item.fecha)}`
         : escapeHtml(item.tarea);
-      el.innerHTML = `<div class="report-item-num">${item.urgente?'<i data-lucide="circle-alert"></i> ':''}#${item.t.numero}${copyNumBtn(item.t.numero)}</div>
+      el.innerHTML = `<div class="report-item-num">${item.urgente?'<i data-lucide="circle-alert"></i> ':''}#${escapeHtml(item.t.numero)}${copyNumBtn(item.t.numero)}</div>
         <div class="report-item-body">
           <div class="report-item-desc">${escapeHtml(item.t.descripcion)}</div>
           <div class="report-item-tarea"><span class="tarea-label">${tipoLabel[item.tipo]||'<i data-lucide="pin"></i>'} — ${tareaText}</span></div>
-          <div class="report-item-meta"><span class="report-item-resp">${item.t.modulo||''}</span>${item.resp?`<span class="report-item-resp">${abogadoName(item.resp)}</span>`:''}</div>
+          <div class="report-item-meta"><span class="report-item-resp">${escapeHtml(item.t.modulo||'')}</span>${item.resp?`<span class="report-item-resp">${escapeHtml(abogadoName(item.resp))}</span>`:''}</div>
         </div>`;
       sec.appendChild(el);
     });
