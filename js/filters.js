@@ -86,6 +86,18 @@ function updateAbogadoSelects() {
     const yo = document.createElement('button'); yo.className='toggle-btn'; yo.dataset.abogado='yo'; yo.textContent='Yo mismo'; rg.appendChild(yo);
     reportFiltroAbogado = '';
   }
+
+  // Panel lateral (dock): selector desplegable de colaborador. Conserva el
+  // filtro activo del panel para no perder la selección al recargar la lista.
+  const rds = document.getElementById('reportDockFilter');
+  if (rds) {
+    const cur = (typeof reportDockFiltro !== 'undefined') ? reportDockFiltro : rds.value;
+    rds.innerHTML = '<option value="">Todos</option>';
+    items.forEach(a => { const o=document.createElement('option'); o.value=a.key; o.textContent=a.nombre; rds.appendChild(o); });
+    const o=document.createElement('option'); o.value='yo'; o.textContent='Yo mismo'; rds.appendChild(o);
+    rds.value = ([...rds.options].some(op => op.value === cur)) ? cur : '';
+    if (typeof reportDockFiltro !== 'undefined') reportDockFiltro = rds.value;
+  }
 }
 
 function buildRespOptions(tipoTramite, abogadoKey, selectedValue) {

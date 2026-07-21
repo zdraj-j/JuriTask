@@ -6,12 +6,35 @@ compartir/imprimir.
 
 ## Archivos
 
-- `js/ui.js` → `renderReport()`, `buildReportTextPlain()`, `openReport()`,
-  `closeReport()`, variable `reportFiltroAbogado`.
+- `js/ui.js` → `buildReportInto()` (núcleo compartido), `renderReport()`,
+  `buildReportTextPlain()`, `openReport()`, `closeReport()`, variable
+  `reportFiltroAbogado`. Panel lateral: `renderReportDock()`, `openReportDock()`,
+  `closeReportDock()`, `restoreReportDock()`, variable `reportDockFiltro`.
 - `index.html` → `#reportOverlay`, `#reportContent`, `#reportFilterGroup`,
-  `#reportPrintBtn`, botón `#reportBtn` en la topbar.
-- `js/config.js` → listener de `#reportFilterGroup` (cambia `reportFiltroAbogado`).
-- `js/filters.js` → `buildRespOptions()` y poblado de `#reportFilterGroup`.
+  `#reportPrintBtn`, botón `#reportBtn` en la topbar. Panel lateral:
+  `#reportDock`, `#reportDockContent`, `#reportDockFilter` (desplegable),
+  `#reportDockBtn` (fijar como panel) y acciones `#reportDock*`.
+- `js/config.js` → listener de `#reportFilterGroup` (cambia `reportFiltroAbogado`),
+  listeners del dock y helpers compartidos `_printReportFrom()`,
+  `_copyReportFrom()`, `_screenshotReport()`.
+- `js/filters.js` → `buildRespOptions()` y poblado de `#reportFilterGroup` y del
+  desplegable `#reportDockFilter`.
+
+## Panel lateral (dock)
+
+Desde el modal, **"Panel lateral"** (`openReportDock()`) fija el reporte a la
+derecha de la pantalla (`body.report-docked`), empujando la zona principal en
+desktop y superponiéndose a pantalla completa en móvil. El panel **permanece
+inmutable** mientras se navegan trámites: conserva colaborador seleccionado
+(desplegable `#reportDockFilter`) y posición de scroll (se guarda/restaura en
+`renderReportDock()`). Se refresca solo cuando cambian los datos vía el gancho en
+`renderAll()`. El estado (abierto + filtro) se persiste en `localStorage`
+(`juritask_report_dock`), por dispositivo, y se restaura al arrancar solo en
+anchos ≥769px.
+
+Las **capturas** (`_screenshotReport()`) se renderizan en un contenedor oculto
+cuyo ancho se toma de `#reportContent`, de modo que la imagen conserva siempre
+las dimensiones originales aunque el panel sea más angosto.
 
 ## Lógica
 

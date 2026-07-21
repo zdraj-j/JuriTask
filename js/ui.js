@@ -211,6 +211,11 @@ function renderAll() {
   if (currentView === 'agenda')   renderAgenda();
 
   if (typeof selApplyToRendered === 'function') selApplyToRendered();   // re-marcar selección
+
+  // Mantener el panel lateral del reporte al día cuando cambian los datos.
+  if (document.body.classList.contains('report-docked') && typeof renderReportDock === 'function') {
+    renderReportDock();
+  }
 }
 
 // ============================================================
@@ -1455,6 +1460,7 @@ async function saveTramite() {
 // REPORTE
 // ============================================================
 let reportFiltroAbogado = '';
+let reportDockFiltro    = '';
 
 function openReport() {
   document.getElementById('reportSubtitle').textContent = `Generado el ${formatDate(today())}`;
@@ -1464,9 +1470,14 @@ function openReport() {
 function closeReport() { document.getElementById('reportOverlay').classList.remove('open'); }
 
 function renderReport() {
+  buildReportInto(document.getElementById('reportContent'), reportFiltroAbogado);
+}
+
+// Construye el reporte del día dentro de `contenido` para el filtro dado.
+// Reutilizable por el modal, el panel lateral (dock) y la captura a imagen.
+function buildReportInto(contenido, filtro) {
   const hoy      = today();
-  const contenido = document.getElementById('reportContent'); contenido.innerHTML = '';
-  const filtro   = reportFiltroAbogado;
+  contenido.innerHTML = '';
   const items    = [];
 
   STATE.tramites.filter(t => !t.terminado).forEach(t => {
@@ -1524,6 +1535,76 @@ function renderReport() {
   if (urg.length) renderGroup('<i data-lucide="circle-alert"></i> Urgentes', urg, 'danger');
   renderGroup('<i data-lucide="triangle-alert"></i> Vencidos / Atrasados', venc, 'danger');
   renderGroup('<i data-lucide="calendar"></i> Para hoy', hoyI, 'warning');
+}
+
+// ============================================================
+// PANEL LATERAL DEL REPORTE (DOCK)
+// ============================================================
+// Estado del panel persistido localmente (por dispositivo), no en la config
+// sincronizada: abrirlo en un equipo no debe forzarlo en los demás.
+const REPORT_DOCK_KEY = 'juritask_report_dock';
+
+function _saveDockState() {
+  try {
+    localStorage.setItem(REPORT_DOCK_KEY, JSON.stringify({
+      open: document.body.classList.contains('report-docked'),
+      filtro: reportDockFiltro,
+    }));
+  } catch (_) {}
+}
+
+function renderReportDock() {
+  const sub = document.getElementById('reportDockSubtitle');
+  if (sub) sub.textContent = `Generado el ${formatDate(today())}`;
+  const cont = document.getElementById('reportDockContent');
+  if (!cont) return;
+  // Conservar la posición de scroll: el panel se re-renderiza al cambiar datos,
+  // y saltar arriba haría perder "dónde iba" el usuario (el problema a resolver).
+  const prevScroll = cont.scrollTop;
+  buildReportInto(cont, reportDockFiltro);
+  cont.scrollTop = prevScroll;
+}
+
+// Sincroniza el <select> del panel con las opciones actuales y el filtro activo.
+function syncReportDockFilter() {
+  const sel = document.getElementById('reportDockFilter');
+  if (sel && [...sel.options].some(o => o.value === reportDockFiltro)) sel.value = reportDockFiltro;
+}
+
+function openReportDock() {
+  // Hereda el filtro que estuviera seleccionado en el modal, si lo hay.
+  if (reportFiltroAbogado) reportDockFiltro = reportFiltroAbogado;
+  if (typeof updateAbogadoNames === 'function') updateAbogadoNames();
+  syncReportDockFilter();
+  document.body.classList.add('report-docked');
+  renderReportDock();
+  closeReport(); // el panel reemplaza al modal
+  _saveDockState();
+  if (window.refreshIcons) window.refreshIcons();
+}
+
+function closeReportDock() {
+  document.body.classList.remove('report-docked');
+  _saveDockState();
+}
+
+function toggleReportDock() {
+  if (document.body.classList.contains('report-docked')) closeReportDock();
+  else openReportDock();
+}
+
+// Restaura el panel si quedó abierto en la sesión previa (solo en anchos amplios).
+function restoreReportDock() {
+  let st = null;
+  try { st = JSON.parse(localStorage.getItem(REPORT_DOCK_KEY) || 'null'); } catch (_) {}
+  if (!st) return;
+  reportDockFiltro = st.filtro || '';
+  if (st.open && window.matchMedia('(min-width: 769px)').matches) {
+    if (typeof updateAbogadoNames === 'function') updateAbogadoNames();
+    syncReportDockFilter();
+    document.body.classList.add('report-docked');
+    renderReportDock();
+  }
 }
 
 // ============================================================
@@ -1831,9 +1912,9 @@ function _updateAgendaBadge() {
   badge.classList.toggle('hidden', n === 0);
 }
 
-function buildReportTextPlain() {
+function buildReportTextPlain(sourceSel = '#reportContent') {
   let text = `TAREAS PARA HOY — ${formatDate(today())}\n${'='.repeat(25)}\n\n`;
-  document.querySelectorAll('#reportContent .report-item').forEach(el => {
+  document.querySelectorAll(`${sourceSel} .report-item`).forEach(el => {
     const num=el.querySelector('.report-item-num')?.textContent||'', desc=el.querySelector('.report-item-desc')?.textContent||'', tarea=el.querySelector('.tarea-label')?.textContent||'';
     text += `${num} — ${desc}\n  ${tarea}\n\n`;
   });

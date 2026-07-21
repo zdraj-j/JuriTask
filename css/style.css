@@ -244,6 +244,7 @@
   --radius-xs:   6px;
   --sidebar-w:   252px;
   --topbar-h:    60px;
+  --report-dock-w: 380px;
   --font:        'DM Sans', sans-serif;
   --mono:        'DM Mono', monospace;
   --transition:  0.16s ease;
@@ -1070,6 +1071,53 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
 .report-item-resp { font-size: 11px; color: var(--text-muted); background: var(--surface); border-radius: 20px; padding: 1px 7px; }
 .report-empty { text-align: center; color: var(--text-muted); font-size: 13px; padding: 32px; }
 
+/* ═══════════════════ PANEL LATERAL REPORTE (DOCK) ══════════ */
+/* Panel fijo a la derecha que permanece visible mientras se navega la app.
+   No es un overlay: no bloquea el contenido principal y conserva selección
+   y scroll aunque se abran/cierren trámites en la zona principal. */
+.report-dock {
+  position: fixed; top: 0; right: 0; bottom: 0;
+  width: var(--report-dock-w);
+  background: var(--surface);
+  border-left: 1px solid var(--border);
+  box-shadow: var(--shadow-lg);
+  z-index: 190;
+  display: flex; flex-direction: column;
+  transform: translateX(100%);
+  transition: transform var(--transition);
+}
+body.report-docked .report-dock { transform: translateX(0); }
+/* Empuja la zona principal para que el panel no la tape (desktop). */
+body.report-docked .app-layout { width: calc(100% - var(--sidebar-w) - var(--report-dock-w)); }
+body.report-docked .app-layout.expanded { width: calc(100% - var(--report-dock-w)); }
+
+.report-dock-header {
+  display: flex; align-items: center; justify-content: space-between;
+  gap: 8px; padding: 0 12px 0 16px; height: var(--topbar-h); flex-shrink: 0;
+  border-bottom: 1px solid var(--border-light);
+}
+.report-dock-titles { min-width: 0; }
+.report-dock-header h2 { font-size: 15px; font-weight: 700; letter-spacing: -.2px; }
+.report-dock-header-actions { display: flex; align-items: center; gap: 4px; flex-shrink: 0; }
+.report-dock-toolbar {
+  display: flex; align-items: center; gap: 8px;
+  padding: 12px 14px 8px; flex-shrink: 0;
+}
+.report-dock-filter-label { font-size: 12px; font-weight: 600; color: var(--text-secondary); white-space: nowrap; }
+.report-dock-select {
+  flex: 1; min-width: 0; padding: 7px 10px; border-radius: 20px;
+  border: 1px solid var(--border); background: var(--surface-2);
+  color: var(--text-primary); font-family: var(--font); font-size: 13px; cursor: pointer;
+}
+.report-dock-actions {
+  display: flex; gap: 6px; padding: 0 14px 10px; flex-wrap: wrap;
+  border-bottom: 1px solid var(--border-light); flex-shrink: 0;
+}
+.report-dock-content {
+  flex: 1; overflow-y: auto; overflow-x: hidden;
+  padding: 16px 14px; -webkit-overflow-scrolling: touch;
+}
+
 /* ═══════════════════ AGENDA ACCIONABLE ══════════ */
 .agenda-filter-bar { display: flex; align-items: center; gap: 10px; margin-bottom: 18px; flex-wrap: wrap; }
 .agenda-filter-label { font-size: 13px; font-weight: 500; color: var(--text-secondary); white-space: nowrap; }
@@ -1773,6 +1821,10 @@ body.selection-mode .tramite-card { cursor: pointer; user-select: none; }
   .theme-grid { grid-template-columns: repeat(2, 1fr); }
   .tipo-toggle-row { flex-direction: column; }
   .report-filter-row { flex-direction: column; align-items: flex-start; }
+  /* En móvil el panel ocupa toda la pantalla y se superpone (no empuja). */
+  .report-dock { width: 100vw; height: 100dvh; }
+  body.report-docked .app-layout,
+  body.report-docked .app-layout.expanded { width: 100%; }
 }
 @media (max-width: 420px) {
   .btn-primary { padding: 7px 13px; font-size: 12px; }
