@@ -754,6 +754,7 @@
     <div class="modal-header">
       <div><h2>Reporte del día</h2><p id="reportSubtitle" class="modal-subtitle"></p></div>
       <div class="modal-header-actions">
+        <button class="btn-small" id="reportDockBtn" title="Fijar como panel lateral"><i data-lucide="panel-right"></i> Panel lateral</button>
         <button class="btn-small" id="reportCopyBtn"><i data-lucide="copy"></i> Copiar</button>
         <button class="btn-small" id="reportScreenshotBtn" title="Captura al portapapeles"><i data-lucide="camera"></i> Captura</button>
         <button class="btn-small" id="reportPrintBtn"><i data-lucide="printer"></i> Imprimir</button>
@@ -766,6 +767,30 @@
     </div>
   </div>
 </div>
+
+<!-- PANEL LATERAL REPORTE (dock derecha, permanece fijo al navegar) -->
+<aside id="reportDock" class="report-dock" aria-label="Reporte del día — panel lateral">
+  <div class="report-dock-header">
+    <div class="report-dock-titles">
+      <h2>Reporte del día</h2>
+      <p id="reportDockSubtitle" class="modal-subtitle"></p>
+    </div>
+    <div class="report-dock-header-actions">
+      <button class="btn-icon" id="reportDockExpandBtn" title="Abrir como ventana"><i data-lucide="maximize-2"></i></button>
+      <button class="modal-close" id="reportDockClose" title="Cerrar panel"><i data-lucide="x"></i></button>
+    </div>
+  </div>
+  <div class="report-dock-toolbar">
+    <label class="report-dock-filter-label" for="reportDockFilter">Colaborador</label>
+    <select id="reportDockFilter" class="report-dock-select" aria-label="Filtrar reporte por colaborador"></select>
+  </div>
+  <div class="report-dock-actions">
+    <button class="btn-small" id="reportDockCopyBtn"><i data-lucide="copy"></i> Copiar</button>
+    <button class="btn-small" id="reportDockScreenshotBtn" title="Captura al portapapeles"><i data-lucide="camera"></i> Captura</button>
+    <button class="btn-small" id="reportDockPrintBtn"><i data-lucide="printer"></i> Imprimir</button>
+  </div>
+  <div id="reportDockContent" class="report-dock-content"></div>
+</aside>
 
 <!-- POPOVER PERFIL (anclado al avatar en sidebar) -->
 <div id="profileOverlay" class="profile-popover">

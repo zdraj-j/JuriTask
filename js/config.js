@@ -235,45 +235,45 @@ function init() {
     saveAll();
     renderAgenda();
   });
-  document.getElementById('reportPrintBtn').addEventListener('click', () => {
-    const area = document.getElementById('reportContent');
-    const div  = document.createElement('div'); div.id = 'reportPrintArea';
-    div.innerHTML = `<h2 style="font-size:18px;margin-bottom:4px">Reporte JuriTask — ${formatDate(today())}</h2>` + area.innerHTML;
-    document.body.appendChild(div); window.print(); document.body.removeChild(div);
-  });
-  document.getElementById('reportCopyBtn').addEventListener('click', () =>
-    navigator.clipboard.writeText(buildReportTextPlain())
-      .then(() => showToast('Reporte copiado.'))
-      .catch(() => showToast('No se pudo copiar.'))
+  document.getElementById('reportPrintBtn').addEventListener('click', () =>
+    _printReportFrom(document.getElementById('reportContent'))
   );
-  document.getElementById('reportScreenshotBtn')?.addEventListener('click', async () => {
-    if (typeof html2canvas !== 'function') { showToast('Captura no disponible.'); return; }
-    const area = document.getElementById('reportContent');
-    if (!area) return;
-    const btn = document.getElementById('reportScreenshotBtn');
-    const orig = btn.textContent; btn.disabled = true; btn.textContent = 'Capturando…';
-    try {
-      const bg = getComputedStyle(document.body).backgroundColor || '#ffffff';
-      const canvas = await html2canvas(area, { backgroundColor: bg, scale: 2, useCORS: true, logging: false });
-      canvas.toBlob(async blob => {
-        if (!blob) { showToast('No se pudo generar la imagen.'); return; }
-        try {
-          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
-          showToast('Captura copiada al portapapeles.');
-        } catch (_) {
-          // Fallback: descargar la imagen
-          const url = URL.createObjectURL(blob);
-          const a   = document.createElement('a'); a.href = url; a.download = `reporte-${today()}.png`;
-          a.click(); URL.revokeObjectURL(url);
-          showToast('Captura descargada (portapapeles no disponible).');
-        }
-      }, 'image/png');
-    } catch (e) {
-      console.error(e); showToast('Error al capturar.');
-    } finally {
-      btn.disabled = false; btn.textContent = orig;
-    }
+  document.getElementById('reportCopyBtn').addEventListener('click', () =>
+    _copyReportFrom('#reportContent')
+  );
+  document.getElementById('reportScreenshotBtn')?.addEventListener('click', e =>
+    _screenshotReport(e.currentTarget, reportFiltroAbogado)
+  );
+
+  // ── Reporte: panel lateral (dock) ────────────────────────
+  document.getElementById('reportDockBtn')?.addEventListener('click', openReportDock);
+  document.getElementById('reportDockClose')?.addEventListener('click', closeReportDock);
+  document.getElementById('reportDockExpandBtn')?.addEventListener('click', () => {
+    const filtro = reportDockFiltro;
+    closeReportDock();
+    openReport(); // reabre el modal (updateAbogadoNames resetea el filtro a "Todos")
+    // Reaplicar el filtro que traía el panel y marcar el botón correspondiente.
+    reportFiltroAbogado = filtro;
+    document.querySelectorAll('#reportFilterGroup .toggle-btn').forEach(b =>
+      b.classList.toggle('active', (b.dataset.abogado || '') === filtro));
+    renderReport();
   });
+  document.getElementById('reportDockFilter')?.addEventListener('change', e => {
+    reportDockFiltro = e.target.value;
+    renderReportDock();
+    _saveDockState();
+  });
+  document.getElementById('reportDockPrintBtn')?.addEventListener('click', () =>
+    _printReportFrom(document.getElementById('reportDockContent'))
+  );
+  document.getElementById('reportDockCopyBtn')?.addEventListener('click', () =>
+    _copyReportFrom('#reportDockContent')
+  );
+  document.getElementById('reportDockScreenshotBtn')?.addEventListener('click', e =>
+    _screenshotReport(e.currentTarget, reportDockFiltro)
+  );
+  // Restaurar el panel lateral si quedó abierto en la sesión previa.
+  if (typeof restoreReportDock === 'function') restoreReportDock();
 
   // ── Calendario ───────────────────────────────────────────
   document.getElementById('calPrev').addEventListener('click', () => {
@@ -492,6 +492,74 @@ function init() {
 }
 
 document.addEventListener('DOMContentLoaded', init);
+
+// ────────────────────────────────────────────────────────────
+// REPORTE — acciones compartidas por el modal y el panel lateral (dock)
+// ────────────────────────────────────────────────────────────
+
+// Imprime el reporte a partir del contenedor indicado (modal o dock).
+function _printReportFrom(area) {
+  if (!area) return;
+  const div = document.createElement('div'); div.id = 'reportPrintArea';
+  div.innerHTML = `<h2 style="font-size:18px;margin-bottom:4px">Reporte JuriTask — ${formatDate(today())}</h2>` + area.innerHTML;
+  document.body.appendChild(div); window.print(); document.body.removeChild(div);
+}
+
+// Copia el reporte como texto plano desde el contenedor indicado.
+function _copyReportFrom(sourceSel) {
+  navigator.clipboard.writeText(buildReportTextPlain(sourceSel))
+    .then(() => showToast('Reporte copiado.'))
+    .catch(() => showToast('No se pudo copiar.'));
+}
+
+// Captura el reporte como imagen. Renderiza en un contenedor oculto cuyo ancho
+// se toma del #reportContent del modal, de modo que la imagen conserve SIEMPRE
+// las mismas dimensiones que la captura original, sin importar si se dispara
+// desde el modal o desde el panel lateral (más angosto).
+async function _screenshotReport(btn, filtro) {
+  if (typeof html2canvas !== 'function') { showToast('Captura no disponible.'); return; }
+  const ref = document.getElementById('reportContent');
+  // offsetWidth existe aunque el modal esté cerrado (opacity no afecta al layout).
+  const width = (ref && ref.offsetWidth) ? ref.offsetWidth : 518;
+  const bg = getComputedStyle(document.body).backgroundColor || '#ffffff';
+
+  const temp = document.createElement('div');
+  temp.style.cssText = `position:fixed; left:-10000px; top:0; width:${width}px; padding:0; background:${bg}; z-index:-1; pointer-events:none;`;
+  document.body.appendChild(temp);
+  buildReportInto(temp, filtro);
+  // Desactivar la animación de entrada de las tarjetas: al capturar un
+  // contenedor recién creado, la imagen saldría a medio desvanecer.
+  temp.querySelectorAll('*').forEach(el => { el.style.animation = 'none'; });
+  if (window.refreshIcons) window.refreshIcons();
+  // Dos frames: deja que el MutationObserver materialice los iconos Lucide.
+  await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+
+  const orig = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Capturando…'; }
+  try {
+    const canvas = await html2canvas(temp, { backgroundColor: bg, scale: 2, useCORS: true, logging: false });
+    await new Promise(resolve => {
+      canvas.toBlob(async blob => {
+        if (!blob) { showToast('No se pudo generar la imagen.'); return resolve(); }
+        try {
+          await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+          showToast('Captura copiada al portapapeles.');
+        } catch (_) {
+          const url = URL.createObjectURL(blob);
+          const a   = document.createElement('a'); a.href = url; a.download = `reporte-${today()}.png`;
+          a.click(); URL.revokeObjectURL(url);
+          showToast('Captura descargada (portapapeles no disponible).');
+        }
+        resolve();
+      }, 'image/png');
+    });
+  } catch (e) {
+    console.error(e); showToast('Error al capturar.');
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+    temp.remove();
+  }
+}
 
 // ────────────────────────────────────────────────────────────
 // Cierre delegado (red de seguridad). Siempre activo e independiente de init:
