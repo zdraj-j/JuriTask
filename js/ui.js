@@ -572,6 +572,13 @@ function buildDetailContent(t) {
         <textarea id="${p}_newNota" placeholder="Escribe una nota…" rows="2"></textarea>
         <button class="btn-small" id="${p}_addNota">+ Nota</button>
       </div>
+    </div>
+    <div class="detail-section">
+      <h3><i data-lucide="mail"></i> Bitácora del correo</h3>
+      <div id="${p}_bitacora"></div>
+      <div style="margin-top:8px">
+        <button class="btn-small" id="${p}_refreshBitacora"><i data-lucide="refresh-cw"></i> Actualizar desde el correo</button>
+      </div>
     </div>`;
 }
 
@@ -664,6 +671,13 @@ function bindDetailContent(t, container, expandWrapper) {
     container.querySelector(`#${p}_newNota`).value = '';
     if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
     saveAll(); renderNotasIn(t, container.querySelector(`#${p}_notas`)); showToast('Nota agregada.');
+  });
+
+  // Bitácora del correo (Gemini) — render inicial + botón de actualización.
+  const bitEl = container.querySelector(`#${p}_bitacora`);
+  if (bitEl && typeof renderBitacoraIn === 'function') renderBitacoraIn(t, bitEl);
+  container.querySelector(`#${p}_refreshBitacora`)?.addEventListener('click', e => {
+    if (typeof refreshTramiteBitacora === 'function') refreshTramiteBitacora(t, bitEl, e.currentTarget);
   });
 }
 
@@ -1936,6 +1950,7 @@ function renderConfig() {
   const arD=document.getElementById('autoReqDias');         if(arD) arD.value=STATE.config.autoReqDias??7;
   const arR=document.getElementById('autoReqResponsable');  if(arR) arR.value=STATE.config.autoReqResponsable||'yo';
   syncAutoReqFields();
+  const gemK=document.getElementById('geminiApiKey');       if(gemK) gemK.value=STATE.config.geminiApiKey||'';
   const drT=document.getElementById('diasRestantesToggle'); if(drT) drT.checked=!!(STATE.config.diasRestantes);
   const calSel=document.getElementById('calendarShowSelect');     if(calSel) calSel.value=STATE.config.calendarShow||'both';
   const calNum=document.getElementById('calendarShowNumToggle');  if(calNum) calNum.checked=STATE.config.calendarShowNum!==false;

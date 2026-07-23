@@ -381,6 +381,209 @@ async function runGmailScan(btn) {
   }
 }
 
+// ============================================================
+// FASE 2 y 3 — BITÁCORA DEL TRÁMITE + CONTACTOS EXTERNOS
+// ============================================================
+
+// Dominios/nombres internos que NO cuentan como "contacto externo".
+const CONTACTOS_EXCLUIR_DOMINIOS = ['comfenalcovalle.com.co'];
+const CONTACTOS_EXCLUIR_NOMBRES  = ['garces lloreda', 'garcés lloreda'];
+
+// Ejecuta `fn(token)` gestionando la obtención y renovación del token de Gmail.
+async function _withGmailToken(fn) {
+  let token = await _ensureGmailToken();
+  if (!token) return null;
+  try {
+    return await fn(token);
+  } catch (e) {
+    if (e.code === 401) {
+      AUTH._gmailAccessToken = null;
+      token = await _ensureGmailToken(true);
+      if (!token) return null;
+      try { return await fn(token); }
+      catch (e2) { showToast('Error de Gmail: ' + (e2.code || e2.message)); return null; }
+    }
+    showToast('Error de Gmail: ' + (e.code || e.message));
+    return null;
+  }
+}
+
+// Obtiene el radicado (COT-2026-298) de un trámite: del número, la descripción
+// o las notas. Devuelve '' si no hay.
+function _extractRadicado(t) {
+  const re = /\b([A-Za-z]{2,5}-\d{4}-\d+)\b/;
+  let m = re.exec(String(t.numero || ''));
+  if (m) return m[1];
+  m = re.exec(String(t.descripcion || ''));
+  if (m) return m[1];
+  for (const n of (t.notas || [])) {
+    m = re.exec(String(n.texto || ''));
+    if (m) return m[1];
+  }
+  return '';
+}
+
+// Busca en Gmail todos los correos relacionados con el trámite (por número y/o
+// radicado en el asunto o cuerpo) y devuelve una lista resumida.
+async function fetchEmailsForTramite(t) {
+  const radicado = _extractRadicado(t);
+  const terms = [];
+  if (t.numero)  terms.push(`"${String(t.numero).replace(/"/g, '')}"`);
+  if (radicado && radicado !== t.numero) terms.push(`"${radicado}"`);
+  if (!terms.length) return [];
+
+  const query = `(${terms.join(' OR ')}) newer_than:1y`;
+
+  return _withGmailToken(async (token) => {
+    const data = await _gmailFetch('messages?maxResults=30&q=' + encodeURIComponent(query), token);
+    const refs = data.messages || [];
+    const emails = [];
+    for (const ref of refs) {
+      const msg = await _getMessage(ref.id, token);
+      const payload = msg.payload || {};
+      const body = _stripHtml(_extractBody(payload));
+      emails.push({
+        fecha:   _headerValue(payload, 'Date'),
+        de:      _stripHtml(_headerValue(payload, 'From')),
+        para:    _stripHtml(_headerValue(payload, 'To')),
+        asunto:  _stripHtml(_headerValue(payload, 'Subject')),
+        cuerpo:  body.slice(0, 1800),
+      });
+    }
+    // Orden cronológico ascendente.
+    emails.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+    return emails;
+  });
+}
+
+// Arma el prompt para Gemini.
+function _buildBitacoraPrompt(t, emails) {
+  const radicado = _extractRadicado(t);
+  const cabecera =
+`Eres un asistente jurídico. Analiza los correos de un trámite y responde SOLO con JSON válido.
+
+Trámite: ${t.numero}${radicado ? ' (radicado ' + radicado + ')' : ''}
+Descripción: ${t.descripcion || '(sin descripción)'}
+
+Devuelve este esquema JSON:
+{
+  "resumen": "resumen breve (2-4 frases) de en qué va el trámite según los correos",
+  "eventos": [ { "fecha": "YYYY-MM-DD", "texto": "qué pasó ese día" } ],
+  "contactos": [ { "nombre": "", "telefono": "", "email": "", "organizacion": "" } ]
+}
+
+Reglas para "contactos": incluye SOLO personas EXTERNAS con quien haya que comunicarse por el trámite.
+NO incluyas contactos internos de Comfenalco Valle (correos @comfenalcovalle.com.co) ni de Garcés Lloreda.
+Si un dato no aparece, deja el campo en cadena vacía. Si no hay contactos externos, devuelve "contactos": [].
+Ordena "eventos" de más antiguo a más reciente. No inventes datos que no estén en los correos.
+
+Correos (cronológico):`;
+
+  const cuerpo = emails.map((e, i) =>
+`\n--- Correo ${i + 1} ---
+Fecha: ${e.fecha}
+De: ${e.de}
+Para: ${e.para}
+Asunto: ${e.asunto}
+Cuerpo: ${e.cuerpo}`).join('\n');
+
+  return cabecera + cuerpo;
+}
+
+// Filtra contactos internos que el modelo pudiera haber colado.
+function _filtrarContactosExternos(contactos) {
+  if (!Array.isArray(contactos)) return [];
+  return contactos.filter(c => {
+    const email = String(c.email || '').toLowerCase();
+    const org   = String(c.organizacion || '').toLowerCase();
+    if (CONTACTOS_EXCLUIR_DOMINIOS.some(d => email.includes(d))) return false;
+    if (CONTACTOS_EXCLUIR_NOMBRES.some(n => org.includes(n)))    return false;
+    // Debe tener al menos un nombre o un teléfono para ser útil.
+    return (c.nombre && c.nombre.trim()) || (c.telefono && c.telefono.trim());
+  });
+}
+
+// Genera/actualiza la bitácora de un trámite y la guarda.
+async function refreshTramiteBitacora(t, containerEl, btn) {
+  if (!geminiConfigured()) {
+    showToast('Configura tu API key de Gemini en Ajustes para usar la bitácora.');
+    return;
+  }
+  const orig = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.innerHTML = 'Analizando correo…'; }
+  try {
+    const emails = await fetchEmailsForTramite(t);
+    if (emails === null) return;                 // error de Gmail (ya avisado)
+    if (!emails.length) {
+      showToast('No encontré correos de este trámite en tu Gmail.');
+      return;
+    }
+    const result = await geminiGenerateJSON(_buildBitacoraPrompt(t, emails));
+    if (!result) return;                         // error de Gemini (ya avisado)
+
+    t.emailResumen   = String(result.resumen || '').trim();
+    t.emailEventos   = Array.isArray(result.eventos) ? result.eventos : [];
+    t.emailContactos = _filtrarContactosExternos(result.contactos);
+    t.emailBitacoraAt   = new Date().toISOString();
+    t.emailBitacoraCount = emails.length;
+
+    if (typeof pushHistory === 'function') pushHistory(`Bitácora de correo #${t.numero}`);
+    if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
+    if (typeof saveAll === 'function') saveAll();
+
+    if (containerEl) renderBitacoraIn(t, containerEl);
+    showToast(`Bitácora actualizada (${emails.length} correo(s)).`);
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+  }
+}
+
+// Renderiza la bitácora dentro de un contenedor del detalle.
+function renderBitacoraIn(t, el) {
+  if (!el) return;
+  const tieneAlgo = t.emailResumen || (t.emailEventos && t.emailEventos.length) || (t.emailContactos && t.emailContactos.length);
+
+  if (!tieneAlgo) {
+    el.innerHTML = `<p style="font-size:13px;color:var(--text-secondary);margin:0 0 4px">
+      Aún no se ha generado la bitácora desde el correo.</p>`;
+    return;
+  }
+
+  let html = '';
+  if (t.emailBitacoraAt) {
+    html += `<p style="font-size:11px;color:var(--text-secondary);margin:0 0 8px">
+      Actualizada: ${formatDatetime(t.emailBitacoraAt)}${t.emailBitacoraCount ? ` · ${t.emailBitacoraCount} correo(s)` : ''}</p>`;
+  }
+  if (t.emailResumen) {
+    html += `<div style="font-size:13px;line-height:1.45;margin-bottom:10px">${escapeHtml(t.emailResumen)}</div>`;
+  }
+  if (t.emailEventos && t.emailEventos.length) {
+    html += `<div style="margin-bottom:10px"><b style="font-size:12px">Cronología</b>
+      <ul style="margin:6px 0 0;padding-left:18px;font-size:12.5px;line-height:1.5">`;
+    t.emailEventos.forEach(ev => {
+      const f = ev.fecha ? `<b>${escapeHtml(ev.fecha)}:</b> ` : '';
+      html += `<li>${f}${escapeHtml(ev.texto || '')}</li>`;
+    });
+    html += `</ul></div>`;
+  }
+  if (t.emailContactos && t.emailContactos.length) {
+    html += `<div><b style="font-size:12px">Contactos externos</b>
+      <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">`;
+    t.emailContactos.forEach(c => {
+      const nombre = escapeHtml(c.nombre || '(sin nombre)');
+      const org    = c.organizacion ? ` · ${escapeHtml(c.organizacion)}` : '';
+      const tel    = c.telefono ? `<a href="tel:${escapeAttr(String(c.telefono).replace(/[^\d+]/g, ''))}">${escapeHtml(c.telefono)}</a>` : '';
+      const email  = c.email ? `<a href="${safeHref('mailto:' + c.email)}">${escapeHtml(c.email)}</a>` : '';
+      const linea2 = [tel, email].filter(Boolean).join(' · ');
+      html += `<div style="font-size:12.5px;border:1px solid var(--border);border-radius:8px;padding:7px 9px">
+        <div style="font-weight:600">${nombre}<span style="font-weight:400;color:var(--text-secondary)">${org}</span></div>
+        ${linea2 ? `<div style="margin-top:2px">${linea2}</div>` : ''}</div>`;
+    });
+    html += `</div></div>`;
+  }
+  el.innerHTML = html;
+}
+
 // ── Enganche del botón ───────────────────────────────────────
 function initGmailScan() {
   const btn = document.getElementById('scanMailBtn');

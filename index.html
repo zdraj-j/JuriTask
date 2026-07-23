@@ -600,6 +600,16 @@
         </div>
 
         <div class="config-section">
+          <h3><i data-lucide="sparkles"></i> Correo e IA (Gemini)</h3>
+          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Pega tu clave de la API de Gemini (Google AI Studio) para generar la bitácora y el resumen de cada trámite a partir del correo. La clave se guarda solo en tu cuenta (Firestore privado), nunca en el código.</p>
+          <div class="form-group full" style="margin-bottom:10px">
+            <label>API key de Gemini</label>
+            <input type="password" id="geminiApiKey" placeholder="AIza… / clave de Google AI Studio" autocomplete="off" />
+          </div>
+          <button class="btn-small" id="saveGeminiKeyBtn">Guardar clave</button>
+        </div>
+
+        <div class="config-section">
           <h3>Exportar / Importar</h3>
           <div class="config-btns-row">
             <button class="btn btn-primary" id="exportBtn"><i data-lucide="download"></i> Exportar JSON</button>
@@ -854,7 +864,8 @@
 <!-- 7. Google Drive integration -->
 <script src="js/drive.js"></script>
 
-<!-- 7.b Detección de trámites nuevos desde el correo (Gmail / Workspace) -->
+<!-- 7.b Detección de trámites nuevos + bitácora desde el correo (Gmail / Workspace) -->
+<script src="js/gemini.js"></script>
 <script src="js/gmail.js"></script>
 
 <!-- 8. Selección múltiple / acciones en lote -->

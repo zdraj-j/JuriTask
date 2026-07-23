@@ -359,6 +359,14 @@ function init() {
     showToast(`"${nombre}" añadido.`);
   });
 
+  // ── Config: clave de Gemini ─────────────────────────────
+  document.getElementById('saveGeminiKeyBtn')?.addEventListener('click', () => {
+    const key = document.getElementById('geminiApiKey')?.value.trim() || '';
+    STATE.config.geminiApiKey = key;
+    saveAll();
+    showToast(key ? 'Clave de Gemini guardada.' : 'Clave de Gemini eliminada.');
+  });
+
   // ── Config: calendario ──────────────────────────────────
   document.getElementById('calendarShowSelect')?.addEventListener('change', e => {
     STATE.config.calendarShow = e.target.value; saveAll();
