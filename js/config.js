@@ -366,6 +366,14 @@ function init() {
     saveAll();
     showToast(key ? 'Clave de Gemini guardada.' : 'Clave de Gemini eliminada.');
   });
+  document.getElementById('resetDescartadosBtn')?.addEventListener('click', async () => {
+    const n = (STATE.config.gmailDescartados || []).length;
+    if (!n) { showToast('No hay trámites descartados.'); return; }
+    if (!(await showConfirm(`¿Restablecer ${n} trámite(s) descartado(s)? Volverán a aparecer al revisar el correo.`, { confirmLabel: 'Restablecer' }))) return;
+    STATE.config.gmailDescartados = [];
+    saveAll();
+    showToast('Descartados restablecidos.');
+  });
 
   // ── Config: calendario ──────────────────────────────────
   document.getElementById('calendarShowSelect')?.addEventListener('change', e => {
