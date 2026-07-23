@@ -48,6 +48,8 @@ function switchView(view) {
   document.getElementById('mobOptsBtn').style.display     = hideTools ? 'none' : '';
   document.getElementById('reportBtn').style.display      = hideTools ? 'none' : '';
   document.getElementById('newTramiteBtn').style.display  = hide ? 'none' : '';
+  const _scanBtn = document.getElementById('scanMailBtn');
+  if (_scanBtn) _scanBtn.style.display = hide ? 'none' : '';
 
   if      (isConfig) { renderConfig(); syncConfigAccountUI(); }
   else if (isCal)    { renderCalendar(); }
@@ -355,6 +357,14 @@ function init() {
     inp.value = '';
     saveAll(); applyCssColors(); updateAbogadoSelects(); renderAbogadosList();
     showToast(`"${nombre}" añadido.`);
+  });
+
+  // ── Config: clave de Gemini ─────────────────────────────
+  document.getElementById('saveGeminiKeyBtn')?.addEventListener('click', () => {
+    const key = document.getElementById('geminiApiKey')?.value.trim() || '';
+    STATE.config.geminiApiKey = key;
+    saveAll();
+    showToast(key ? 'Clave de Gemini guardada.' : 'Clave de Gemini eliminada.');
   });
 
   // ── Config: calendario ──────────────────────────────────
