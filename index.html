@@ -178,6 +178,7 @@
         <button class="col-btn" data-cols="3">⊞</button>
       </div>
       <button class="btn-icon" id="reportBtn" title="Reporte de hoy"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 14v2.2l1.6 1"/><path d="M16 2v4"/><path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/><path d="M3 10h5"/><path d="M8 2v4"/><circle cx="16" cy="16" r="6"/></svg></button>
+      <button class="btn-icon" id="scanMailBtn" title="Revisar correo (detectar trámites nuevos)"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg></button>
       <button class="btn btn-primary" id="newTramiteBtn" style="font-size:13px;padding:7px 14px">+ Nuevo trámite</button>
       <button class="btn-icon notif-btn" id="notifBtn" title="Notificaciones" style="position:relative">
         <svg id="notifBellIcon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg><span class="notif-badge" id="notifBadge" style="display:none">0</span>
@@ -852,6 +853,9 @@
 
 <!-- 7. Google Drive integration -->
 <script src="js/drive.js"></script>
+
+<!-- 7.b Detección de trámites nuevos desde el correo (Gmail / Workspace) -->
+<script src="js/gmail.js"></script>
 
 <!-- 8. Selección múltiple / acciones en lote -->
 <script src="js/selection.js"></script>

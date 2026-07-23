@@ -48,6 +48,8 @@ function switchView(view) {
   document.getElementById('mobOptsBtn').style.display     = hideTools ? 'none' : '';
   document.getElementById('reportBtn').style.display      = hideTools ? 'none' : '';
   document.getElementById('newTramiteBtn').style.display  = hide ? 'none' : '';
+  const _scanBtn = document.getElementById('scanMailBtn');
+  if (_scanBtn) _scanBtn.style.display = hide ? 'none' : '';
 
   if      (isConfig) { renderConfig(); syncConfigAccountUI(); }
   else if (isCal)    { renderCalendar(); }
