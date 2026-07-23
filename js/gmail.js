@@ -124,6 +124,35 @@ function _fechaISOFromDMY(dmy) {
   return `${y}-${mo.padStart(2, '0')}-${d.padStart(2, '0')}`;
 }
 
+// ── Descripción corta a partir del resumen ───────────────────
+// Toma la primera parte significativa del resumen (hasta la primera coma o
+// conector como "tiene como objeto", "por el", "con el fin"…), o recorta a ~90
+// caracteres en un borde de palabra. Así la descripción queda breve y suele
+// contener el contratista / peticionario / objeto del trámite.
+function _shortDesc(resumen) {
+  let s = String(resumen || '').trim().replace(/\s+/g, ' ');
+  if (!s) return '';
+  const marcadores = [
+    s.indexOf(','),
+    s.search(/\btiene como objeto\b/i),
+    s.search(/\bcon el fin\b/i),
+    s.search(/\bpor el inmueble\b/i),
+    s.search(/\bpara dar\b/i),
+    s.search(/\bquien tiene\b/i),
+  ].filter(i => i > 15);
+  let cut = marcadores.length ? Math.min(...marcadores) : -1;
+  if (cut === -1 || cut > 90) {
+    if (s.length > 90) {
+      cut = s.lastIndexOf(' ', 90);
+      if (cut < 40) cut = 90;
+    } else {
+      cut = s.length;
+    }
+  }
+  s = s.slice(0, cut).trim().replace(/[;:,.\-\s]+$/, '');
+  return sentenceCase(s);
+}
+
 // ── Normalización de nombres para emparejar abogados ─────────
 function _normName(s) {
   return String(s || '')
@@ -192,17 +221,18 @@ function parseTramiteEmail(message) {
   const modulo   = _matchModulo(radicado);
   const abogado  = _matchAbogado(responsable);
 
-  // Descripción: resumen + radicado (para no perderlo).
-  const resumenTxt = resumen ? sentenceCase(resumen) : (tipo ? sentenceCase(tipo) : 'Trámite');
-  const descripcion = radicado ? `${resumenTxt} [${radicado}]` : resumenTxt;
+  // Descripción CORTA: la parte esencial del resumen (contratista / peticionario
+  // / objeto), no el resumen completo. El detalle íntegro va en la nota inicial.
+  const descripcion = _shortDesc(resumen) || sentenceCase(tipo || '') || 'Trámite';
 
-  // Nota inicial con el detalle completo del correo.
+  // Nota inicial con el detalle completo del correo (nada se pierde).
   const notaPartes = [];
   if (radicado)    notaPartes.push(`Radicado: ${radicado}`);
   if (tipo)        notaPartes.push(`Tipo: ${sentenceCase(tipo)}`);
   if (solicitante) notaPartes.push(`Solicitante: ${titleCase(solicitante.toLowerCase())}`);
   if (area)        notaPartes.push(`Área: ${titleCase(area.toLowerCase())}`);
   if (responsable) notaPartes.push(`Responsable: ${titleCase(responsable.toLowerCase())}`);
+  if (resumen)     notaPartes.push(`Resumen: ${sentenceCase(resumen)}`);
   const nota = notaPartes.join(' · ');
 
   return {
@@ -258,16 +288,28 @@ async function scanTramiteEmails() {
   }
 }
 
-// Quita las detecciones cuyo número ya existe como trámite.
+// Quita las detecciones cuyo número ya existe como trámite o fue descartado.
 function _filterNuevos(detections) {
-  const existentes = new Set((STATE.tramites || []).map(t => String(t.numero)));
+  const existentes  = new Set((STATE.tramites || []).map(t => String(t.numero)));
+  const descartados = new Set((STATE.config.gmailDescartados || []).map(String));
   const vistos = new Set();
   return detections.filter(d => {
     const n = String(d.numero);
-    if (existentes.has(n) || vistos.has(n)) return false;
+    if (existentes.has(n) || descartados.has(n) || vistos.has(n)) return false;
     vistos.add(n);
     return true;
   });
+}
+
+// Marca un trámite detectado como descartado (persiste en la config para que no
+// vuelva a aparecer en próximas revisiones del correo).
+function _descartarDeteccion(numero) {
+  const n = String(numero);
+  STATE.config.gmailDescartados = STATE.config.gmailDescartados || [];
+  if (!STATE.config.gmailDescartados.includes(n)) {
+    STATE.config.gmailDescartados.push(n);
+    if (typeof saveAll === 'function') saveAll();
+  }
 }
 
 // ── Prellenar el modal de "nuevo trámite" ────────────────────
@@ -338,8 +380,17 @@ function _openGmailModal(detections) {
     <div id="gmailScanList" style="display:flex;flex-direction:column;gap:10px"></div>`;
 
   const list = body.querySelector('#gmailScanList');
-  detections.forEach((d, i) => {
+
+  // Cuando ya no quedan tarjetas (todas creadas o descartadas), mostrar vacío.
+  const _checkEmpty = () => {
+    if (!list.querySelector('[data-card]')) {
+      body.innerHTML = `<p style="margin:8px 0 4px;color:var(--muted,#6b7280)">No quedan trámites por revisar. 🎉</p>`;
+    }
+  };
+
+  detections.forEach((d) => {
     const card = document.createElement('div');
+    card.dataset.card = '1';
     card.style.cssText = 'border:1px solid var(--border,#e5e7eb);border-radius:10px;padding:12px 14px';
     const moduloTxt = d.modulo || '<span style="color:#b45309">(elige módulo)</span>';
     const abogadoTxt = d.abogadoKey
@@ -355,11 +406,20 @@ function _openGmailModal(detections) {
           <div style="font-size:12px;color:var(--muted,#6b7280);margin-top:5px">
             Vence: <b>${vencTxt}</b> · Responsable: ${abogadoTxt}</div>
         </div>
-        <button class="btn btn-primary" data-idx="${i}" style="white-space:nowrap;font-size:13px;padding:7px 12px">Revisar y crear</button>
+        <div style="display:flex;flex-direction:column;gap:6px;align-items:stretch">
+          <button data-act="crear" class="btn btn-primary" style="white-space:nowrap;font-size:13px;padding:7px 12px">Revisar y crear</button>
+          <button data-act="descartar" class="btn-small" style="white-space:nowrap;font-size:12px;color:var(--text-secondary,#6b7280)">Descartar</button>
+        </div>
       </div>`;
-    card.querySelector('button').addEventListener('click', () => {
+    card.querySelector('[data-act="crear"]').addEventListener('click', () => {
       _closeGmailModal();
       prefillNewTramite(d);
+    });
+    card.querySelector('[data-act="descartar"]').addEventListener('click', () => {
+      _descartarDeteccion(d.numero);
+      card.remove();
+      _checkEmpty();
+      showToast(`Trámite #${d.numero} descartado. No volverá a aparecer.`);
     });
     list.appendChild(card);
   });
