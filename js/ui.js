@@ -1963,6 +1963,9 @@ function renderConfig() {
   const arR=document.getElementById('autoReqResponsable');  if(arR) arR.value=STATE.config.autoReqResponsable||'yo';
   syncAutoReqFields();
   const gemK=document.getElementById('geminiApiKey');       if(gemK) gemK.value=STATE.config.geminiApiKey||'';
+  const bAut=document.getElementById('bitacoraAutoToggle'); if(bAut) bAut.checked=STATE.config.bitacoraAuto!==false;
+  const bInt=document.getElementById('bitacoraIntervalo');  if(bInt) bInt.value=STATE.config.bitacoraIntervalo??10;
+  const bDia=document.getElementById('bitacoraDias');       if(bDia) bDia.value=STATE.config.bitacoraDias??7;
   const drT=document.getElementById('diasRestantesToggle'); if(drT) drT.checked=!!(STATE.config.diasRestantes);
   const calSel=document.getElementById('calendarShowSelect');     if(calSel) calSel.value=STATE.config.calendarShow||'both';
   const calNum=document.getElementById('calendarShowNumToggle');  if(calNum) calNum.checked=STATE.config.calendarShowNum!==false;

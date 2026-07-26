@@ -368,6 +368,25 @@ function init() {
     saveAll();
     showToast(key ? 'Clave de Gemini guardada.' : 'Clave de Gemini eliminada.');
   });
+  // Vigilancia de correos enviados (bitácora)
+  document.getElementById('bitacoraAutoToggle')?.addEventListener('change', e => {
+    STATE.config.bitacoraAuto = e.target.checked;
+    saveAll();
+    if (e.target.checked) { startBitacoraWatcher(); checkBitacoraPendientes({ silencioso: false }); }
+    else stopBitacoraWatcher();
+    showToast(e.target.checked ? 'Vigilancia de correos activada.' : 'Vigilancia desactivada.');
+  });
+  const _saveBitacoraNums = () => {
+    const min  = parseInt(document.getElementById('bitacoraIntervalo')?.value);
+    const dias = parseInt(document.getElementById('bitacoraDias')?.value);
+    if (!isNaN(min)  && min  >= 3 && min  <= 120) STATE.config.bitacoraIntervalo = min;
+    if (!isNaN(dias) && dias >= 1 && dias <= 30)  STATE.config.bitacoraDias      = dias;
+    saveAll();
+    if (STATE.config.bitacoraAuto !== false) startBitacoraWatcher();
+  };
+  document.getElementById('bitacoraIntervalo')?.addEventListener('change', _saveBitacoraNums);
+  document.getElementById('bitacoraDias')?.addEventListener('change', _saveBitacoraNums);
+
   document.getElementById('resetDescartadosBtn')?.addEventListener('click', async () => {
     const n = (STATE.config.gmailDescartados || []).length;
     if (!n) { showToast('No hay trámites descartados.'); return; }

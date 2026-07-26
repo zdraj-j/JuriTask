@@ -327,9 +327,11 @@ async function runBitacoraScan(btn) {
     el.style.display = 'flex';
 
     if (!hits.length) {
+      _updateBitacoraBadge(0);
       body.innerHTML = `<p style="margin:8px 0 4px;color:var(--text-secondary)">No hay correos enviados pendientes de registrar. 🎉</p>`;
       return;
     }
+    _updateBitacoraBadge(hits.length);
 
     body.innerHTML = `<p style="margin:0 0 12px;color:var(--text-secondary);font-size:13px">
         ${hits.length} correo(s) enviado(s) de trámites activos. Genera el texto y cópialo al aplicativo de la empresa.</p>
@@ -369,6 +371,7 @@ async function runBitacoraScan(btn) {
               _copiar(out.querySelector('textarea').value, 'Anotación copiada.');
               _marcarBitacoraRegistrada(hit.messageId);
               card.remove();
+              _updateBitacoraBadge(list.querySelectorAll('[data-card]').length);
               if (!list.querySelector('[data-card]')) {
                 body.innerHTML = `<p style="margin:8px 0 4px;color:var(--text-secondary)">No quedan actividades por registrar. 🎉</p>`;
               }
@@ -523,6 +526,76 @@ async function agendarAudienciaDesdeCorreo(t, btn) {
   } finally {
     if (btn) { btn.disabled = false; btn.innerHTML = orig; }
   }
+}
+
+// ============================================================
+// VIGILANCIA AUTOMÁTICA DE CORREOS ENVIADOS
+// ============================================================
+// Sin backend no es posible que Gmail "avise" a la app estando cerrada, así que
+// mientras JuriTask esté abierto se revisan los enviados cada pocos minutos y
+// se marca el botón con el número de actividades por registrar.
+// Solo consume Gmail API (gratis): Gemini se llama al pulsar "Generar".
+
+let _bitacoraTimer = null;
+
+function _updateBitacoraBadge(n) {
+  const btn = document.getElementById('bitacoraScanBtn');
+  if (!btn) return;
+  let badge = btn.querySelector('.bitacora-badge');
+  if (!n) { if (badge) badge.remove(); return; }
+  if (!badge) {
+    badge = document.createElement('span');
+    badge.className = 'notif-badge bitacora-badge';
+    btn.style.position = 'relative';
+    btn.appendChild(badge);
+  }
+  badge.textContent = n > 99 ? '99+' : String(n);
+  badge.style.display = '';
+}
+
+// Revisión silenciosa: no abre ventanas ni pide permisos (si no hay token
+// vigente simplemente no hace nada hasta que el usuario use el correo una vez).
+async function checkBitacoraPendientes({ silencioso = true } = {}) {
+  if (STATE.config.bitacoraAuto === false) return;
+  if (!AUTH || !AUTH._gmailAccessToken) return;      // sin permiso activo aún
+  if (!(STATE.tramites || []).some(t => !t.terminado)) return;
+
+  try {
+    const hits = await scanSentForBitacora(STATE.config.bitacoraDias || 7);
+    if (!hits || !hits.length) { _updateBitacoraBadge(0); return; }
+
+    _updateBitacoraBadge(hits.length);
+
+    // Avisar una sola vez por lote nuevo.
+    const firma = hits.map(h => h.messageId).sort().join(',');
+    if (!silencioso || firma !== _bitacoraUltimaFirma) {
+      _bitacoraUltimaFirma = firma;
+      showToast(`${hits.length} correo(s) enviado(s) por registrar en el aplicativo.`);
+    }
+  } catch (e) {
+    // Silencioso: un fallo de red no debe molestar al usuario.
+    console.warn('Vigilancia de bitácora:', e && (e.code || e.message));
+  }
+}
+
+let _bitacoraUltimaFirma = '';
+
+function startBitacoraWatcher() {
+  stopBitacoraWatcher();
+  const minutos = parseInt(STATE.config.bitacoraIntervalo) || 10;
+  _bitacoraTimer = setInterval(() => checkBitacoraPendientes(), minutos * 60 * 1000);
+  // Revisar también al volver a la pestaña (típico tras enviar un correo).
+  document.addEventListener('visibilitychange', _onVisibleCheck);
+}
+
+function _onVisibleCheck() {
+  if (document.visibilityState === 'visible') checkBitacoraPendientes();
+}
+
+function stopBitacoraWatcher() {
+  if (_bitacoraTimer) { clearInterval(_bitacoraTimer); _bitacoraTimer = null; }
+  document.removeEventListener('visibilitychange', _onVisibleCheck);
+  _updateBitacoraBadge(0);
 }
 
 // ── Enganche del botón de bitácora ───────────────────────────

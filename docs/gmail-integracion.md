@@ -70,6 +70,13 @@ externos**. Todo ocurre en el navegador; no hay backend.
     responde a un tercero, resume ambos ("El contratista solicita X, por tanto
     se le remite Y"). Los ya copiados/omitidos se recuerdan en
     `config.bitacoraRegistrados`.
+  - **Vigilancia automática**: con JuriTask abierto, `startBitacoraWatcher`
+    revisa los enviados cada N minutos (config, 10 por defecto) y al volver a la
+    pestaña, y marca el botón con un badge + aviso. Solo usa Gmail API (gratis);
+    Gemini se llama al pulsar "Generar". Requiere que el permiso de Gmail ya se
+    haya concedido en la sesión (el popup necesita un gesto del usuario, por lo
+    que la primera revisión ocurre tras usar el correo una vez).
+    No hay push real: sin backend Gmail no puede avisar con la app cerrada.
   - **Audiencias**: "Detectar y agendar audiencia" busca la fecha/hora en el
     correo y crea un evento de **3 horas** en Google Calendar invitando al
     abogado responsable (requiere scope `calendar.events` + Calendar API).

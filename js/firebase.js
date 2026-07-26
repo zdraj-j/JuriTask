@@ -493,6 +493,7 @@ auth.onAuthStateChanged(async user => {
     if (typeof startAutoBackup      === 'function') startAutoBackup();
     if (typeof loadTeamMembers      === 'function') loadTeamMembers();
     if (typeof initNotifications    === 'function') initNotifications();
+    if (typeof startBitacoraWatcher === 'function') startBitacoraWatcher();
     // Admin: arrancar listener de cuentas pendientes
     if (AUTH.userProfile.role === 'admin' && typeof startPendingListener === 'function') {
       startPendingListener();
@@ -503,6 +504,7 @@ auth.onAuthStateChanged(async user => {
     AUTH.userProfile = null;
     if (typeof stopNotifications === 'function') stopNotifications();
     if (typeof stopAutoBackup   === 'function') stopAutoBackup();
+    if (typeof stopBitacoraWatcher === 'function') stopBitacoraWatcher();
 
     // Limpiar estado en memoria
     STATE.tramites = [];

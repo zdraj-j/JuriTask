@@ -44,6 +44,8 @@ async function _ensureGmailToken(forceNew = false) {
       AUTH._gmailAccessToken = result.credential.accessToken;
       // El token también sirve para Drive (mismo scope pedido).
       AUTH._googleAccessToken = result.credential.accessToken;
+      // Con permiso ya concedido, la vigilancia de enviados puede empezar.
+      if (typeof checkBitacoraPendientes === 'function') setTimeout(checkBitacoraPendientes, 1500);
       return AUTH._gmailAccessToken;
     }
   } catch (e) {

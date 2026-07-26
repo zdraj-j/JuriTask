@@ -607,6 +607,13 @@
             <label>API key de Gemini</label>
             <input type="password" id="geminiApiKey" placeholder="AIza… / clave de Google AI Studio" autocomplete="off" />
           </div>
+          <div class="config-row"><label>Vigilar correos enviados y avisar qué registrar</label>
+            <label class="switch"><input type="checkbox" id="bitacoraAutoToggle" /><span class="slider"></span></label>
+          </div>
+          <div class="form-grid" style="margin:8px 0 12px">
+            <div class="form-group"><label>Revisar cada (minutos)</label><input type="number" id="bitacoraIntervalo" min="3" max="120" /></div>
+            <div class="form-group"><label>Días de correo a revisar</label><input type="number" id="bitacoraDias" min="1" max="30" /></div>
+          </div>
           <div class="config-btns-row">
             <button class="btn-small" id="saveGeminiKeyBtn">Guardar clave</button>
             <button class="btn-small" id="resetDescartadosBtn" style="color:var(--text-secondary)">Restablecer trámites descartados</button>
