@@ -17,9 +17,9 @@ const FAMILIA_MODULO = {
   OTR: 'contractual',
   OS:  'contractual',
   CNV: 'contractual',
-  ET:  'contractual',
-  MIN: 'contractual',
   COT: 'concepto',
+  ET:  'concepto',   // igual que los conceptos, con "el estudio de títulos"
+  MIN: 'concepto',   // igual que los conceptos, con "la minuta…"
   ROD: 'peticion',
   CPJ: 'audiencia',
 };
@@ -37,7 +37,8 @@ const DOC_MODULO = {
   CPJ: 'la audiencia de conciliación',
 };
 
-// Módulos donde normalmente NO se piden pólizas.
+// Módulos donde NO se piden pólizas (CNV por regla; ET y MIN por no ser
+// contractuales, siguen el flujo de conceptos).
 const SIN_POLIZAS = ['CNV', 'ET', 'MIN'];
 
 // Módulos contractuales a los que sí aplica pedir la fecha de inicio
@@ -193,21 +194,35 @@ Quedo atento a su respuesta.`,
   },
 };
 
+// Contrae "a el" → "al" y "de el" → "del" tras sustituir el documento, para
+// que "respecto a {DOC}" no quede como "respecto a el contrato".
+function _contraerArticulos(s) {
+  return String(s)
+    .replace(/\ba el\b/g, 'al')
+    .replace(/\bde el\b/g, 'del');
+}
+
 // Devuelve la plantilla adecuada según módulo + tipo de gestión.
-// En ROD cualquier requerimiento usa la plantilla de petición.
+// - ROD: cualquier requerimiento usa la plantilla de petición.
+// - Conceptos (COT, ET, MIN): el 1er requerimiento pide conformidad y los
+//   siguientes informan el cierre por falta de respuesta.
+// - CPJ: los requerimientos piden el acta de la audiencia.
 function plantillaPara(modulo, tipoGestion) {
   const fam = familiaDeModulo(modulo);
   let clave = tipoGestion;
 
   if (fam === 'peticion' && /^req/.test(tipoGestion)) clave = 'peticion';
-  if (fam === 'concepto' && tipoGestion === 'reqGenerico') clave = 'conformidad';
-  if (fam === 'audiencia' && /^req/.test(tipoGestion))  clave = 'acta';
+  if (fam === 'audiencia' && /^req/.test(tipoGestion)) clave = 'acta';
+  if (fam === 'concepto') {
+    if (tipoGestion === 'req1' || tipoGestion === 'reqGenerico') clave = 'conformidad';
+    else if (/^req[23]$|^reqFinal$/.test(tipoGestion))           clave = 'cierre';
+  }
 
   const p = PLANTILLAS_CORREO[clave];
   if (!p) return null;
   return {
     clave,
     etiqueta: p.etiqueta,
-    cuerpo: String(p.cuerpo || '').replace(/\{DOC\}/g, docDeModulo(modulo)),
+    cuerpo: _contraerArticulos(String(p.cuerpo || '').replace(/\{DOC\}/g, docDeModulo(modulo))),
   };
 }

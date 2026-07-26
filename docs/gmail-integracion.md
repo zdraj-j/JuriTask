@@ -45,8 +45,12 @@ externos**. Todo ocurre en el navegador; no hay backend.
 ## Fase 4 y 5 — Borradores de correo y bitácora de envíos
 
 - `js/plantillas-correo.js` guarda el conocimiento del dominio:
-  - `FAMILIA_MODULO`: contractual (CNT, OTR, OS, CNV, ET, MIN), concepto (COT),
+  - `FAMILIA_MODULO`: contractual (CNT, OTR, OS, CNV), concepto (COT, ET, MIN),
     peticion (ROD), audiencia (CPJ). El resto no tiene flujo estandarizado.
+    En la familia concepto el 1er requerimiento pide conformidad y los
+    siguientes informan el cierre por falta de respuesta.
+  - `_contraerArticulos`: al sustituir `{DOC}` corrige "a el"→"al" y
+    "de el"→"del" (p. ej. "respecto al contrato").
   - `DOC_MODULO`: cómo se nombra el documento en cada módulo.
   - `SIN_POLIZAS` (CNV, ET, MIN) y `APLICA_FECHA_INICIO` (CNT, OS, CNV — no OTR).
   - `PLANTILLAS_CORREO`: los textos institucionales (1er/2do/3er/último
