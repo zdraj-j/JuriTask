@@ -50,6 +50,8 @@ function switchView(view) {
   document.getElementById('newTramiteBtn').style.display  = hide ? 'none' : '';
   const _scanBtn = document.getElementById('scanMailBtn');
   if (_scanBtn) _scanBtn.style.display = hide ? 'none' : '';
+  const _bitBtn = document.getElementById('bitacoraScanBtn');
+  if (_bitBtn) _bitBtn.style.display = hide ? 'none' : '';
 
   if      (isConfig) { renderConfig(); syncConfigAccountUI(); }
   else if (isCal)    { renderCalendar(); }

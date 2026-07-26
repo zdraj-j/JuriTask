@@ -576,8 +576,9 @@ function buildDetailContent(t) {
     <div class="detail-section">
       <h3><i data-lucide="mail"></i> Bitácora del correo</h3>
       <div id="${p}_bitacora"></div>
-      <div style="margin-top:8px">
+      <div class="config-btns-row" style="margin-top:8px">
         <button class="btn-small" id="${p}_refreshBitacora"><i data-lucide="refresh-cw"></i> Actualizar desde el correo</button>
+        <button class="btn-small" id="${p}_agendarAudiencia"><i data-lucide="calendar-plus"></i> Detectar y agendar audiencia</button>
       </div>
     </div>`;
 }
@@ -679,6 +680,9 @@ function bindDetailContent(t, container, expandWrapper) {
   container.querySelector(`#${p}_refreshBitacora`)?.addEventListener('click', e => {
     if (typeof refreshTramiteBitacora === 'function') refreshTramiteBitacora(t, bitEl, e.currentTarget);
   });
+  container.querySelector(`#${p}_agendarAudiencia`)?.addEventListener('click', e => {
+    if (typeof agendarAudienciaDesdeCorreo === 'function') agendarAudienciaDesdeCorreo(t, e.currentTarget);
+  });
 }
 
 // ============================================================
@@ -739,6 +743,9 @@ function renderActividadesIn(t, listEl, container, expandWrapper) {
           <input type="date" value="${act.fecha||''}" />
           ${assignedHtml}
           <div class="act-actions-right">
+            ${(typeof tipoGestionDesdeTarea === 'function' && tipoGestionDesdeTarea(act.descripcion))
+              ? `<button class="act-attach-btn act-borrador-btn" title="Generar borrador de correo"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg></button>`
+              : ''}
             <button class="act-attach-btn act-urg-btn ${act.urgente?'active':''}" title="${act.urgente?'Quitar urgente':'Marcar urgente'}"><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m21.73 18-8-14a2 2 0 0 0-3.48 0l-8 14A2 2 0 0 0 4 21h16a2 2 0 0 0 1.73-3"/><path d="M12 9v4"/><path d="M12 17h.01"/></svg></button>
             <button class="act-attach-btn act-drive-btn" title="Adjuntar" ${attCount>=5?'disabled':''}><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 6-8.414 8.586a2 2 0 0 0 2.829 2.829l8.414-8.586a4 4 0 1 0-5.657-5.657l-8.379 8.551a6 6 0 1 0 8.485 8.485l8.379-8.551"/></svg></button>
             <button class="act-attach-btn act-link-btn" title="Adjuntar enlace" ${attCount>=5?'disabled':''}><svg xmlns="http://www.w3.org/2000/svg" width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M9 17H7A5 5 0 0 1 7 7h2"/><path d="M15 7h2a5 5 0 1 1 0 10h-2"/><line x1="8" x2="16" y1="12" y2="12"/></svg></button>
@@ -758,6 +765,11 @@ function renderActividadesIn(t, listEl, container, expandWrapper) {
         saveAll(); renderActividadesIn(t, listEl, container, expandWrapper);
       });
     }
+
+    // Borrador de correo para la tarea (requerimientos, reiteraciones…)
+    div.querySelector('.act-borrador-btn')?.addEventListener('click', e => {
+      if (typeof generarBorradorTarea === 'function') generarBorradorTarea(t, act, e.currentTarget);
+    });
 
     // Drive attach button per task
     div.querySelector('.act-drive-btn')?.addEventListener('click', async () => {

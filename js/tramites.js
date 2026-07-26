@@ -273,14 +273,30 @@ function crearTareaRequerimiento(t) {
   const texto = (STATE.config.autoReqTexto || '1er req').trim();
   const fecha = nDaysFromToday(dias);
   if (!Array.isArray(t.seguimiento)) t.seguimiento = [];   // trámites importados/migrados podrían no tenerlo
+  const respCfg = STATE.config.autoReqResponsable || 'yo';
+  const responsable = respCfg === 'auto' ? (esPropio(t) ? 'yo' : t.abogado) : respCfg;
+
   if (!t.seguimiento.some(s => s.descripcion === texto && s.fecha === fecha && s.estado === 'pendiente')) {
-    const respCfg = STATE.config.autoReqResponsable || 'yo';
-    const responsable = respCfg === 'auto' ? (esPropio(t) ? 'yo' : t.abogado) : respCfg;
     t.seguimiento.unshift({
       descripcion: texto, fecha,
       responsable,
       estado: 'pendiente', urgente: false,
     });
+  }
+
+  // Módulos contractuales con interventor (CNT, OS, CNV — no aplica a OTR):
+  // dos días después del cumplimiento se solicita la fecha de inicio.
+  if (typeof APLICA_FECHA_INICIO !== 'undefined' &&
+      APLICA_FECHA_INICIO.includes(String(t.modulo || '').toUpperCase())) {
+    const textoFI = 'Solicitar fecha de inicio';
+    const fechaFI = nDaysFromToday(2);
+    if (!t.seguimiento.some(s => s.descripcion === textoFI && s.estado === 'pendiente')) {
+      t.seguimiento.unshift({
+        descripcion: textoFI, fecha: fechaFI,
+        responsable: 'yo',
+        estado: 'pendiente', urgente: false,
+      });
+    }
   }
 }
 
