@@ -42,6 +42,47 @@ externos**. Todo ocurre en el navegador; no hay backend.
   4. Se guarda en el trámite (`emailResumen`, `emailEventos`, `emailContactos`,
      `emailBitacoraAt`) y se renderiza con `renderBitacoraIn`.
 
+## Fase 4 y 5 — Borradores de correo y bitácora de envíos
+
+- `js/plantillas-correo.js` guarda el conocimiento del dominio:
+  - `FAMILIA_MODULO`: contractual (CNT, OTR, OS, CNV), concepto (COT, ET, MIN),
+    peticion (ROD), audiencia (CPJ). El resto no tiene flujo estandarizado.
+    En la familia concepto el 1er requerimiento pide conformidad y los
+    siguientes informan el cierre por falta de respuesta.
+  - `_contraerArticulos`: al sustituir `{DOC}` corrige "a el"→"al" y
+    "de el"→"del" (p. ej. "respecto al contrato").
+  - `DOC_MODULO`: cómo se nombra el documento en cada módulo.
+  - `SIN_POLIZAS` (CNV, ET, MIN) y `APLICA_FECHA_INICIO` (CNT, OS, CNV — no OTR).
+  - `PLANTILLAS_CORREO`: los textos institucionales (1er/2do/3er/último
+    requerimiento, conformidad y cierre de concepto, petición, acta de
+    audiencia, reiteración de solicitud, fecha de inicio).
+  - `tipoGestionDesdeTarea(texto)`: deduce la gestión del texto de la tarea
+    ("1er req", "reiterar sol", "acta", "req"…).
+- `js/borradores.js`:
+  - **Borrador por tarea** (icono ✉️ en cada tarea que sea un requerimiento):
+    lee el hilo del trámite, y Gemini adapta la plantilla al último estado del
+    hilo (no vuelve a pedir lo ya recibido). Modal con Para/Asunto/Cuerpo,
+    copiar y "Abrir en Gmail". Nunca envía por su cuenta.
+    En "reiterar sol", si el área ya respondió, avisa y no genera el borrador.
+  - **Bitácora de envíos** (botón 📄 en la barra): busca `in:sent`, empareja el
+    número de trámite del asunto con trámites activos y genera la anotación en
+    lenguaje neutro para pegar en el aplicativo de la empresa. Si el correo
+    responde a un tercero, resume ambos ("El contratista solicita X, por tanto
+    se le remite Y"). Los ya copiados/omitidos se recuerdan en
+    `config.bitacoraRegistrados`.
+  - **Vigilancia automática**: con JuriTask abierto, `startBitacoraWatcher`
+    revisa los enviados cada N minutos (config, 10 por defecto) y al volver a la
+    pestaña, y marca el botón con un badge + aviso. Solo usa Gmail API (gratis);
+    Gemini se llama al pulsar "Generar". Requiere que el permiso de Gmail ya se
+    haya concedido en la sesión (el popup necesita un gesto del usuario, por lo
+    que la primera revisión ocurre tras usar el correo una vez).
+    No hay push real: sin backend Gmail no puede avisar con la app cerrada.
+  - **Audiencias**: "Detectar y agendar audiencia" busca la fecha/hora en el
+    correo y crea un evento de **3 horas** en Google Calendar invitando al
+    abogado responsable (requiere scope `calendar.events` + Calendar API).
+- `crearTareaRequerimiento` (tramites.js) crea además "Solicitar fecha de
+  inicio" a 2 días en CNT, OS y CNV.
+
 ## Configuración en Google (requisito del usuario)
 
 1. **Google Cloud Console** (proyecto de la app): habilitar **Gmail API** y añadir

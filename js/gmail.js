@@ -44,6 +44,8 @@ async function _ensureGmailToken(forceNew = false) {
       AUTH._gmailAccessToken = result.credential.accessToken;
       // El token también sirve para Drive (mismo scope pedido).
       AUTH._googleAccessToken = result.credential.accessToken;
+      // Con permiso ya concedido, la vigilancia de enviados puede empezar.
+      if (typeof checkBitacoraPendientes === 'function') setTimeout(checkBitacoraPendientes, 1500);
       return AUTH._gmailAccessToken;
     }
   } catch (e) {
@@ -495,7 +497,9 @@ async function fetchEmailsForTramite(t) {
   const query = `(${terms.join(' OR ')}) newer_than:1y`;
 
   return _withGmailToken(async (token) => {
-    const data = await _gmailFetch('messages?maxResults=30&q=' + encodeURIComponent(query), token);
+    // Traer como máximo 15 correos y recortar cada cuerpo: así cada llamada a
+    // Gemini consume menos tokens (menos presión sobre la cuota gratuita).
+    const data = await _gmailFetch('messages?maxResults=15&q=' + encodeURIComponent(query), token);
     const refs = data.messages || [];
     const emails = [];
     for (const ref of refs) {
@@ -507,7 +511,7 @@ async function fetchEmailsForTramite(t) {
         de:      _stripHtml(_headerValue(payload, 'From')),
         para:    _stripHtml(_headerValue(payload, 'To')),
         asunto:  _stripHtml(_headerValue(payload, 'Subject')),
-        cuerpo:  body.slice(0, 1800),
+        cuerpo:  body.slice(0, 1200),
       });
     }
     // Orden cronológico ascendente.
