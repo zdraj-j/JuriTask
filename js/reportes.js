@@ -71,6 +71,14 @@ function _repTipoLabel(t) {
   return 'Compartido';
 }
 
+// Fecha de vencimiento **efectiva**: una vez marcado el cumplimiento el
+// trámite ya no vence, así que no se muestra ni cuenta como vencido. Es la
+// misma convención que las tarjetas, la agenda, el calendario, el reporte del
+// día y `esHoyOVencido()` — devuelve '' cuando no aplica.
+function _repVenc(t) {
+  return (t.gestion?.cumplimiento) ? '' : (t.fechaVencimiento || '');
+}
+
 function _repModuloNombre(sigla) {
   const m = (STATE.config.modulos || []).find(x => x.sigla === sigla);
   return m ? m.nombre : '';
@@ -142,7 +150,9 @@ function repBuildData(f = _repFiltros) {
     }
 
     // ── Vencimiento ───────────────────────────────────────
-    const venc = t.fechaVencimiento || '';
+    // Se filtra por la fecha efectiva: un trámite cumplido no tiene
+    // vencimiento vigente, así que solo aparece bajo "Sin fecha".
+    const venc = _repVenc(t);
     if (rango.sinFecha) {
       if (venc) return;
     } else {
@@ -193,12 +203,12 @@ function repBuildData(f = _repFiltros) {
     return a.localeCompare(b);
   };
   const orden = {
-    vencimiento: (a, b) => cmpFecha(a.t.fechaVencimiento, b.t.fechaVencimiento),
+    vencimiento: (a, b) => cmpFecha(_repVenc(a.t), _repVenc(b.t)),
     numero:      (a, b) => String(a.t.numero || '').localeCompare(String(b.t.numero || ''), 'es', { numeric: true }),
     modulo:      (a, b) => String(a.t.modulo || '').localeCompare(String(b.t.modulo || '')) ||
-                           cmpFecha(a.t.fechaVencimiento, b.t.fechaVencimiento),
+                           cmpFecha(_repVenc(a.t), _repVenc(b.t)),
     abogado:     (a, b) => abogadoName(a.t.abogado || 'yo', a.t).localeCompare(abogadoName(b.t.abogado || 'yo', b.t)) ||
-                           cmpFecha(a.t.fechaVencimiento, b.t.fechaVencimiento),
+                           cmpFecha(_repVenc(a.t), _repVenc(b.t)),
     pendientes:  (a, b) => b.pendientes.length - a.pendientes.length,
     creacion:    (a, b) => String(b.t.creadoEn || '').localeCompare(String(a.t.creadoEn || '')),
     proxima:     (a, b) => cmpFecha(a.proxima?.fecha, b.proxima?.fecha),
@@ -229,8 +239,9 @@ function _repStats(filas, hoy) {
   };
   filas.forEach(({ t, pendientes, vencidas, urgentes }) => {
     if (t.terminado) st.terminados++; else st.activos++;
-    // Vencido/vence hoy solo tiene sentido en los trámites aún abiertos.
-    const v = t.fechaVencimiento;
+    // Vencido/vence hoy solo tiene sentido en los trámites aún abiertos. Los
+    // cumplidos ya no vencen, así que `_repVenc` los deja sin fecha.
+    const v = _repVenc(t);
     if (!v) st.sinVencimiento++;
     else if (t.terminado) { /* ya cerrado: no cuenta como vencido */ }
     else if (v < hoy)   st.vencidos++;
@@ -284,7 +295,8 @@ function _repHojaTramites(data) {
       { header: 'Detalle de pendientes',  width: 60, wrap: true },
     ],
     rows: data.filas.map(({ t, pendientes, vencidas, urgentes, proxima }) => {
-      const dias = t.fechaVencimiento ? diasRestantesNum(t.fechaVencimiento) : null;
+      const venc = _repVenc(t);
+      const dias = venc ? diasRestantesNum(venc) : null;
       const detalle = pendientes
         .map(s => `• ${s.descripcion || ''}${s.fecha ? ` (${formatDate(s.fecha)})` : ''}${s.urgente ? ' [urgente]' : ''}`)
         .join('\n');
@@ -297,7 +309,7 @@ function _repHojaTramites(data) {
         esPropio(t) ? 'Yo mismo' : abogadoName(t.abogado || 'yo', t),
         computeEtapa(t) === 'seguimiento' ? 'Seguimiento' : 'Gestión',
         t.terminado ? 'Terminado' : 'Activo',
-        _D(t.fechaVencimiento),
+        _D(venc),
         dias === null ? '' : { t: 'number', v: dias },
         _SI_NO(t.gestion?.analisis),
         _SI_NO(t.gestion?.cumplimiento),
@@ -349,7 +361,7 @@ function _repHojaTareas(data) {
         atraso === null ? '' : { t: 'number', v: atraso },
         _SI_NO(s.urgente),
         _repResponsablesTexto([s]),
-        _D(t.fechaVencimiento),
+        _D(_repVenc(t)),
       ];
     }),
   };
@@ -488,7 +500,8 @@ function repCopyTexto() {
   const lin  = [`REPORTE DE TRÁMITES — ${formatDate(today())}`, repDescribeFiltros(), ''];
   data.filas.forEach(({ t, pendientes }) => {
     lin.push(`#${t.numero} · ${t.modulo || '—'} · ${t.descripcion || ''}`);
-    if (t.fechaVencimiento) lin.push(`   Vence: ${formatDate(t.fechaVencimiento)}`);
+    const venc = _repVenc(t);
+    if (venc) lin.push(`   Vence: ${formatDate(venc)}`);
     pendientes.forEach(s => lin.push(`   - ${s.descripcion || ''}${s.fecha ? ` (${formatDate(s.fecha)})` : ''}${s.urgente ? ' [urgente]' : ''}`));
     lin.push('');
   });
@@ -517,7 +530,7 @@ function _repPrintHtml(data) {
   ].map(([l, n]) => `<span class="print-kpi"><b>${n}</b> ${l}</span>`).join('');
 
   const filas = data.filas.map(({ t, pendientes, vencidas }) => {
-    const venc = t.fechaVencimiento;
+    const venc = _repVenc(t);
     const cls  = !venc ? '' : venc < hoy ? 'overdue' : venc === hoy ? 'today' : '';
     const tareas = pendientes.length
       ? pendientes.map(s => `<div class="${s.fecha && s.fecha < hoy ? 'tarea-vencida' : ''}">${s.urgente ? '⚠ ' : ''}${escapeHtml(s.descripcion || '')}${s.fecha ? ` <i>${formatDate(s.fecha)}</i>` : ''}</div>`).join('')
@@ -674,7 +687,7 @@ function renderReporte() {
 
   const hoy   = today();
   const trs   = data.filas.slice(0, REP_PREVIEW_MAX).map(({ t, pendientes, vencidas }) => {
-    const venc  = t.fechaVencimiento;
+    const venc  = _repVenc(t);
     const cls   = !venc ? '' : venc < hoy ? 'overdue' : venc === hoy ? 'today' : '';
     const detalle = pendientes.length
       ? pendientes.map(s => `<div class="rep-task ${s.fecha && s.fecha < hoy ? 'overdue' : ''}">${s.urgente ? '⚠ ' : ''}${escapeHtml(s.descripcion || '')}${s.fecha ? ` <span class="rep-task-date">${formatDate(s.fecha)}</span>` : ''}</div>`).join('')

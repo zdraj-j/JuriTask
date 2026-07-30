@@ -34,6 +34,16 @@ pendientes de cada trámite.
 | `repSolo*` | con tareas pendientes / vencidas / urgentes, o sin pendientes |
 | `repOrden` | vencimiento · próxima acción · número · módulo · colaborador · nº de pendientes · más recientes |
 
+### Fecha de vencimiento efectiva
+
+`_repVenc(t)` devuelve `''` cuando `t.gestion.cumplimiento` es `true`: un
+trámite ya cumplido no vence. Es la misma convención que las tarjetas, la
+agenda, el calendario, el reporte del día y `esHoyOVencido()`, y se aplica en
+**todas** las salidas (vista previa, Excel, CSV, impresión, copiado) y también
+en el filtrado, el orden y los KPIs — de modo que un cumplido nunca sale bajo
+«Vencidos» ni «Vencen hoy», solo bajo «Sin fecha». La información no se pierde:
+la hoja *Trámites* conserva la columna **Cumplimiento**.
+
 Todos se combinan en AND. Se guardan en `localStorage`
 (`juritask_reporte_filtros`), por dispositivo — igual que el panel lateral del
 reporte del día. El botón de la topbar (`openReporteDesdeFiltros`) precarga los
