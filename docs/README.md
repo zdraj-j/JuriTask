@@ -42,3 +42,8 @@ tener en cuenta al modificarlo.
   `terminado`. Lo refleja la barra de 3 segmentos de cada tarjeta.
 - **Fechas**: cadenas `YYYY-MM-DD`; se comparan lexicográficamente. `today()`
   (en `tramites.js`) devuelve la fecha local cacheada.
+- **Vencimiento**: solo aplica mientras el trámite no esté cumplido. En todas
+  las vistas la condición es `t.fechaVencimiento && !t.gestion?.cumplimiento`
+  (tarjetas, agenda, calendario, reporte del día, `esHoyOVencido()`, y
+  `_repVenc()` en el reporte de trámites). Marcado el cumplimiento, el trámite
+  deja de mostrar fecha y de contar como vencido.
