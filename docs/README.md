@@ -19,6 +19,7 @@ tener en cuenta al modificarlo.
 | Agenda accionable | [agenda.md](agenda.md) | `js/ui.js` |
 | Calendario mensual | [calendario.md](calendario.md) | `js/calendar.js` |
 | Informe / reporte del día | [informe.md](informe.md) | `js/ui.js` |
+| Reporte de trámites y Excel | [reportes-excel.md](reportes-excel.md) | `js/reportes.js`, `js/xlsx.js` |
 | Autenticación (UI) | [autenticacion.md](autenticacion.md) | `js/auth.js` |
 | Sincronización con Firebase | [sincronizacion-firebase.md](sincronizacion-firebase.md) | `js/firebase.js`, `firebase.rules` |
 | Notificaciones | [notificaciones.md](notificaciones.md) | `js/notifications.js` |

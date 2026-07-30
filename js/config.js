@@ -13,10 +13,36 @@
 // ============================================================
 let currentView = 'all';
 
+// ============================================================
+// BÚSQUEDA
+// ============================================================
+let _searchTimer = null;
+
+// Única fuente de verdad de la visibilidad del botón ✕: se llama siempre que
+// el valor del buscador cambie (por teclado o por código), para que nunca
+// quede visible sobre un input vacío ni oculto sobre uno con texto.
+function syncSearchClear() {
+  const input = document.getElementById('searchInput');
+  const btn   = document.getElementById('searchClear');
+  if (!input || !btn) return;
+  btn.style.display = input.value.trim() ? 'flex' : 'none';
+}
+
+function clearSearch({ focus = true } = {}) {
+  const input = document.getElementById('searchInput');
+  if (!input) return;
+  clearTimeout(_searchTimer);
+  input.value = '';
+  syncSearchClear();
+  renderAll();
+  if (focus) input.focus();
+}
+
 function switchView(view) {
   currentView = view;
   closeAllExpands();
   document.getElementById('searchInput').value = '';
+  syncSearchClear();
 
   document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
   document.querySelectorAll('.nav-item').forEach(n => n.classList.remove('active'));
@@ -48,6 +74,10 @@ function switchView(view) {
   document.getElementById('mobOptsBtn').style.display     = hideTools ? 'none' : '';
   document.getElementById('reportBtn').style.display      = hideTools ? 'none' : '';
   document.getElementById('newTramiteBtn').style.display  = hide ? 'none' : '';
+  // El reporte general consulta todo el histórico: sigue disponible en la
+  // agenda y el calendario, solo se oculta en configuración y dashboard.
+  const _repBtn = document.getElementById('reportesBtn');
+  if (_repBtn) _repBtn.style.display = (isConfig || isDash) ? 'none' : '';
   const _scanBtn = document.getElementById('scanMailBtn');
   if (_scanBtn) _scanBtn.style.display = hide ? 'none' : '';
   const _bitBtn = document.getElementById('bitacoraScanBtn');
@@ -187,37 +217,59 @@ function init() {
   // ── Filtros ──────────────────────────────────────────────
   ['filterTipo','filterAbogado','filterModulo','filterResponsable','filterEtapa','filterScope']
     .forEach(id => document.getElementById(id)?.addEventListener('change', renderAll));
-  let _searchTimer = null;
   const searchInput = document.getElementById('searchInput');
-  const searchClear = document.getElementById('searchClear');
   const runSearch = () => {
     const q = searchInput.value.trim();
-    if (searchClear) searchClear.style.display = q ? 'flex' : 'none';
     if (q && currentView !== 'all' && currentView !== 'finished') {
       switchView('all');
       searchInput.value = q; // restore after switchView clears it
     }
+    syncSearchClear();       // tras restaurar el valor, no antes
     renderAll();
   };
   searchInput.addEventListener('input', () => {
     // Debounce: evita re-render por cada tecla con muchos trámites.
-    if (searchClear) searchClear.style.display = searchInput.value.trim() ? 'flex' : 'none';
+    syncSearchClear();
     clearTimeout(_searchTimer);
     _searchTimer = setTimeout(runSearch, 200);
   });
-  searchClear?.addEventListener('click', () => {
-    clearTimeout(_searchTimer);
-    searchInput.value = '';
-    searchClear.style.display = 'none';
-    renderAll();
-    searchInput.focus();
+  // Esc dentro del buscador también limpia.
+  searchInput.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && searchInput.value) { e.stopPropagation(); clearSearch(); }
   });
+
+  // El botón ✕ fallaba de forma intermitente con ratón. El `click` del ratón
+  // solo se emite si mousedown y mouseup resuelven al mismo elemento, así que
+  // depende de que nada altere ese nodo (ni su posición) entre los dos eventos;
+  // el click sintético del toque no tiene esa condición, y de ahí que en móvil
+  // no fallara. Se resuelve el gesto en `pointerdown`, que no depende del par,
+  // y se delega en el contenedor para que sobreviva a cambios del icono.
+  const searchWrap = document.querySelector('.search-wrap');
+  if (searchWrap) {
+    const onClear = e => {
+      if (!e.target.closest('#searchClear')) return;
+      e.preventDefault();
+      clearSearch();
+    };
+    // Ratón/táctil: el gesto se resuelve en pointerdown.
+    searchWrap.addEventListener('pointerdown', e => { if (e.button === 0) onClear(e); });
+    // Teclado (Enter/Espacio sobre el botón enfocado): esos clicks llegan con
+    // detail === 0 y sin pointerdown previo, así que no se duplican.
+    searchWrap.addEventListener('click', e => { if (e.detail === 0) onClear(e); });
+  }
+
   document.getElementById('clearFilters').addEventListener('click', () => {
     ['filterTipo','filterAbogado','filterModulo','filterResponsable','filterEtapa','filterScope']
       .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     searchInput.value = '';
-    if (searchClear) searchClear.style.display = 'none';
+    syncSearchClear();
     renderAll();
+  });
+
+  // ── Reporte general de trámites (filtros + Excel) ────────
+  // Arranca con los filtros de la barra lateral ya aplicados.
+  document.getElementById('reportesBtn')?.addEventListener('click', () => {
+    if (typeof openReporteDesdeFiltros === 'function') openReporteDesdeFiltros();
   });
 
   // ── Reporte ──────────────────────────────────────────────
@@ -615,6 +667,7 @@ document.addEventListener('click', e => {
     modalOverlay:       'closeModal',
     detailOverlay:      'closeDetail',
     reportOverlay:      'closeReport',
+    reporteOverlay:     'closeReporte',
     createTeamOverlay:  'closeTeamModal',
     editProfileOverlay: 'closeEditProfileModal',
   };

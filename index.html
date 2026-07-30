@@ -178,7 +178,8 @@
         <button class="col-btn" data-cols="3">⊞</button>
       </div>
       <button class="btn-icon" id="reportBtn" title="Reporte de hoy"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 14v2.2l1.6 1"/><path d="M16 2v4"/><path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/><path d="M3 10h5"/><path d="M8 2v4"/><circle cx="16" cy="16" r="6"/></svg></button>
-      <button class="btn-icon" id="scanMailBtn" title="Revisar correo (detectar trámites nuevos)"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg></button>
+      <button class="btn-icon" id="reportesBtn" title="Reporte de trámites y exportación a Excel"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><rect x="7" y="12" width="3" height="5" rx="1"/><rect x="12" y="8" width="3" height="9" rx="1"/><rect x="17" y="4" width="3" height="13" rx="1"/></svg></button>
+      <button class="btn-icon" id="scanMailBtn" title="Revisar correo (detectar trámites nuevos)" style="position:relative"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg><span class="scan-badge" id="scanMailBadge" style="display:none">0</span></button>
       <button class="btn-icon" id="bitacoraScanBtn" title="Actividades por registrar (correos enviados)"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg></button>
       <button class="btn btn-primary" id="newTramiteBtn" style="font-size:13px;padding:7px 14px">+ Nuevo trámite</button>
       <button class="btn-icon notif-btn" id="notifBtn" title="Notificaciones" style="position:relative">
@@ -814,6 +815,121 @@
   <div id="reportDockContent" class="report-dock-content"></div>
 </aside>
 
+<!-- REPORTE DE TRÁMITES (filtros + exportación a Excel) -->
+<div id="reporteOverlay" class="overlay">
+  <div class="modal modal-reporte" role="dialog" aria-modal="true" aria-label="Reporte de trámites">
+    <div class="modal-header">
+      <div><h2>Reporte de trámites</h2><p class="modal-subtitle">Filtra y exporta con las tareas pendientes</p></div>
+      <div class="modal-header-actions">
+        <button class="btn-small" id="repXlsxBtn" title="Descargar libro de Excel"><i data-lucide="sheet"></i> <span class="rep-btn-label">Excel</span></button>
+        <button class="btn-small" id="repCsvBtn" title="Descargar CSV"><i data-lucide="file-text"></i> <span class="rep-btn-label">CSV</span></button>
+        <button class="btn-small" id="repCopyBtn" title="Copiar como texto"><i data-lucide="copy"></i> <span class="rep-btn-label">Copiar</span></button>
+        <button class="btn-small" id="repPrintBtn" title="Imprimir o guardar en PDF"><i data-lucide="printer"></i> <span class="rep-btn-label">Imprimir</span></button>
+        <button class="modal-close" id="reporteClose"><i data-lucide="x"></i></button>
+      </div>
+    </div>
+    <div class="modal-body">
+
+      <div class="rep-filters">
+        <div class="form-group"><label for="repEstado">Estado</label>
+          <select id="repEstado">
+            <option value="activos">Activos</option>
+            <option value="terminados">Terminados</option>
+            <option value="todos">Activos y terminados</option>
+          </select>
+        </div>
+        <div class="form-group"><label for="repTipo">Tipo</label>
+          <select id="repTipo">
+            <option value="">Todos</option>
+            <option value="propio">Solo míos</option>
+            <option value="abogado">Compartidos</option>
+            <option value="equipo">De equipo</option>
+          </select>
+        </div>
+        <div class="form-group"><label for="repAbogado">Colaborador</label>
+          <select id="repAbogado"><option value="">Todos</option></select>
+        </div>
+        <div class="form-group"><label for="repModulo">Módulo</label>
+          <select id="repModulo"><option value="">Todos</option></select>
+        </div>
+        <div class="form-group"><label for="repEtapa">Etapa</label>
+          <select id="repEtapa">
+            <option value="">Todas</option>
+            <option value="gestion">Gestión</option>
+            <option value="seguimiento">Seguimiento</option>
+          </select>
+        </div>
+        <div class="form-group"><label for="repResponsable">Responsable de tarea</label>
+          <select id="repResponsable"><option value="">Todos</option></select>
+        </div>
+        <div class="form-group"><label for="repScope">Alcance</label>
+          <select id="repScope">
+            <option value="">Todos</option>
+            <option value="private">Mis trámites</option>
+            <option value="team">Equipo</option>
+          </select>
+        </div>
+        <div class="form-group"><label for="repOrden">Ordenar por</label>
+          <select id="repOrden">
+            <option value="vencimiento">Vencimiento</option>
+            <option value="proxima">Próxima acción</option>
+            <option value="numero">Número</option>
+            <option value="modulo">Módulo</option>
+            <option value="abogado">Colaborador</option>
+            <option value="pendientes">Más tareas pendientes</option>
+            <option value="creacion">Más recientes</option>
+          </select>
+        </div>
+        <div class="form-group rep-span2"><label for="repTexto">Buscar en número, descripción, tareas y notas</label>
+          <input type="text" id="repTexto" placeholder="Texto libre…" />
+        </div>
+      </div>
+
+      <div class="rep-row">
+        <span class="rep-row-label">Vencimiento</span>
+        <div class="toggle-group" id="repVencPresets">
+          <button class="toggle-btn active" data-preset="todos">Todos</button>
+          <button class="toggle-btn" data-preset="vencidos">Vencidos</button>
+          <button class="toggle-btn" data-preset="hoy">Hoy</button>
+          <button class="toggle-btn" data-preset="7">7 días</button>
+          <button class="toggle-btn" data-preset="30">30 días</button>
+          <button class="toggle-btn" data-preset="mes">Este mes</button>
+          <button class="toggle-btn" data-preset="sin">Sin fecha</button>
+        </div>
+        <div class="rep-range" id="repVencManual">
+          <label for="repVencDesde">Desde</label><input type="date" id="repVencDesde" />
+          <label for="repVencHasta">Hasta</label><input type="date" id="repVencHasta" />
+        </div>
+      </div>
+
+      <div class="rep-row">
+        <span class="rep-row-label">Solo incluir</span>
+        <div class="rep-checks">
+          <label><input type="checkbox" id="repSoloPendientes" /> Con tareas pendientes</label>
+          <label><input type="checkbox" id="repSoloVencidas" /> Con tareas vencidas</label>
+          <label><input type="checkbox" id="repSoloUrgentes" /> Con tareas urgentes</label>
+          <label><input type="checkbox" id="repSoloSinTareas" /> Sin tareas pendientes</label>
+        </div>
+      </div>
+
+      <div class="rep-row">
+        <span class="rep-row-label">Hojas del Excel</span>
+        <div class="rep-checks">
+          <label><input type="checkbox" id="repHojaResumen" checked /> Resumen</label>
+          <label><input type="checkbox" id="repHojaTramites" checked /> Trámites</label>
+          <label><input type="checkbox" id="repHojaTareas" checked /> Tareas</label>
+          <label><input type="checkbox" id="repHojaNotas" /> Notas</label>
+          <label><input type="checkbox" id="repIncluirHechas" /> Incluir tareas ya realizadas</label>
+        </div>
+        <button class="btn-small btn-secondary" id="repResetBtn" title="Restablecer todos los filtros"><i data-lucide="rotate-ccw"></i> Restablecer</button>
+      </div>
+
+      <div id="reporteResumen" class="rep-kpis"></div>
+      <div id="reporteTabla"></div>
+    </div>
+  </div>
+</div>
+
 <!-- POPOVER PERFIL (anclado al avatar en sidebar) -->
 <div id="profileOverlay" class="profile-popover">
   <div class="profile-popover-inner">
@@ -880,6 +996,10 @@
 <script src="js/plantillas-correo.js"></script>
 <script src="js/gmail.js"></script>
 <script src="js/borradores.js"></script>
+
+<!-- 7.c Reporte de trámites + exportación a Excel (escritor .xlsx propio) -->
+<script src="js/xlsx.js"></script>
+<script src="js/reportes.js"></script>
 
 <!-- 8. Selección múltiple / acciones en lote -->
 <script src="js/selection.js"></script>

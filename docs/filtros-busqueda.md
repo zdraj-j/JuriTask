@@ -35,6 +35,25 @@ descripción.
   de responsable para una tarea (equipo + colaborador del trámite + "Yo").
 - `#filterScopeWrap` solo se muestra cuando hay trámites de equipo.
 
+## Buscador de la topbar
+
+`#searchInput` + `#searchClear` (la ✕). Puntos delicados:
+
+- La visibilidad de la ✕ se decide **solo** en `syncSearchClear()` (config.js);
+  llámala siempre que cambie el valor del input por código (`switchView`,
+  `clearFilters`, `runSearch`), nunca la toques a mano.
+- La ✕ se atiende por **delegación sobre `.search-wrap`** y en `pointerdown`,
+  no en `click`. El `click` del ratón solo se emite si `mousedown` y `mouseup`
+  resuelven al mismo elemento, de modo que depende de que nada altere ese nodo
+  entre ambos eventos; el click sintético del toque no tiene esa condición, que
+  es la diferencia entre "falla a veces" en escritorio y "siempre funciona" en
+  móvil. `pointerdown` no depende de ese par. El `click` se sigue escuchando
+  para el teclado, filtrando por `e.detail === 0` (Enter/Espacio no generan
+  `pointerdown`), así no se ejecuta dos veces por un mismo gesto.
+- `Esc` dentro del input también limpia (`clearSearch()`).
+- `.topbar-center` necesita `min-width: 0`; sin eso el ancho intrínseco del input
+  desborda la barra y empuja los botones de la derecha fuera de la pantalla.
+
 ## Al modificar
 
 Las migraciones antiguas (`storage.js`) normalizan `responsable` `'auxiliar'`/

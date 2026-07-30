@@ -339,6 +339,45 @@ function prefillNewTramite(d) {
   }
 }
 
+// ── Detecciones de la sesión ─────────────────────────────────
+// La revisión del correo es lenta (una llamada por mensaje), así que el
+// resultado se conserva en memoria durante la sesión. Al crear un trámite desde
+// el panel, el resto de detecciones siguen ahí: volver a abrir el panel NO
+// vuelve a buscar, muestra las que quedan. La búsqueda solo se repite si el
+// usuario lo pide ("Buscar de nuevo") o si aún no hay nada en memoria.
+let _gmailDetections = [];   // todo lo detectado en la última revisión
+let _gmailScanAt     = 0;    // timestamp de esa revisión
+let _gmailReopen     = false; // volver al panel cuando se cierre el modal
+
+// Detecciones que todavía no son trámites ni fueron descartadas.
+function _gmailPendientes() {
+  return _filterNuevos(_gmailDetections);
+}
+
+function _gmailUpdateBadge() {
+  const badge = document.getElementById('scanMailBadge');
+  if (!badge) return;
+  const n = _gmailPendientes().length;
+  badge.textContent = n;
+  badge.style.display = n ? 'flex' : 'none';
+  const btn = document.getElementById('scanMailBtn');
+  if (btn) {
+    btn.title = n
+      ? `${n} trámite(s) detectado(s) por revisar`
+      : 'Revisar correo (detectar trámites nuevos)';
+  }
+}
+
+function _gmailHaceTexto(ts) {
+  if (!ts) return '';
+  const min = Math.round((Date.now() - ts) / 60000);
+  if (min < 1)  return 'hace un momento';
+  if (min === 1) return 'hace 1 minuto';
+  if (min < 60) return `hace ${min} minutos`;
+  const h = Math.round(min / 60);
+  return h === 1 ? 'hace 1 hora' : `hace ${h} horas`;
+}
+
 // ── Panel de revisión ────────────────────────────────────────
 let _gmailModalEl = null;
 
@@ -348,46 +387,74 @@ function _buildGmailModal() {
   el.id = 'gmailScanOverlay';
   el.style.cssText = 'position:fixed;inset:0;background:rgba(0,0,0,.45);display:none;align-items:center;justify-content:center;z-index:1200;padding:16px';
   el.innerHTML = `
-    <div style="background:var(--card,#fff);color:var(--text,#111);max-width:640px;width:100%;max-height:85vh;overflow:auto;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.3)">
-      <div style="display:flex;align-items:center;justify-content:space-between;padding:16px 18px;border-bottom:1px solid var(--border,#e5e7eb)">
+    <div style="background:var(--card,#fff);color:var(--text,#111);max-width:640px;width:100%;max-height:85vh;display:flex;flex-direction:column;border-radius:14px;box-shadow:0 20px 60px rgba(0,0,0,.3)">
+      <div style="display:flex;align-items:center;justify-content:space-between;gap:10px;padding:16px 18px;border-bottom:1px solid var(--border,#e5e7eb)">
         <h2 style="margin:0;font-size:17px">Trámites detectados en el correo</h2>
-        <button id="gmailScanClose" class="btn-icon" aria-label="Cerrar" style="font-size:20px;line-height:1">✕</button>
+        <div style="display:flex;align-items:center;gap:8px">
+          <button id="gmailScanAgain" class="btn-small" style="white-space:nowrap;font-size:12px">Buscar de nuevo</button>
+          <button id="gmailScanClose" class="btn-icon" aria-label="Cerrar" style="font-size:20px;line-height:1">✕</button>
+        </div>
       </div>
-      <div id="gmailScanBody" style="padding:14px 18px"></div>
+      <div id="gmailScanBody" style="padding:14px 18px;overflow:auto"></div>
     </div>`;
   document.body.appendChild(el);
   el.addEventListener('click', e => { if (e.target === el) _closeGmailModal(); });
   el.querySelector('#gmailScanClose').addEventListener('click', _closeGmailModal);
+  el.querySelector('#gmailScanAgain').addEventListener('click', () => {
+    _closeGmailModal();
+    runGmailScan(document.getElementById('scanMailBtn'), { force: true });
+  });
   _gmailModalEl = el;
   return el;
 }
 
 function _closeGmailModal() {
   if (_gmailModalEl) _gmailModalEl.style.display = 'none';
+  _gmailReopen = false;
+}
+
+// Se llama desde closeModal() (ui.js): al terminar de crear —o al cancelar— un
+// trámite prellenado, el panel vuelve con las detecciones que quedan.
+function _gmailOnModalClosed() {
+  if (!_gmailReopen) return;
+  _gmailReopen = false;
+  _gmailUpdateBadge();
+  // Sin esperar, el overlay del panel reaparecería sobre el modal saliente.
+  setTimeout(() => {
+    const pend = _gmailPendientes();
+    if (pend.length) _openGmailModal(pend);
+    else _gmailUpdateBadge();
+  }, 260);
 }
 
 function _openGmailModal(detections) {
-  const el = _buildGmailModal();
+  const el   = _buildGmailModal();
   const body = el.querySelector('#gmailScanBody');
+  _gmailUpdateBadge();
+
+  const pie = _gmailScanAt
+    ? `<p style="font-size:11.5px;color:var(--muted,#9ca3af);margin:12px 0 0">Última revisión del correo ${_gmailHaceTexto(_gmailScanAt)}. Se conservan las detecciones mientras la app siga abierta.</p>`
+    : '';
 
   if (!detections.length) {
-    body.innerHTML = `<p style="margin:8px 0 4px;color:var(--muted,#6b7280)">No se encontraron trámites nuevos en el correo. 🎉</p>
-      <p style="font-size:12px;color:var(--muted,#9ca3af)">Se revisan los correos de "Notificación de trámite" de los últimos 120 días que aún no estén registrados.</p>`;
+    const msg = _gmailDetections.length
+      ? 'No quedan trámites por revisar. 🎉'
+      : 'No se encontraron trámites nuevos en el correo. 🎉';
+    body.innerHTML = `<p style="margin:8px 0 4px;color:var(--muted,#6b7280)">${msg}</p>
+      <p style="font-size:12px;color:var(--muted,#9ca3af)">Se revisan los correos de "Notificación de trámite" de los últimos 120 días que aún no estén registrados.</p>${pie}`;
     el.style.display = 'flex';
     return;
   }
 
   body.innerHTML = `<p style="margin:0 0 12px;color:var(--muted,#6b7280);font-size:13px">
-      Se detectaron <b>${detections.length}</b> trámite(s) nuevo(s). Revisa y crea los que quieras.</p>
-    <div id="gmailScanList" style="display:flex;flex-direction:column;gap:10px"></div>`;
+      Quedan <b>${detections.length}</b> trámite(s) por crear. Al crear uno, este panel vuelve con los demás.</p>
+    <div id="gmailScanList" style="display:flex;flex-direction:column;gap:10px"></div>${pie}`;
 
   const list = body.querySelector('#gmailScanList');
 
   // Cuando ya no quedan tarjetas (todas creadas o descartadas), mostrar vacío.
   const _checkEmpty = () => {
-    if (!list.querySelector('[data-card]')) {
-      body.innerHTML = `<p style="margin:8px 0 4px;color:var(--muted,#6b7280)">No quedan trámites por revisar. 🎉</p>`;
-    }
+    if (!list.querySelector('[data-card]')) _openGmailModal([]);
   };
 
   detections.forEach((d) => {
@@ -410,16 +477,19 @@ function _openGmailModal(detections) {
         </div>
         <div style="display:flex;flex-direction:column;gap:6px;align-items:stretch">
           <button data-act="crear" class="btn btn-primary" style="white-space:nowrap;font-size:13px;padding:7px 12px">Revisar y crear</button>
-          <button data-act="descartar" class="btn-small" style="white-space:nowrap;font-size:12px;color:var(--text-secondary,#6b7280)">Descartar</button>
+          <button data-act="descartar" class="btn-small" style="white-space:nowrap;font-size:12px;background:transparent;color:var(--text-secondary,#6b7280);border:1px solid var(--border,#e5e7eb)">Descartar</button>
         </div>
       </div>`;
     card.querySelector('[data-act="crear"]').addEventListener('click', () => {
-      _closeGmailModal();
+      // Ocultar el panel sin perder el estado: vuelve solo al cerrar el modal.
+      if (_gmailModalEl) _gmailModalEl.style.display = 'none';
+      _gmailReopen = true;
       prefillNewTramite(d);
     });
     card.querySelector('[data-act="descartar"]').addEventListener('click', () => {
       _descartarDeteccion(d.numero);
       card.remove();
+      _gmailUpdateBadge();
       _checkEmpty();
       showToast(`Trámite #${d.numero} descartado. No volverá a aparecer.`);
     });
@@ -430,16 +500,28 @@ function _openGmailModal(detections) {
 }
 
 // ── Punto de entrada (botón) ─────────────────────────────────
-async function runGmailScan(btn) {
+// `force: true` ignora lo detectado en la sesión y vuelve a leer el correo.
+async function runGmailScan(btn, { force = false } = {}) {
+  if (btn && btn.dataset.busy) return;
+
+  // Reabrir con lo ya detectado: sin esperas ni llamadas a la API.
+  if (!force) {
+    const pend = _gmailPendientes();
+    if (pend.length) { _openGmailModal(pend); return; }
+  }
+
   const orig = btn ? btn.innerHTML : '';
   if (btn) { btn.disabled = true; btn.dataset.busy = '1'; btn.innerHTML = '…'; }
   showToast('Revisando el correo…');
   try {
     const detections = await scanTramiteEmails();
     if (detections === null) return;                 // error o cancelado (ya avisado)
+    _gmailDetections = detections;
+    _gmailScanAt     = Date.now();
     _openGmailModal(_filterNuevos(detections));
   } finally {
     if (btn) { btn.disabled = false; delete btn.dataset.busy; btn.innerHTML = orig; }
+    _gmailUpdateBadge();
   }
 }
 
@@ -655,6 +737,7 @@ function initGmailScan() {
     btn.dataset.wired = '1';
     btn.addEventListener('click', () => runGmailScan(btn));
   }
+  _gmailUpdateBadge();
 }
 
 if (typeof document !== 'undefined') {
