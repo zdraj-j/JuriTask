@@ -1846,23 +1846,108 @@ body.selection-mode .tramite-card { cursor: pointer; user-select: none; }
 
 /* ═══════════════════ IMPRESIÓN ══════════════════ */
 @media print {
-  body * { visibility: hidden; }
-  #reportPrintArea, #reportPrintArea * { visibility: visible; }
-  #reportPrintArea {
-    position: fixed; left: 0; top: 0; width: 100%;
-    background: white; padding: 24px;
-    font-family: 'DM Sans', Arial, sans-serif; color: #1a1d23;
+  @page { margin: 14mm 11mm; }
+
+  /* Al imprimir, el navegador no avanza las animaciones: cualquier entrada que
+     arranque en opacity:0 (p. ej. `cardIn` en .report-item) se queda invisible
+     y la hoja sale en blanco. Se acota a `body.printing` para no alterar un
+     Ctrl+P normal del usuario, donde los overlays cerrados deben seguir
+     invisibles gracias a su opacity:0. */
+  body.printing, body.printing *,
+  body.printing *::before, body.printing *::after {
+    animation: none !important;
+    transition: none !important;
   }
-  .report-item { border-left-width: 3px !important; border-left-style: solid !important; page-break-inside: avoid; }
-  .report-item.overdue   { border-left-color: #dc2626 !important; }
-  .report-item.today     { border-left-color: #d97706 !important; }
+  body.printing #reportPrintArea,
+  body.printing #reportPrintArea * { opacity: 1 !important; }
+
+  /* El resto de la app se oculta por DISPLAY, no por visibility. Con
+     visibility:hidden los nodos siguen ocupando su caja, y el contenedor de
+     impresión tenía que ir en position:fixed para taparlos — un elemento fijo
+     no fluye ni pagina, así que el navegador emitía UNA sola hoja recortada.
+     En flujo normal el contenido se reparte en tantas páginas como haga falta. */
+  body.printing > *:not(#reportPrintArea) { display: none !important; }
+
+  /* Los contenedores de la app fijan alturas de viewport y overflow oculto;
+     en papel eso también recorta. `display:block` en el body evita que el
+     contenedor de impresión quede como flex-item y se encoja a su contenido. */
+  html, body {
+    display: block !important;
+    height: auto !important; min-height: 0 !important;
+    overflow: visible !important;
+    background: #fff !important;
+  }
+
+  #reportPrintArea {
+    display: block; position: static;
+    width: 100%; max-width: none; padding: 0; margin: 0;
+    background: #fff; color: #1a1d23;
+    font-family: 'DM Sans', Arial, sans-serif;
+    font-size: 10pt;
+  }
+  #reportPrintArea * { visibility: visible; overflow: visible !important; }
+
+  /* Cabecera del documento: se repite el título solo en la primera hoja. */
+  .print-head { border-bottom: 2px solid #3d5af1; padding-bottom: 6px; margin-bottom: 10px; }
+  .print-head h1 { font-size: 15pt; margin: 0; }
+  .print-head p  { font-size: 8.5pt; color: #555; margin: 3px 0 0; }
+  .print-kpis { margin: 0 0 10px; font-size: 9pt; }
+  .print-kpi  { display: inline-block; margin-right: 14px; color: #444; }
+  .print-kpi b { font-size: 11pt; color: #1a1d23; }
+  .print-foot { margin-top: 10px; font-size: 8.5pt; color: #555; }
+
+  /* Reporte del día (bloques) */
+  .report-item {
+    border-left-width: 3px !important; border-left-style: solid !important;
+    /* Más compacto y sin relleno de color: caben más ítems por hoja y no se
+       gasta tinta en fondos. El color se conserva en el borde izquierdo. */
+    padding: 4px 0 4px 8px !important; margin-bottom: 3px !important;
+    background: transparent !important; border-radius: 0 !important;
+  }
+  /* En pantalla la descripción se recorta con "…"; en papel debe ir entera. */
+  .report-item-desc {
+    white-space: normal !important;
+    overflow: visible !important;
+    text-overflow: clip !important;
+  }
+  .report-urgente { font-weight: 600; }
+  .report-item.overdue     { border-left-color: #dc2626 !important; }
+  .report-item.today       { border-left-color: #d97706 !important; }
   .report-item.vencimiento { border-left-color: #3d5af1 !important; }
-  /* Tabla del reporte de trámites: sin scroll horizontal en papel. */
-  #reportPrintArea .rep-table-wrap { overflow: visible; }
-  #reportPrintArea .rep-table { font-size: 10px; }
-  #reportPrintArea .rep-table th { background: #eef1ff !important; color: #1a1d23 !important; }
-  #reportPrintArea .rep-table tr { page-break-inside: avoid; }
-  #reportPrintArea .rep-more { display: none; }
+  /* Solo los ítems evitan partirse. Aplicar break-inside:avoid a la sección
+     entera la empuja a una hoja nueva y, al no caber, deja páginas en blanco. */
+  .report-item { page-break-inside: avoid; break-inside: avoid; }
+  .report-section { break-inside: auto; }
+  /* Que un título no quede solo al final de la hoja. */
+  .report-section-title { page-break-after: avoid; break-after: avoid; }
+
+  /* Reporte de trámites (tabla). table-layout:fixed + <colgroup> obliga a que
+     las columnas quepan en el ancho de la hoja en vez de desbordarse. */
+  .print-table {
+    width: 100%; table-layout: fixed;
+    border-collapse: collapse; font-size: 8.5pt;
+  }
+  .print-table th, .print-table td {
+    border-bottom: 1px solid #d7dae2;
+    padding: 4px 5px; text-align: left; vertical-align: top;
+    word-wrap: break-word; overflow-wrap: anywhere;
+  }
+  .print-table th {
+    background: #eef1ff !important; color: #1a1d23 !important;
+    font-size: 7.5pt; text-transform: uppercase; letter-spacing: .4px;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  /* Repetir la cabecera en cada página y no partir filas por la mitad. */
+  .print-table thead { display: table-header-group; }
+  .print-table tfoot { display: table-footer-group; }
+  .print-table tr    { page-break-inside: avoid; break-inside: avoid; }
+  .print-table td.num    { text-align: center; }
+  .print-table td.nowrap { white-space: nowrap; overflow-wrap: normal; }
+  .print-table .overdue  { color: #dc2626; font-weight: 700; }
+  .print-table .today    { color: #b45309; font-weight: 700; }
+  /* Tarea atrasada: en rojo pero sin negrita, para no competir con la fecha. */
+  .print-table .tarea-vencida { color: #dc2626; }
+  .print-table i { font-style: normal; color: #666; }
 }
 
 /* ═══════════════════ APROBACIÓN DE USUARIOS ══════════════════ */
