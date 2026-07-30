@@ -588,12 +588,45 @@ document.addEventListener('DOMContentLoaded', init);
 // REPORTE — acciones compartidas por el modal y el panel lateral (dock)
 // ────────────────────────────────────────────────────────────
 
-// Imprime el reporte a partir del contenedor indicado (modal o dock).
+// Imprime un bloque de HTML en un contenedor propio.
+// `body.printing` oculta el resto de la app **por display**: la técnica
+// anterior (visibility:hidden + position:fixed) hacía que el navegador
+// emitiera una sola página recortada, porque un elemento fijo no fluye ni
+// pagina. Con flujo normal el contenido se reparte en tantas hojas como haga
+// falta.
+function _printHtml(html) {
+  const prev = document.getElementById('reportPrintArea');
+  if (prev) prev.remove();
+
+  const div = document.createElement('div');
+  div.id = 'reportPrintArea';
+  div.innerHTML = html;
+  document.body.appendChild(div);
+  document.body.classList.add('printing');
+
+  const cleanup = () => {
+    document.body.classList.remove('printing');
+    div.remove();
+    window.removeEventListener('afterprint', cleanup);
+  };
+  // `print()` bloquea en la mayoría de navegadores, pero en algunos (Safari,
+  // vistas previas asíncronas) vuelve antes de tiempo: afterprint es la red.
+  window.addEventListener('afterprint', cleanup);
+  try { window.print(); } finally { setTimeout(cleanup, 0); }
+}
+
+// Cabecera común de los documentos impresos.
+function _printHeader(titulo, subtitulo) {
+  return `<div class="print-head">
+      <h1>${escapeHtml(titulo)}</h1>
+      <p>${escapeHtml(subtitulo || `Generado el ${formatDate(today())}`)}</p>
+    </div>`;
+}
+
+// Imprime el reporte del día a partir del contenedor indicado (modal o dock).
 function _printReportFrom(area) {
   if (!area) return;
-  const div = document.createElement('div'); div.id = 'reportPrintArea';
-  div.innerHTML = `<h2 style="font-size:18px;margin-bottom:4px">Reporte JuriTask — ${formatDate(today())}</h2>` + area.innerHTML;
-  document.body.appendChild(div); window.print(); document.body.removeChild(div);
+  _printHtml(_printHeader('Reporte del día — JuriTask') + area.innerHTML);
 }
 
 // Copia el reporte como texto plano desde el contenedor indicado.

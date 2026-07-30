@@ -496,11 +496,61 @@ function repCopyTexto() {
   copyTextToClipboard(lin.join('\n'));
 }
 
+// Imprime el reporte completo. No reutiliza `#reporteTabla` porque la vista
+// previa está recortada a REP_PREVIEW_MAX filas: aquí se reconstruye la tabla
+// con TODOS los trámites del filtro.
 function repPrint() {
-  const cont = document.getElementById('reporteTabla');
-  if (!cont) return;
-  if (typeof _printReportFrom === 'function') { _printReportFrom(cont); return; }
-  window.print();
+  const data = repBuildData();
+  if (!data.filas.length) { showToast('No hay trámites que coincidan con los filtros.'); return; }
+  if (typeof _printHtml !== 'function') { window.print(); return; }
+  _printHtml(_repPrintHtml(data));
+}
+
+function _repPrintHtml(data) {
+  const hoy = today();
+  const st  = data.stats;
+
+  const kpis = [
+    ['Trámites', st.tramites], ['Vencidos', st.vencidos], ['Vencen hoy', st.venceHoy],
+    ['Tareas pendientes', st.tareasPendientes], ['Tareas vencidas', st.tareasVencidas],
+    ['Urgentes', st.tareasUrgentes],
+  ].map(([l, n]) => `<span class="print-kpi"><b>${n}</b> ${l}</span>`).join('');
+
+  const filas = data.filas.map(({ t, pendientes, vencidas }) => {
+    const venc = t.fechaVencimiento;
+    const cls  = !venc ? '' : venc < hoy ? 'overdue' : venc === hoy ? 'today' : '';
+    const tareas = pendientes.length
+      ? pendientes.map(s => `<div class="${s.fecha && s.fecha < hoy ? 'tarea-vencida' : ''}">${s.urgente ? '⚠ ' : ''}${escapeHtml(s.descripcion || '')}${s.fecha ? ` <i>${formatDate(s.fecha)}</i>` : ''}</div>`).join('')
+      : '—';
+    return `<tr>
+        <td><b>#${escapeHtml(String(t.numero || ''))}</b></td>
+        <td>${escapeHtml(t.modulo || '—')}</td>
+        <td>${escapeHtml(t.descripcion || '')}</td>
+        <td>${escapeHtml(esPropio(t) ? 'Yo mismo' : abogadoName(t.abogado || 'yo', t))}</td>
+        <td class="nowrap ${cls}">${venc ? formatDate(venc) : '—'}</td>
+        <td class="num">${pendientes.length}${vencidas.length ? ` (${vencidas.length}⚠)` : ''}</td>
+        <td>${tareas}</td>
+      </tr>`;
+  }).join('');
+
+  // `<colgroup>` + table-layout:fixed reparte el ancho de la hoja: sin esto el
+  // navegador ensancha la tabla según el contenido y recorta las columnas.
+  return `${_printHeader('Reporte de trámites — JuriTask',
+              `Generado el ${formatDate(hoy)} · ${repDescribeFiltros()}`)}
+    <p class="print-kpis">${kpis}</p>
+    <table class="print-table">
+      <colgroup>
+        <col style="width:12%"><col style="width:6%"><col style="width:21%">
+        <col style="width:11%"><col style="width:10%"><col style="width:5%">
+        <col style="width:35%">
+      </colgroup>
+      <thead><tr>
+        <th>N.º</th><th>Mód.</th><th>Descripción</th><th>Colaborador</th>
+        <th>Vence</th><th>Pend.</th><th>Tareas pendientes</th>
+      </tr></thead>
+      <tbody>${filas}</tbody>
+    </table>
+    <p class="print-foot">${data.filas.length} trámite(s) · ${st.tareasPendientes} tarea(s) pendiente(s).</p>`;
 }
 
 // ============================================================

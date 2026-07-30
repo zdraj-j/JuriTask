@@ -55,6 +55,33 @@ exportación siempre lleva todas.
 `estado !== 'pendiente'`. El CSV exporta **una sola tabla**: la primera hoja de
 datos seleccionada (Resumen no cuenta).
 
+## Impresión
+
+`repPrint()` **no** imprime `#reporteTabla`: esa vista está recortada a 100
+filas. Reconstruye la tabla completa con `_repPrintHtml()` y la manda a
+`_printHtml()` (config.js), que la mete en `#reportPrintArea`, marca
+`body.printing` y limpia al terminar (`afterprint` + `setTimeout`).
+
+Puntos que hicieron falta para que **pagine** (antes salía una sola hoja
+recortada):
+
+- El resto de la app se oculta con `display: none`, no con
+  `visibility: hidden`. Con visibility los nodos siguen ocupando su caja, así
+  que el contenedor de impresión tenía que ir en `position: fixed` — y un
+  elemento fijo no fluye ni pagina.
+- `html, body` en print: `display: block`, `height: auto`, `overflow: visible`.
+  Los contenedores de la app fijan alturas de viewport que también recortan.
+- `table-layout: fixed` + `<colgroup>` con porcentajes: sin eso la tabla se
+  ensancha según el contenido y se sale de la hoja.
+- `thead { display: table-header-group }` repite la cabecera en cada página;
+  `tr { break-inside: avoid }` no parte filas.
+- `body.printing *  { animation: none }`: el navegador no avanza las
+  animaciones al imprimir, y `.report-item` entra con `cardIn`, que arranca en
+  `opacity: 0` — las hojas salían en blanco.
+- `break-inside: avoid` va en los **ítems**, nunca en `.report-section`: una
+  sección entera no cabe en una hoja y el navegador la empuja dejando páginas
+  vacías.
+
 ## El escritor de .xlsx (`js/xlsx.js`)
 
 Un `.xlsx` es un ZIP con XML. Como la app no tiene bundler y un CDN rompería el
