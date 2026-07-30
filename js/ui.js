@@ -1271,6 +1271,9 @@ function closeModal() {
   m.classList.remove('draggable-active', 'is-dragging');
   m.style.left = ''; m.style.top = '';
   _clearAdminEdit();   // si se cancela una edición admin, no dejar el trámite ajeno en STATE
+  // Si el modal se abrió desde el panel de trámites detectados en el correo,
+  // ese panel vuelve con el resto de detecciones pendientes.
+  if (typeof _gmailOnModalClosed === 'function') _gmailOnModalClosed();
 }
 
 // Edición admin de trámites ajenos: limpia el trámite cargado temporalmente

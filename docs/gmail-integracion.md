@@ -30,6 +30,25 @@ externos**. Todo ocurre en el navegador; no hay backend.
 4. Se descartan los que ya existen (por `numero`) y se abre el panel de revisión;
    "Revisar y crear" abre el modal de nuevo trámite **prellenado**.
 
+### Detecciones conservadas durante la sesión
+
+Leer el correo es lento (una llamada por mensaje), así que el resultado se
+guarda en memoria (`_gmailDetections`, `_gmailScanAt`):
+
+- Volver a pulsar ✉️ **no vuelve a buscar** si aún quedan detecciones sin crear:
+  reabre el panel con las que faltan. Para releer el correo está "Buscar de
+  nuevo" dentro del panel (`runGmailScan(btn, { force: true })`).
+- "Revisar y crear" solo **oculta** el panel y marca `_gmailReopen`. Al cerrarse
+  el modal —se haya guardado o cancelado— `closeModal()` (ui.js) llama a
+  `_gmailOnModalClosed()`, que lo reabre con las detecciones restantes.
+- `_gmailPendientes()` = `_filterNuevos(_gmailDetections)`, de modo que lo ya
+  creado o descartado desaparece solo.
+- El botón ✉️ muestra un badge (`#scanMailBadge`) con cuántas quedan por revisar.
+
+La caché es **de sesión**: al recargar la app se pierde y la siguiente revisión
+vuelve a consultar Gmail. Lo descartado sí es permanente
+(`config.gmailDescartados`).
+
 ## Fase 2 y 3 — Bitácora + contactos externos (con Gemini)
 
 - En el detalle de cada trámite, "Actualizar desde el correo" →

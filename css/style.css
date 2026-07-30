@@ -427,6 +427,9 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
 .topbar-center {
   flex: 1; display: flex;
   justify-content: center; padding: 0 16px;
+  /* Sin min-width:0 el input impone su ancho intrínseco y la barra desborda,
+     empujando los botones de la derecha fuera de la pantalla. */
+  min-width: 0;
 }
 .topbar-center .search-wrap { width: 100%; max-width: 440px; }
 .mob-opts-btn { display: none !important; }
@@ -467,6 +470,9 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
   transform: translateY(-50%);
   color: var(--text-muted); font-size: 14px; pointer-events: none;
 }
+/* El botón de limpiar se dibuja sobre el input: necesita quedar por encima
+   (z-index) y con su propia zona de click (el icono no debe recibir eventos,
+   así el target del click es siempre el <button>). */
 .search-clear {
   position: absolute; right: 8px; top: 50%;
   transform: translateY(-50%);
@@ -475,9 +481,17 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
   border: none; border-radius: 50%; cursor: pointer;
   background: var(--surface-3); color: var(--text-muted);
   transition: background var(--transition), color var(--transition);
+  z-index: 2; pointer-events: auto;
 }
+/* Zona de click ampliada (44×44 recomendado) sin agrandar el círculo visible. */
+.search-clear::before {
+  content: ''; position: absolute;
+  top: -12px; right: -8px; bottom: -12px; left: -12px;
+}
+.search-clear > * { pointer-events: none; }
 .search-clear:hover { background: var(--danger-light); color: var(--danger); }
-.search-clear svg.lucide { width: 13px; height: 13px; }
+.search-clear:active { background: var(--danger-light); color: var(--danger); }
+.search-clear svg { width: 13px; height: 13px; }
 
 /* Orden */
 .sort-wrap select {
@@ -1843,6 +1857,12 @@ body.selection-mode .tramite-card { cursor: pointer; user-select: none; }
   .report-item.overdue   { border-left-color: #dc2626 !important; }
   .report-item.today     { border-left-color: #d97706 !important; }
   .report-item.vencimiento { border-left-color: #3d5af1 !important; }
+  /* Tabla del reporte de trámites: sin scroll horizontal en papel. */
+  #reportPrintArea .rep-table-wrap { overflow: visible; }
+  #reportPrintArea .rep-table { font-size: 10px; }
+  #reportPrintArea .rep-table th { background: #eef1ff !important; color: #1a1d23 !important; }
+  #reportPrintArea .rep-table tr { page-break-inside: avoid; }
+  #reportPrintArea .rep-more { display: none; }
 }
 
 /* ═══════════════════ APROBACIÓN DE USUARIOS ══════════════════ */
@@ -2120,4 +2140,115 @@ body.selection-mode .tramite-card { cursor: pointer; user-select: none; }
   .tarea-inicial-row .ti-fecha { display: none; }
   .tarea-inicial-row .ti-resp-wrap { max-width: 90px; }
   .ti-resp-display { font-size: 11px; padding: 5px 6px; }
+}
+
+/* ═══════ REPORTE DE TRÁMITES (filtros + exportación) ═══════ */
+/* Badge de trámites detectados pendientes de revisar en el botón de correo. */
+.scan-badge {
+  position: absolute; top: 2px; right: 2px;
+  min-width: 16px; height: 16px;
+  background: var(--accent); color: #fff;
+  border-radius: 20px; font-size: 10px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center;
+  padding: 0 3px; pointer-events: none;
+}
+
+.modal-reporte { width: 1040px; max-width: 96vw; }
+
+.rep-filters {
+  display: grid; gap: 12px;
+  grid-template-columns: repeat(auto-fit, minmax(170px, 1fr));
+}
+.rep-filters .form-group { min-width: 0; }
+.rep-span2 { grid-column: span 2; }
+
+.rep-row {
+  display: flex; align-items: center; flex-wrap: wrap; gap: 8px 12px;
+  margin-top: 14px; padding-top: 12px;
+  border-top: 1px solid var(--border-light);
+}
+.rep-row-label {
+  font-size: 11px; font-weight: 700; color: var(--text-muted);
+  text-transform: uppercase; letter-spacing: .6px;
+  min-width: 108px;
+}
+.rep-row #repResetBtn { margin-left: auto; }
+
+.rep-range { display: flex; align-items: center; gap: 6px; }
+.rep-range label { font-size: 11px; color: var(--text-muted); font-weight: 600; }
+.rep-range input {
+  padding: 5px 8px; font-family: var(--font); font-size: 12px;
+  border: 1px solid var(--border); border-radius: var(--radius-xs);
+  background: var(--surface); color: var(--text-primary);
+}
+
+.rep-checks { display: flex; flex-wrap: wrap; gap: 6px 16px; }
+.rep-checks label {
+  display: inline-flex; align-items: center; gap: 6px;
+  font-size: 12.5px; color: var(--text-secondary); cursor: pointer;
+}
+.rep-checks input { accent-color: var(--accent); }
+
+.rep-kpis {
+  display: grid; gap: 8px; margin-top: 16px;
+  grid-template-columns: repeat(auto-fit, minmax(96px, 1fr));
+}
+.rep-kpi {
+  display: flex; flex-direction: column; align-items: center; gap: 2px;
+  padding: 9px 6px; border-radius: var(--radius-xs);
+  background: var(--surface-2); border: 1px solid var(--border-light);
+}
+.rep-kpi-num   { font-size: 19px; font-weight: 700; color: var(--text-primary); line-height: 1.1; }
+.rep-kpi-label { font-size: 10.5px; color: var(--text-muted); text-align: center; }
+.rep-kpi.danger  { background: var(--danger-light);  border-color: var(--danger); }
+.rep-kpi.danger  .rep-kpi-num { color: var(--danger); }
+.rep-kpi.warning { background: var(--warning-light, #fef3c7); border-color: var(--warning, #d97706); }
+.rep-kpi.warning .rep-kpi-num { color: var(--warning, #b45309); }
+
+.rep-table-wrap { margin-top: 14px; overflow-x: auto; }
+.rep-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+.rep-table th {
+  position: sticky; top: 0; z-index: 1;
+  background: var(--surface-2); color: var(--text-muted);
+  font-size: 10.5px; font-weight: 700; text-transform: uppercase; letter-spacing: .5px;
+  text-align: left; padding: 8px 9px; border-bottom: 1px solid var(--border);
+  white-space: nowrap;
+}
+.rep-table td {
+  padding: 8px 9px; border-bottom: 1px solid var(--border-light);
+  vertical-align: top; color: var(--text-primary);
+}
+.rep-table tr:hover td { background: var(--surface-2); }
+.rep-num  { font-weight: 700; white-space: nowrap; }
+.rep-desc { min-width: 200px; }
+.rep-date { white-space: nowrap; }
+.rep-date.overdue { color: var(--danger); font-weight: 700; }
+.rep-date.today   { color: var(--warning, #b45309); font-weight: 700; }
+.rep-center { text-align: center; white-space: nowrap; }
+.rep-task { line-height: 1.45; }
+.rep-task.overdue { color: var(--danger); }
+.rep-task-date { color: var(--text-muted); font-size: 11px; }
+.rep-badge-danger {
+  display: inline-block; min-width: 15px; padding: 0 4px;
+  background: var(--danger); color: #fff;
+  border-radius: 20px; font-size: 10px; font-weight: 700;
+}
+.rep-muted { color: var(--text-muted); }
+.rep-more  { font-size: 11.5px; margin-top: 8px; }
+.rep-empty { color: var(--text-muted); font-size: 13px; margin-top: 18px; text-align: center; }
+
+/* Los presets de vencimiento son muchos: deben poder envolverse. */
+#repVencPresets { flex-wrap: wrap; border-radius: var(--radius-xs); }
+
+@media (max-width: 768px) {
+  .rep-span2 { grid-column: span 1; }
+  .rep-row-label { min-width: 100%; }
+  .rep-row #repResetBtn { margin-left: 0; }
+  .rep-filters { grid-template-columns: 1fr 1fr; }
+  /* Solo iconos: así los 4 botones y la ✕ caben en una línea de la cabecera. */
+  .modal-reporte .rep-btn-label { display: none; }
+  .modal-reporte .modal-header-actions .btn-small { padding: 6px 9px; }
+}
+@media (max-width: 420px) {
+  .rep-filters { grid-template-columns: 1fr; }
 }
