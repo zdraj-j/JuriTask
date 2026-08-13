@@ -89,13 +89,31 @@ lenta, pero arranca. Por eso todos los accesos van dentro de `try/catch`.
 
 ## Despliegue
 
+**Antes de nada**: activar la Apps Script API en
+<https://script.google.com/home/usersettings>. Sin eso `clasp push` falla con
+un error poco claro sobre credenciales.
+
 ```bash
 npm i -g @google/clasp
 clasp login
+
+# Desde la raíz del repo. `--rootDir build` deja el .clasp.json aquí,
+# apuntando a build/: se hace `clasp push` desde la raíz, NO desde build/.
 clasp create --type webapp --title JuriTask --rootDir build
+
 node tools/build.js
-cd build && clasp push && clasp deploy
+clasp push
 ```
+
+Luego, **una vez**, hay que autorizar el script: `clasp open`, elegir cualquier
+función (por ejemplo `estadoDelAlmacen`) y ejecutarla. Google pedirá los
+permisos; en un proyecto sin verificar hay que entrar por *Configuración
+avanzada → Ir a JuriTask (no seguro)*. Sin ese paso el web app responde con un
+error de permisos.
+
+Y ya: `clasp deploy`, y `clasp deployments` para ver la URL `/exec`.
+
+En cada cambio posterior: `node tools/build.js && clasp push && clasp deploy`.
 
 `appsscript.json` ya deja el web app como **"Ejecutar como: yo"** y
 **"Quién tiene acceso: solo yo"**, y declara los scopes:
@@ -110,6 +128,18 @@ cd build && clasp push && clasp deploy
 
 `gmail.modify` es un scope **restringido**: en Workspace puede requerir que el
 administrador apruebe el client ID del proyecto.
+
+### Por qué se declara el servicio avanzado de Gmail
+
+`enabledAdvancedServices` incluye Gmail aunque el código **no** use
+`Gmail.Users.*` — `Correo.gs` habla con `GmailApp` y con `UrlFetchApp` contra
+`gmail.googleapis.com`. La declaración está para que Apps Script **habilite la
+Gmail API en el proyecto de Cloud** asociado al script, que es lo que exige la
+llamada REST.
+
+Si aun así Gmail devuelve un 403 diciendo que la API no está habilitada para el
+proyecto, hay que abrirlo desde *Configuración del proyecto → Proyecto de Google
+Cloud* y activar la Gmail API a mano.
 
 ## Al modificar
 
