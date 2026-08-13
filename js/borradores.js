@@ -120,8 +120,11 @@ function _buildBorradorModal() {
   return el;
 }
 
+// Vía `copyTextToClipboard` (tramites.js), que cae a `execCommand` cuando la
+// Clipboard API no está: dentro del iframe de Apps Script la API lanza
+// NotAllowedError y el fallback es el que funciona.
 function _copiar(texto, msg) {
-  navigator.clipboard.writeText(texto)
+  copyTextToClipboard(texto)
     .then(() => showToast(msg || 'Copiado.'))
     .catch(() => showToast('No se pudo copiar.'));
 }

@@ -441,7 +441,7 @@ function init() {
   document.getElementById('clearAllBtn').addEventListener('click', () => {
     if (!confirm('¿Borrar TODOS los datos? Esta acción no se puede deshacer.')) return;
     if (!confirm('¿Estás seguro? Se perderán todos los trámites.')) return;
-    Object.values(KEYS).forEach(k => localStorage.removeItem(k));
+    try { Object.values(KEYS).forEach(k => localStorage.removeItem(k)); } catch (_) {}
     STATE.tramites = []; STATE.order = [];
     STATE.config = { ...DEFAULT_CONFIG, abogados: DEFAULT_CONFIG.abogados.map(a=>({...a})), modulos: [...DEFAULT_CONFIG.modulos] };
     applyCssColors(); applyTheme('claro'); populateModuloSelects(); updateAbogadoSelects();

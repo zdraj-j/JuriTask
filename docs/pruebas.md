@@ -58,6 +58,13 @@ activo con una tarea pendiente y uno terminado.
 Al final imprime un resumen y **falla si hubo cualquier `pageerror` o error de
 consola** que no sea de red.
 
+## La otra prueba: `test/sandbox.js`
+
+Complementaria y con otro objetivo. `smoke.js` comprueba que la app **funciona**;
+`sandbox.js` comprueba que **sobrevive al iframe de Apps Script** —descargas,
+impresión, popups, portapapeles, `localStorage`—. Necesita `build/` hecho.
+Ver [appsscript.md](appsscript.md#los-riesgos-del-sandbox-medidos).
+
 ## Al modificar
 
 - Si algún día un módulo exige un backend para arrancar, agrégalo a `DROP`.

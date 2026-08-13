@@ -32,6 +32,7 @@ tener en cuenta al modificarlo.
 | Navegación entre vistas y config | [navegacion-config.md](navegacion-config.md) | `js/config.js` |
 | PWA / offline | [pwa-offline.md](pwa-offline.md) | `sw.js`, `manifest.json` |
 | Prueba de humo en navegador | [pruebas.md](pruebas.md) | `test/smoke.js` |
+| Build y despliegue en Apps Script | [appsscript.md](appsscript.md) | `tools/build.js`, `test/sandbox.js` |
 | Accesibilidad e iconos | [accesibilidad-iconos.md](accesibilidad-iconos.md) | `js/a11y.js`, `js/icons.js` |
 
 ## Convenciones del dominio
