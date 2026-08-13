@@ -303,10 +303,27 @@ function buildCard(t) {
 
   // Fila anfitriona de los botones de acción del panel expandido
   // (duplicar / editar / eliminar / cerrar, insertados en openDetailExpand).
-  // Nace vacía y CSS la oculta con `:empty` mientras la tarjeta está colapsada.
-  if (!t.terminado) {
-    const actionsRow = document.createElement('div'); actionsRow.className = 'card-actions-row';
-    card.appendChild(actionsRow);
+  // En los activos nace vacía y CSS la oculta con `:empty` mientras la tarjeta
+  // está colapsada; en los terminados aloja además "Reactivar".
+  const actionsRow = document.createElement('div');
+  actionsRow.className = 'card-actions-row';
+  card.appendChild(actionsRow);
+
+  if (t.terminado) {
+    const btnR = document.createElement('button');
+    btnR.className = 'btn-card-reactivar';
+    btnR.title = 'Devolver el trámite a ejecución';
+    btnR.innerHTML = '<i data-lucide="rotate-ccw"></i> Reactivar';
+    actionsRow.appendChild(btnR);
+    btnR.addEventListener('click', async e => {
+      e.stopPropagation();
+      if (!(await showConfirm('¿Devolver este trámite a ejecución?', { confirmLabel: 'Reactivar' }))) return;
+      pushHistory(`Reactivar trámite #${t.numero}`);
+      t.terminado = false; t.terminadoEn = null;
+      if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
+      saveAll(); renderAll();
+      showToast('Trámite reactivado.', null, { label: 'Deshacer', onClick: undo });
+    });
   }
 
   // Click en tarjeta → detalle (o selección si el modo selección está activo)

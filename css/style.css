@@ -741,6 +741,17 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
 }
 .expand-act-btns .btn-icon:hover { color: var(--accent); border-color: var(--accent); }
 .expand-act-btns .btn-icon-danger:hover { color: var(--danger); border-color: var(--danger); }
+/* Devolver un trámite terminado a ejecución */
+.btn-card-reactivar {
+  background: none; border: 1px dashed var(--border);
+  border-radius: 20px; padding: 4px 11px;
+  font-family: var(--font); font-size: 11px;
+  color: var(--text-muted); cursor: pointer;
+  display: inline-flex; align-items: center; gap: 5px;
+  transition: all var(--transition);
+}
+.btn-card-reactivar:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
+.btn-card-reactivar i, .btn-card-reactivar svg { width: 12px; height: 12px; }
 /* ═══════════════════ PANEL EXPANDIDO ════════════ */
 .expand-panel {
   border-top: 1px solid var(--border-light);
