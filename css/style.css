@@ -722,11 +722,13 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
 .seg-fecha.upcoming { background: var(--success-light); color: var(--success); }
 .seg-urg { font-size: 9px; flex-shrink: 0; }
 
-/* Botón nueva tarea en card */
-.card-nueva-tarea-row {
+/* Fila de acciones de la tarjeta (solo visible al expandir) */
+.card-actions-row {
   padding: 7px 14px; border-top: 1px solid var(--border-light);
   background: var(--surface-2); display: flex; align-items: center; gap: 8px;
 }
+/* Colapsada no tiene contenido: no debe dejar una franja vacía. */
+.card-actions-row:empty { display: none; }
 /* Action buttons embedded in card row when expanded */
 .expand-act-btns {
   display: inline-flex; align-items: center; gap: 4px; margin-left: auto;
@@ -739,14 +741,6 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
 }
 .expand-act-btns .btn-icon:hover { color: var(--accent); border-color: var(--accent); }
 .expand-act-btns .btn-icon-danger:hover { color: var(--danger); border-color: var(--danger); }
-.btn-card-tarea {
-  background: none; border: 1px dashed var(--border);
-  border-radius: 20px; padding: 4px 11px;
-  font-family: var(--font); font-size: 11px;
-  color: var(--text-muted); cursor: pointer; transition: all var(--transition);
-}
-.btn-card-tarea:hover { border-color: var(--accent); color: var(--accent); background: var(--accent-light); }
-
 /* ═══════════════════ PANEL EXPANDIDO ════════════ */
 .expand-panel {
   border-top: 1px solid var(--border-light);

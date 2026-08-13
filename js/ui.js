@@ -301,24 +301,17 @@ function buildCard(t) {
       </div>
     </div>`;
 
-  // Botón nueva tarea rápida
+  // Fila anfitriona de los botones de acción del panel expandido
+  // (duplicar / editar / eliminar / cerrar, insertados en openDetailExpand).
+  // Nace vacía y CSS la oculta con `:empty` mientras la tarjeta está colapsada.
   if (!t.terminado) {
-    const tareaRow = document.createElement('div'); tareaRow.className = 'card-nueva-tarea-row';
-    const btnT     = document.createElement('button'); btnT.className = 'btn-card-tarea'; btnT.innerHTML = '<i data-lucide="plus"></i> Nueva tarea';
-    tareaRow.appendChild(btnT); card.appendChild(tareaRow);
-    btnT.addEventListener('click', e => {
-      e.stopPropagation(); openDetail(t.id);
-      setTimeout(() => {
-        const pid  = `det_${t.id}`;
-        const form = document.getElementById(`${pid}_formNuevaTarea`);
-        if (form) { form.style.display = 'block'; setTimeout(() => document.getElementById(`${pid}_newActDesc`)?.focus(), 80); }
-      }, 380);
-    });
+    const actionsRow = document.createElement('div'); actionsRow.className = 'card-actions-row';
+    card.appendChild(actionsRow);
   }
 
   // Click en tarjeta → detalle (o selección si el modo selección está activo)
   card.addEventListener('click', e => {
-    if (e.target.closest('.card-checks') || e.target.closest('.card-nueva-tarea-row')) return;
+    if (e.target.closest('.card-checks') || e.target.closest('.card-actions-row')) return;
     if (typeof selIsActive === 'function' && (selIsActive() || e.ctrlKey || e.metaKey)) {
       e.preventDefault();
       if (selIsActive()) selToggle(t.id); else selEnter(t.id);
@@ -449,9 +442,9 @@ function openDetailExpand(t) {
   const card = wrapper.querySelector('.tramite-card');
   card.classList.add('card-open');
 
-  // Insert action buttons into the card-nueva-tarea-row
-  const tareaRow = card.querySelector('.card-nueva-tarea-row');
-  if (tareaRow && !tareaRow.querySelector('.expand-act-btns')) {
+  // Insert action buttons into the card action row
+  const actionsRow = card.querySelector('.card-actions-row');
+  if (actionsRow && !actionsRow.querySelector('.expand-act-btns')) {
     const actBtns = document.createElement('div');
     actBtns.className = 'expand-act-btns';
     actBtns.innerHTML = `
@@ -483,7 +476,7 @@ function openDetailExpand(t) {
     });
     actBtns.querySelector('[data-action="close"]').addEventListener('click', e => { e.stopPropagation(); closeAllExpands(); });
     actBtns.addEventListener('click', e => e.stopPropagation());
-    tareaRow.appendChild(actBtns);
+    actionsRow.appendChild(actBtns);
   }
 
   let panel = wrapper.querySelector('.expand-panel');
