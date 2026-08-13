@@ -31,8 +31,7 @@ añade sync en la nube.
 
 - Solo el propio usuario lee/escribe sus documentos; excepción: crear/leer el
   **propio** perfil solo requiere estar autenticado.
-- No se permite `list` global de `/users/` (de ahí la estrategia del
-  [dashboard](dashboard-admin.md)).
+- No se permite `list` global de `/users/`.
 
 ## Al modificar
 

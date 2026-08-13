@@ -1750,22 +1750,13 @@ body.selection-mode .tramite-card { cursor: pointer; user-select: none; }
   background: var(--surface-2); border-bottom: 1px solid var(--border);
 }
 .dash-table td { padding: 12px 14px; border-bottom: 1px solid var(--border-light); vertical-align: middle; }
-.dash-user-row:hover { background: var(--surface-2); }
 .dash-self-row { background: var(--accent-light); }
-.dash-user-cell { display: flex; align-items: center; gap: 10px; }
 .dash-avatar-initials { width: 32px; height: 32px; border-radius: 50%; background: var(--accent); color: #fff; display: flex; align-items: center; justify-content: center; font-size: 12px; font-weight: 700; flex-shrink: 0; }
 .dash-self-badge { background: var(--accent); color: #fff; font-size: 10px; padding: 2px 6px; border-radius: 8px; font-weight: 700; }
 .dash-email { color: var(--text-secondary); font-size: 12px; }
 .dash-num { font-weight: 700; font-family: var(--mono); }
 .dash-danger { color: var(--danger); font-weight: 600; }
 
-.dash-teams-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); gap: 12px; padding: 16px 20px; }
-.dash-team-card { background: var(--surface-2); border-radius: var(--radius-sm); padding: 16px; border: 1px solid var(--border-light); transition: box-shadow var(--transition); }
-.dash-team-card:hover { box-shadow: var(--shadow-md); }
-.dash-team-name { font-weight: 700; font-size: 14px; margin-bottom: 4px; display: flex; align-items: center; gap: 6px; }
-.dash-team-name svg { flex-shrink: 0; color: var(--accent); }
-.dash-team-meta { font-size: 12px; color: var(--text-muted); margin-bottom: 12px; }
-.dash-team-actions { display: flex; gap: 8px; }
 .dash-empty { padding: 24px; color: var(--text-muted); font-style: italic; font-size: 13px; text-align: center; }
 
 .team-member-list { max-height: 200px; overflow-y: auto; border: 1px solid var(--border); border-radius: var(--radius-sm); }
@@ -1972,14 +1963,6 @@ body.selection-mode .tramite-card { cursor: pointer; user-select: none; }
   border-radius: 8px;
   font-weight: 600;
   white-space: nowrap;
-}
-
-/* Sección del dashboard con borde de advertencia */
-.dash-section-warning {
-  border-left: 3px solid var(--warning, #f59e0b);
-}
-.dash-section-warning .dash-section-header h3 {
-  color: var(--warning-dark, #92400e);
 }
 
 /* Botón de éxito (aprobar) */

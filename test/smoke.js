@@ -19,7 +19,10 @@ const MIME = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css',
                '.json':'application/json', '.png':'image/png', '.svg':'image/svg+xml' };
 
 // Módulos que exigen Firebase cargado; en modo local no se incluyen.
-const DROP = ['js/firebase.js', 'js/auth.js', 'js/dashboard.js', 'js/notifications.js'];
+// `dashboard.js` sí se carga: el panel es puro `STATE.tramites` y su parte de
+// backups sólo toca Firestore dentro de funciones, guardada por
+// `AUTH.userProfile?.uid`, que con el stub es null.
+const DROP = ['js/firebase.js', 'js/auth.js', 'js/notifications.js'];
 
 function localIndex() {
   let html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
@@ -146,7 +149,30 @@ const ok = (c) => c ? 'PASA' : 'FALLA';
   const activeAfter = await page.$$eval('#tramiteList .tramite-card', e => e.length);
   out.push(['P3 vuelve a la lista activa', activeAfter === 2, `activas=${activeAfter}`]);
 
+  // ── Panel: KPIs sobre STATE, sin usuarios ni equipos ────
+  await page.click('.nav-item[data-view="dashboard"]');
+  await page.waitForTimeout(700);
+  const kpis = await page.$$eval('#dashKpiGrid .dash-kpi', els => els.map(e => ({
+    label: e.querySelector('.dash-kpi-label')?.textContent.trim(),
+    value: e.querySelector('.dash-kpi-value')?.textContent.trim(),
+  })));
+  out.push(['PANEL 5 KPIs y ninguno de usuarios', kpis.length === 5 &&
+            !kpis.some(k => /Usuario|Equipo|Compartido|Pendiente/i.test(k.label)),
+            kpis.map(k => `${k.label}=${k.value}`).join(', ')]);
+  // Tras reactivar t2 hay 2 activos y 0 terminados.
+  const kpiMap = Object.fromEntries(kpis.map(k => [k.label, k.value]));
+  out.push(['PANEL KPIs cuadran con el estado',
+            kpiMap['Trámites activos'] === '2' && kpiMap['Terminados'] === '0',
+            `activos=${kpiMap['Trámites activos']} terminados=${kpiMap['Terminados']}`]);
+  const metricCards = await page.$$eval('#dashMetricsRow .dash-metric-card', e => e.length);
+  const vencRows = await page.$$eval('#dashVencidosBody tr', els => els.length);
+  out.push(['PANEL métricas y tabla de vencidos', metricCards === 3 && vencRows >= 1,
+            `tarjetas=${metricCards} filas=${vencRows}`]);
+  await page.screenshot({ path: path.join(SHOT, 'panel.png') });
+
   // ── Punto 6: botones del reporte del día ────────────────
+  await page.click('.nav-item[data-view="all"]');
+  await page.waitForTimeout(400);
   await page.click('#reportBtn');
   await page.waitForTimeout(700);
   const rb = await page.$$eval('#reportOverlay .modal-header-actions button', els =>

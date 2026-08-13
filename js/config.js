@@ -54,7 +54,7 @@ function switchView(view) {
     agenda:    'Agenda',
     finished:  'Terminados',
     config:    'Configuración',
-    dashboard: '<i data-lucide="shield"></i> Dashboard Admin',
+    dashboard: 'Panel',
   };
   document.getElementById('topbarTitle').innerHTML = titles[view] || '';
 
@@ -492,13 +492,6 @@ function init() {
     e.stopPropagation();
     if (typeof toggleNotifPanel === 'function') toggleNotifPanel();
   });
-  document.getElementById('adminMsgBroadcastBtn')?.addEventListener('click', () => {
-    const msg = document.getElementById('adminMsgText')?.value.trim();
-    const target = document.getElementById('adminMsgTarget')?.value || 'all';
-    if (typeof adminSendBroadcast === 'function') adminSendBroadcast(msg, target).then(() => {
-      if (document.getElementById('adminMsgText')) document.getElementById('adminMsgText').value = '';
-    });
-  });
 
   // ── Auth UI ──────────────────────────────────────────────
   if (typeof initAuthUI    === 'function') initAuthUI();
@@ -510,11 +503,6 @@ function init() {
     if (typeof AUTH !== 'undefined' && AUTH.logout) {
       if (confirm('¿Cerrar sesión?')) AUTH.logout();
     }
-  });
-
-  // ── Admin: gestión de usuarios ───────────────────────────
-  document.getElementById('adminRefreshBtn')?.addEventListener('click', () => {
-    if (typeof loadAdminUsers === 'function') loadAdminUsers();
   });
 
   // ── ESC + Ctrl+Z ─────────────────────────────────────────
@@ -529,7 +517,6 @@ function init() {
     if (e.key !== 'Escape') return;
     const close = sel => document.querySelector(sel)?.classList.contains('open');
     if (close('#confirmOverlay'))    { _confirmClose(false); return; }
-    if (close('#createTeamOverlay')) { if (typeof closeTeamModal === 'function') closeTeamModal(); return; }
     if (close('#reportOverlay'))  { closeReport();   return; }
     if (close('#detailOverlay'))  { closeDetail();   return; }
     if (close('#modalOverlay'))   { closeModal();    return; }
@@ -644,7 +631,6 @@ document.addEventListener('click', e => {
     detailOverlay:      'closeDetail',
     reportOverlay:      'closeReport',
     reporteOverlay:     'closeReporte',
-    createTeamOverlay:  'closeTeamModal',
     editProfileOverlay: 'closeEditProfileModal',
   };
   const fn = byId[overlay.id];

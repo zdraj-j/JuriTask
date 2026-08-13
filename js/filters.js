@@ -218,9 +218,5 @@ function syncConfigAccountUI() {
   // Mostrar filtro de scope solo si tiene equipo
   const sw = el('filterScopeWrap');
   if (sw) sw.style.display = p.teamId ? '' : 'none';
-
-  // Mostrar nav de dashboard solo si es admin
-  const dashNav = document.querySelector('.dash-nav-item');
-  if (dashNav) dashNav.style.display = p.role === 'admin' ? '' : 'none';
 }
 const updateAbogadoNames = updateAbogadoSelects;

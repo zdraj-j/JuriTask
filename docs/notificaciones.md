@@ -1,7 +1,6 @@
 # Proceso: Notificaciones
 
-Avisa de tareas asignadas por compañeros, mensajes del admin y tareas
-estancadas. Requiere Firebase (Auth + Firestore) cargado antes.
+Avisa de tareas asignadas por compañeros y de tareas estancadas. Requiere Firebase (Auth + Firestore) cargado antes.
 
 ## Archivos
 
@@ -19,7 +18,6 @@ estancadas. Requiere Firebase (Auth + Firestore) cargado antes.
 ## Tipos
 
 - **Tarea asignada** por otro miembro del equipo.
-- **Mensaje del admin** (ver [dashboard](dashboard-admin.md)).
 - **Estancamiento**: recordatorio local cuando hay pendientes sin atender.
 
 ## Al modificar

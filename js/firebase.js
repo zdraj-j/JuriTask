@@ -494,10 +494,6 @@ auth.onAuthStateChanged(async user => {
     if (typeof loadTeamMembers      === 'function') loadTeamMembers();
     if (typeof initNotifications    === 'function') initNotifications();
     if (typeof startBitacoraWatcher === 'function') startBitacoraWatcher();
-    // Admin: arrancar listener de cuentas pendientes
-    if (AUTH.userProfile.role === 'admin' && typeof startPendingListener === 'function') {
-      startPendingListener();
-    }
 
   } else {
     // Sin sesión — limpiar TODO el estado para evitar fugas entre cuentas

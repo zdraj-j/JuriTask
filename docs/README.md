@@ -22,7 +22,7 @@ tener en cuenta al modificarlo.
 | Autenticación (UI) | [autenticacion.md](autenticacion.md) | `js/auth.js` |
 | Sincronización con Firebase | [sincronizacion-firebase.md](sincronizacion-firebase.md) | `js/firebase.js`, `firebase.rules` |
 | Notificaciones | [notificaciones.md](notificaciones.md) | `js/notifications.js` |
-| Dashboard de administración | [dashboard-admin.md](dashboard-admin.md) | `js/dashboard.js` |
+| Panel de indicadores | [panel.md](panel.md) | `js/dashboard.js` |
 | Adjuntos y Google Drive | [drive-adjuntos.md](drive-adjuntos.md) | `js/drive.js` |
 | Selección múltiple y lotes | [seleccion-multiple.md](seleccion-multiple.md) | `js/selection.js` |
 | Paleta de comandos y atajos | [paleta-comandos.md](paleta-comandos.md) | `js/commandpalette.js` |
