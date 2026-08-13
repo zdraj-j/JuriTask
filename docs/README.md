@@ -3,12 +3,11 @@
 JuriTask es una PWA (sin framework, JS modular cargado por `<script>`) para la
 gestión de trámites jurídicos: vencimientos, tareas de seguimiento, reportes y
 agenda diaria. Es de **un solo usuario**: no hay login, ni cuentas, ni equipos.
-Los datos viven en `localStorage`.
 
-> **Migración en curso.** El destino es una *web app de Apps Script*, con los
-> datos en un JSON de Drive y el correo gestionado desde el servidor. Por eso
-> ya no hay Firebase, y el acceso a Gmail/Drive está en pausa: ver
-> [google-auth.md](google-auth.md).
+> **Migración en curso.** El destino es una *web app de Apps Script*. Los datos
+> ya van a un **JSON de Drive** cuando hay servidor ([datos-drive.md](datos-drive.md));
+> en un navegador normal la app sigue funcionando solo con `localStorage`. Falta
+> mover el correo al servidor (Fase 4).
 
 Cada archivo de esta carpeta documenta **un proceso** de la app: para qué
 sirve, qué archivos lo implementan, su modelo de datos y los puntos delicados a
@@ -19,6 +18,7 @@ tener en cuenta al modificarlo.
 | Proceso | Documento | Archivo(s) principal(es) |
 |---|---|---|
 | Estado, almacenamiento e historial | [almacenamiento-estado.md](almacenamiento-estado.md) | `js/storage.js` |
+| Datos en Drive y backups | [datos-drive.md](datos-drive.md) | `server/Datos.gs`, `js/backend.js` |
 | Trámites (CRUD y dominio) | [tramites.md](tramites.md) | `js/tramites.js`, `js/ui.js` |
 | Filtros y búsqueda | [filtros-busqueda.md](filtros-busqueda.md) | `js/filters.js` |
 | Agenda accionable | [agenda.md](agenda.md) | `js/ui.js` |

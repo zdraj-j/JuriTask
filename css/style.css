@@ -1530,6 +1530,16 @@ body.selection-mode .tramite-card { cursor: pointer; user-select: none; }
 .ti-atts { grid-column: 1 / -1; display: flex; gap: 4px; flex-wrap: wrap; }
 .ti-atts:empty { display: none; }
 
+/* ═══════════════════ BACKUPS ════════════════════ */
+.backup-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm); background: var(--surface-2);
+  margin-bottom: 6px;
+}
+.backup-fecha { font-size: 13px; color: var(--text-primary); flex: 1; }
+.backup-meta  { font-size: 12px; color: var(--text-muted); }
+
 /* ═══════════════════ DASHBOARD ══════════════════ */
 .dash-kpi-grid {
   display: grid;

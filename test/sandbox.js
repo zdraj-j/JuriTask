@@ -50,21 +50,92 @@ const top = http.createServer((req, res) => {
         src="http://localhost:${PORT_SANDBOX}/index.html"></iframe>`);
 });
 
+// Simulación de `google.script.run`: un Datos.gs de mentira, en memoria, con
+// la misma forma de API (handlers encadenados, sin promesas). Sirve para
+// ejercitar el camino "con servidor" —que es el que no se puede probar de otra
+// manera sin desplegar— y comprobar el ciclo completo guardar/leer.
+const FAKE_SERVER = `<script>
+(function () {
+  // Respaldado en sessionStorage: el Drive de verdad no se borra al recargar,
+  // y sin esto la comprobación 8 mediría el reinicio del falso, no la app.
+  var CLAVE = '__jt_fake_drive';
+  var almacen;
+  try { almacen = JSON.parse(sessionStorage.getItem(CLAVE)) || null; } catch (e) { almacen = null; }
+  if (!almacen) almacen = { datos: '', backups: [] };
+  function persistir() {
+    try { sessionStorage.setItem(CLAVE, JSON.stringify(almacen)); } catch (e) {}
+  }
+  var metodos = {
+    getEstado:        function () { return almacen.datos; },
+    guardarEstado:    function (json) {
+      JSON.parse(json);                        // igual que el servidor real
+      almacen.datos = json; persistir();
+      return { ok: true, guardadoEn: new Date().toISOString(), bytes: json.length };
+    },
+    estadoDelAlmacen: function () {
+      return { existe: !!almacen.datos, bytes: almacen.datos.length,
+               modificado: new Date().toISOString(), ultimoGuardado: '',
+               carpetaUrl: 'https://drive.google.com/drive/folders/falsa' };
+    },
+    crearBackup:      function () {
+      var b = { id: 'b' + almacen.backups.length, nombre: 'juritask-backup.json',
+                bytes: almacen.datos.length, creadoEn: new Date().toISOString(),
+                contenido: almacen.datos };
+      almacen.backups.unshift(b); persistir(); return b;
+    },
+    listarBackups:    function () { return almacen.backups.map(function (b) {
+                        return { id: b.id, nombre: b.nombre, bytes: b.bytes, creadoEn: b.creadoEn }; }); },
+    leerBackup:       function (id) {
+      var b = almacen.backups.filter(function (x) { return x.id === id; })[0];
+      if (!b) throw new Error('no existe'); return b.contenido;
+    },
+    borrarBackup:     function (id) {
+      almacen.backups = almacen.backups.filter(function (x) { return x.id !== id; });
+      persistir(); return { ok: true };
+    },
+    getOAuthToken:    function () { return 'token-de-mentira'; },
+  };
+  function runner(onOk, onErr) {
+    var api = {
+      withSuccessHandler: function (f) { return runner(f, onErr); },
+      withFailureHandler: function (f) { return runner(onOk, f); },
+    };
+    Object.keys(metodos).forEach(function (nombre) {
+      api[nombre] = function () {
+        var args = Array.prototype.slice.call(arguments);
+        // Asíncrono, como el de verdad.
+        setTimeout(function () {
+          try { var r = metodos[nombre].apply(null, args); if (onOk) onOk(r); }
+          catch (e) { if (onErr) onErr(e); }
+        }, 5);
+      };
+    });
+    return api;
+  }
+  window.google = { script: { run: runner(null, null) } };
+  window.__almacen = almacen;
+})();
+</script>`;
+
 // ── Servidor "interior": el html generado por el build ──────────────────────
-function servedIndex() {
+function servedIndex(conServidor) {
   // `include()` del servidor de Apps Script, resuelto aquí en Node.
-  return fs.readFileSync(path.join(BUILD, 'index.html'), 'utf8')
+  let html = fs.readFileSync(path.join(BUILD, 'index.html'), 'utf8')
     .replace(/<\?!= include\('([\w]+)'\) \?>/g,
              (_, n) => fs.readFileSync(path.join(BUILD, `${n}.html`), 'utf8'))
     // Sin red, `icons.js` necesita un lucide de mentira.
     .replace('<script>', '<script>window.lucide={createIcons(){}};</script>\n<script>');
+  if (conServidor) html = html.replace('</head>', FAKE_SERVER + '\n</head>');
+  return html;
 }
+
+let CON_SERVIDOR = false;
 
 const sandbox = http.createServer((req, res) => {
   const url = req.url.split('?')[0];
   if (url === '/' || url === '/index.html') {
     res.writeHead(200, { 'Content-Type': 'text/html' });
-    return res.end(servedIndex());
+    return res.end(servedIndex(CON_SERVIDOR));
   }
   const file = path.join(ROOT, url);
   if (!file.startsWith(ROOT) || !fs.existsSync(file)) { res.writeHead(404); return res.end('x'); }
@@ -204,6 +275,108 @@ async function correr(variante, browser) {
   return out;
 }
 
+/**
+ * Escenario "con servidor": mismo sandbox, pero con `google.script.run`
+ * simulado. Comprueba el ciclo que la Fase 3 introduce y que no se puede
+ * probar de otra forma sin desplegar.
+ */
+async function correrConServidor(browser) {
+  CON_SERVIDOR = true;
+  SANDBOX = VARIANTES[0].attr;
+  const ctx = await browser.newContext({ viewport: { width: 1280, height: 900 } });
+  const page = await ctx.newPage();
+  const errors = [];
+  page.on('pageerror', e => errors.push('PAGEERROR: ' + e.message));
+  page.on('console', m => { if (m.type() === 'error') errors.push('CONSOLE: ' + m.text()); });
+  await page.route('**', r =>
+    r.request().url().startsWith('http://localhost:81') ? r.continue() : r.abort());
+
+  await page.addInitScript(() => {
+    try {
+      localStorage.setItem('juritask_tramites', JSON.stringify([
+        { id:'s1', numero:'90001', descripcion:'Sembrado en local', modulo:'CNT',
+          tipo:'propio', terminado:false, gestion:{}, seguimiento:[] },
+      ]));
+      localStorage.setItem('juritask_order', JSON.stringify(['s1']));
+    } catch (_) {}
+  });
+
+  await page.goto(`http://localhost:${PORT_TOP}/`, { waitUntil: 'load' });
+  const fr = () => page.frames().find(f => f.url().includes(`:${PORT_SANDBOX}`));
+  const frame = page.frameLocator('#userCodeAppPanel');
+  await page.waitForTimeout(1800);   // margen para el sync inicial
+
+  const out = [];
+
+  // 6. El backend se detecta y siembra Drive con lo local (primer arranque).
+  // `const BACKEND` vive en el ámbito léxico global, no en `window`: lo que se
+  // comprueba es el efecto observable —que el estado llegó al servidor—.
+  const sembrado = await fr().evaluate(() => {
+    const d = window.__almacen.datos;
+    return { enviado: !!d, tramites: d ? JSON.parse(d).tramites.length : 0 };
+  });
+  out.push(['6. detecta el servidor y siembra Drive',
+            sembrado.enviado && sembrado.tramites === 1,
+            `trámites en Drive=${sembrado.tramites}`]);
+
+  // 7. Un cambio en la UI llega a Drive tras el debounce.
+  await frame.locator('#newTramiteBtn').click();
+  await page.waitForTimeout(400);
+  await frame.locator('#fNumero').fill('77777');
+  await frame.locator('#fDescripcion').fill('Creado con servidor');
+  await frame.locator('#saveTramite').click();
+  await page.waitForTimeout(3200);   // debounce de 2,5 s + margen
+  const trasCrear = await fr().evaluate(() =>
+    JSON.parse(window.__almacen.datos || '{}').tramites.map(t => t.numero));
+  out.push(['7. el cambio sube a Drive tras el debounce',
+            trasCrear.includes('77777'), `en Drive: ${trasCrear.join(', ')}`]);
+
+  // 8. Al recargar, Drive manda sobre la caché local. `addInitScript` vuelve a
+  //    sembrar 1 trámite en local, así que si acaban saliendo 2 es porque los
+  //    trajo el servidor.
+  await page.reload({ waitUntil: 'load' });
+  await page.waitForTimeout(2000);
+  const trasRecarga = await frame.locator('#tramiteList .tramite-card').count();
+  out.push(['8. al recargar, Drive gana a la caché local', trasRecarga === 2,
+            `tarjetas tras recargar=${trasRecarga}`]);
+
+  // 9. Backups: la sección aparece y el ciclo crear/listar funciona.
+  await frame.locator('.nav-item[data-view="config"]').click();
+  await page.waitForTimeout(900);
+  const seccionVisible = await fr().evaluate(() => {
+    const s = document.getElementById('backupSection');
+    return !!(s && s.offsetParent !== null);
+  });
+  await frame.locator('#backupNowBtn').click();
+  await page.waitForTimeout(1200);
+  const backups = await fr().evaluate(() => ({
+    enServidor: window.__almacen.backups.length,
+    enLista: document.querySelectorAll('#backupList .backup-row').length,
+  }));
+  out.push(['9. backups en Drive: sección, crear y listar',
+            seccionVisible && backups.enServidor === 1 && backups.enLista === 1,
+            `sección=${seccionVisible ? 'visible' : 'oculta'} servidor=${backups.enServidor} lista=${backups.enLista}`]);
+
+  // 10. El token OAuth ya sale del servidor, sin popup.
+  const token = await fr().evaluate(async () => {
+    resetGoogleToken();
+    return await ensureGoogleToken();
+  });
+  out.push(['10. el token OAuth viene del servidor', token === 'token-de-mentira',
+            token ? `token="${token}"` : 'null']);
+
+  console.log('\n══ Variante: con servidor simulado (google.script.run) ══\n');
+  for (const [name, pass, detail] of out) {
+    console.log(`[${ok(pass)}] ${name.padEnd(42)} ${detail}`);
+  }
+  const real = errors.filter(e => !/Failed to load resource|net::ERR|ERR_FAILED/i.test(e));
+  if (real.length) console.log('\n   errores de página:\n   ' + real.join('\n   '));
+
+  await ctx.close();
+  CON_SERVIDOR = false;
+  return out;
+}
+
 (async () => {
   if (!fs.existsSync(path.join(BUILD, 'index.html'))) {
     console.error('Falta build/. Ejecuta primero: node tools/build.js');
@@ -216,14 +389,17 @@ async function correr(variante, browser) {
   console.log('=== RIESGOS DEL SANDBOX DE APPS SCRIPT ===');
   const resultados = [];
   for (const v of VARIANTES) resultados.push([v, await correr(v, browser)]);
+  resultados.push([{ nombre: 'con servidor simulado' }, await correrConServidor(browser)]);
 
   console.log('\n══ RESUMEN ══');
   for (const [v, out] of resultados) {
     const f = out.filter(o => !o[1]).length;
-    console.log(`  ${v.nombre.padEnd(24)} ${out.length - f}/${out.length} riesgos despejados`);
+    console.log(`  ${v.nombre.padEnd(24)} ${out.length - f}/${out.length} comprobaciones`);
   }
   await browser.close();
   top.close(); sandbox.close();
-  // Solo bloquea la migración que falle la variante buena.
-  process.exit(resultados[0][1].filter(o => !o[1]).length ? 1 : 0);
+  // Bloquean la variante buena del sandbox y el escenario con servidor; la
+  // variante sin allow-same-origin es informativa.
+  const criticos = resultados[0][1].concat(resultados[2][1]).filter(o => !o[1]).length;
+  process.exit(criticos ? 1 : 0);
 })();

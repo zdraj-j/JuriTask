@@ -110,6 +110,10 @@ function init() {
   if (isMobile()) closeSidebar();
   renderAll();
 
+  // Con servidor, traer lo de Drive **después** del primer render: la app ya
+  // está pintada con la caché local y no se queda en blanco esperando.
+  if (typeof sincronizarConServidor === 'function') sincronizarConServidor();
+
   setupContainerDrop(document.getElementById('tramiteList'));
 
   // ── Confirm dialog ───────────────────────────────────────
@@ -447,6 +451,15 @@ function init() {
     applyCssColors(); applyTheme('claro'); populateModuloSelects(); updateAbogadoSelects();
     document.getElementById('sortSelect').value = 'vencimiento';
     renderConfig(); renderAll(); showToast('Datos borrados.');
+  });
+
+  // ── Backups en Drive ─────────────────────────────────────
+  document.getElementById('backupNowBtn')?.addEventListener('click', e => crearBackupAhora(e.currentTarget));
+  document.getElementById('backupList')?.addEventListener('click', e => {
+    const r = e.target.closest('[data-restaurar]');
+    if (r) { restaurarBackup(r.dataset.restaurar); return; }
+    const b = e.target.closest('[data-borrar]');
+    if (b) borrarBackupPorId(b.dataset.borrar);
   });
 
   // ── Panel ────────────────────────────────────────────────

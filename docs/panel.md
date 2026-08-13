@@ -38,10 +38,16 @@ cumplimiento marcado ya no vence** (ver
 (top 5), por abogado, y estado de tareas con la tasa de vencimiento. Es una
 función pura sobre los arrays que recibe.
 
+## Estado del almacén
+
+`_renderSyncEstado()` muestra bajo los KPIs el tamaño del JSON en Drive y
+cuándo se escribió por última vez. Solo aparece con servidor; en un navegador
+normal se oculta.
+
 ## Backups
 
-Ya no hay: iban contra Firestore. Mientras tanto, **Exportar** en Ajustes baja
-el JSON completo. Vuelven en la Fase 3, sobre Drive.
+Viven en Drive y su UI está en Ajustes, no aquí. Ver
+[datos-drive.md](datos-drive.md#backups).
 
 ## Al modificar
 

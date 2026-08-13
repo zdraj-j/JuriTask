@@ -5,7 +5,7 @@ código fuente.
 
 ```bash
 node tools/build.js      # genera build/
-node test/sandbox.js     # prueba los riesgos del sandbox sobre lo generado
+node test/sandbox.js     # prueba el sandbox y el ciclo con servidor simulado
 ```
 
 ## Por qué hace falta un build
@@ -19,10 +19,11 @@ Un proyecto de Apps Script solo admite ficheros **`.gs` y `.html`**. No hay
 | `css/style.css` | `estilos.html` | envuelto en `<style>` |
 | `js/ui.js` | `js_ui.html` | envuelto en `<script>`; los guiones del nombre pasan a `_` |
 | `assets/logo/*.png` | — | incrustados como `data:` URI |
-| — | `Codigo.gs` | `doGet()` + `include()` |
+| `server/*.gs` | `Codigo.gs`, `Datos.gs` | copiados tal cual: son fuente, no generados |
 | — | `appsscript.json` | scopes, zona horaria, servicio avanzado de Gmail |
 
-Salida actual: **22 ficheros, ~430 KB**.
+Salida actual: del orden de **24 ficheros y ~450 KB**; el build lo
+imprime al terminar.
 
 ### El detalle que muerde: `<?` dentro del código
 
@@ -80,10 +81,10 @@ sin allow-same-origin    5/7 riesgos despejados
 **Cómo salir de dudas**: tras el primer despliegue, abrir el `/exec`, inspeccionar
 el iframe `#userCodeAppPanel` en DevTools y leer su atributo `sandbox`.
 
-Y en cualquier caso, esto **no bloquea la migración**: la Fase 3 mueve los datos
-a un JSON de Drive, donde `localStorage` pasa a ser una caché opcional. Si
-resulta que no está disponible, se pierde la caché local, no los datos. Por eso
-todos los accesos a `localStorage` van dentro de `try/catch`.
+Y en cualquier caso, **ya no bloquea**: desde la Fase 3 los datos viven en un
+JSON de Drive y `localStorage` es solo caché ([datos-drive.md](datos-drive.md)).
+Si no está disponible se pierde la caché, no los datos — la app arranca más
+lenta, pero arranca. Por eso todos los accesos van dentro de `try/catch`.
 
 ## Despliegue
 
@@ -101,7 +102,7 @@ cd build && clasp push && clasp deploy
 | Scope | Para qué |
 |---|---|
 | `gmail.modify` | leer, crear borradores y etiquetar hilos |
-| `drive.file` | el JSON de datos (Fase 3) y los adjuntos |
+| `drive.file` | el JSON de datos y los backups ([datos-drive.md](datos-drive.md)) |
 | `script.external_request` | llamar a Gemini con `UrlFetchApp` |
 | `script.scriptapp` | crear los triggers |
 | `script.send_mail` | el correo-resumen diario |

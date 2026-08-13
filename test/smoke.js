@@ -94,10 +94,22 @@ const ok = (c) => c ? 'PASA' : 'FALLA';
   // ── Amputación: no queda rastro de sesión ni de equipos ─
   const authLeftovers = await page.evaluate(() => [
     'authScreen','waitScreen','splashScreen','notifPanel','notifBtn','userAvatarBtn',
-    'profileOverlay','editProfileOverlay','logoutBtn','backupList','filterScope','repScope',
+    'profileOverlay','editProfileOverlay','logoutBtn','filterScope','repScope',
   ].filter(id => document.getElementById(id)));
-  out.push(['AMP sin UI de sesión ni backups', authLeftovers.length === 0,
+  out.push(['AMP sin UI de sesión', authLeftovers.length === 0,
             authLeftovers.length ? authLeftovers.join(', ') : 'ninguno']);
+
+  // Sin servidor no hay dónde guardar backups: la sección debe quedar oculta.
+  await page.click('.nav-item[data-view="config"]');
+  await page.waitForTimeout(500);
+  const backupVisible = await page.evaluate(() => {
+    const s = document.getElementById('backupSection');
+    return !!(s && s.offsetParent !== null);
+  });
+  out.push(['AMP backups ocultos sin servidor', backupVisible === false,
+            backupVisible ? 'visible (no debería)' : 'oculta']);
+  await page.click('.nav-item[data-view="all"]');
+  await page.waitForTimeout(400);
   const globals = await page.evaluate(() =>
     ['firebase','AUTH','db','auth'].filter(g => g in window));
   out.push(['AMP sin globals de Firebase', globals.length === 0,

@@ -1745,6 +1745,9 @@ function renderConfig() {
   const bInt=document.getElementById('bitacoraIntervalo');  if(bInt) bInt.value=STATE.config.bitacoraIntervalo??10;
   const bDia=document.getElementById('bitacoraDias');       if(bDia) bDia.value=STATE.config.bitacoraDias??7;
   const drT=document.getElementById('diasRestantesToggle'); if(drT) drT.checked=!!(STATE.config.diasRestantes);
+
+  // Backups: la sección se muestra sola solo si hay servidor.
+  if (typeof renderBackupList === 'function') renderBackupList();
 }
 
 function renderAbogadosList() {

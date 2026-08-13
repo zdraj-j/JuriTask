@@ -61,9 +61,20 @@ consola** que no sea de red.
 ## La otra prueba: `test/sandbox.js`
 
 Complementaria y con otro objetivo. `smoke.js` comprueba que la app **funciona**;
-`sandbox.js` comprueba que **sobrevive al iframe de Apps Script** —descargas,
-impresión, popups, portapapeles, `localStorage`—. Necesita `build/` hecho.
-Ver [appsscript.md](appsscript.md#los-riesgos-del-sandbox-medidos).
+`sandbox.js` comprueba que **sobrevive al iframe de Apps Script**. Necesita
+`build/` hecho. Corre tres escenarios:
+
+1. Sandbox **con** `allow-same-origin` — descargas, impresión, popups,
+   portapapeles y `localStorage`.
+2. Sandbox **sin** él — informativo, para ver qué se pierde.
+3. **Con servidor simulado**: inyecta un `google.script.run` de mentira,
+   respaldado en `sessionStorage`, y ejercita el ciclo completo de la Fase 3 —
+   sembrado inicial, subida tras el debounce, Drive ganando a la caché local al
+   recargar, backups y token OAuth—. Es la única forma de probar ese camino sin
+   desplegar.
+
+Ver [appsscript.md](appsscript.md#los-riesgos-del-sandbox-medidos) y
+[datos-drive.md](datos-drive.md).
 
 ## Al modificar
 

@@ -82,28 +82,9 @@ for (const { file, src } of incluidos) {
 }
 
 // ── 3. Código de servidor ───────────────────────────────────────────────────
-wr('Codigo.gs', `/**
- * JuriTask — punto de entrada de la web app.
- *
- * Generado por tools/build.js. No editar aquí: los cambios se pierden en el
- * siguiente build.
- */
-
-function doGet() {
-  return HtmlService.createTemplateFromFile('index')
-    .evaluate()
-    .setTitle('JuriTask')
-    .addMetaTag('viewport', 'width=device-width, initial-scale=1, viewport-fit=cover');
-}
-
-/**
- * Inserta un fichero .html del proyecto sin evaluar sus scriptlets.
- * Es lo que permite que el código con "<?xml …?>" (xlsx.js) viaje intacto.
- */
-function include(nombre) {
-  return HtmlService.createHtmlOutputFromFile(nombre).getContent();
-}
-`);
+// Los .gs de `server/` se copian tal cual: son fuente, no generados.
+const servidor = fs.readdirSync(path.join(ROOT, 'server')).filter(f => f.endsWith('.gs'));
+for (const f of servidor) wr(f, rd(`server/${f}`));
 
 // ── 4. Manifiesto ───────────────────────────────────────────────────────────
 wr('appsscript.json', JSON.stringify({
@@ -129,4 +110,4 @@ wr('appsscript.json', JSON.stringify({
 const files = fs.readdirSync(OUT);
 const bytes = files.reduce((n, f) => n + fs.statSync(path.join(OUT, f)).size, 0);
 console.log(`build/  ${files.length} ficheros, ${(bytes / 1024).toFixed(0)} KB`);
-console.log(`  ${incluidos.length} módulos JS + estilos.html + Codigo.gs + appsscript.json`);
+console.log(`  ${incluidos.length} módulos JS + estilos.html + ${servidor.length} .gs + appsscript.json`);

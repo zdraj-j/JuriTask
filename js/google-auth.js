@@ -1,25 +1,35 @@
 /**
  * JuriTask — google-auth.js
- * Punto único de obtención del token OAuth de Google (Gmail, Drive, Calendar).
+ * Punto único de obtención del token OAuth de Google (Gmail, Drive).
  *
- * Hasta ahora lo daba Firebase Auth con `reauthenticateWithPopup`. Al retirar
- * Firebase, el navegador se queda sin forma de pedirlo, y no tiene sentido
- * montar un segundo mecanismo de OAuth de cliente: el sustituto es el servidor
- * de Apps Script, que se autoriza una sola vez y expone el token con
- * `ScriptApp.getOAuthToken()`.
+ * Antes lo daba Firebase Auth con `reauthenticateWithPopup`, con su popup, su
+ * caducidad a los 7 días y su aviso de "app no verificada". Ahora lo da el
+ * servidor de Apps Script vía `ScriptApp.getOAuthToken()`: autorizado una sola
+ * vez al desplegar, sin popup y sin caducidad.
  *
- * Mientras llega esa fase, `ensureGoogleToken()` avisa y devuelve null. Todo lo
- * que cuelga de él —búsqueda y parseo de correos, plantillas, prompts— sigue
- * intacto, que es justo lo que se porta al servidor.
+ * En un navegador sin servidor —desarrollo y pruebas— no hay token posible:
+ * avisa y devuelve null. El resto de la app lo trata como "sin permiso".
  */
 
 const GOOGLE = {
-  accessToken: null,   // lo llenará `google.script.run` en la Fase 4
+  accessToken: null,
 };
 
 async function ensureGoogleToken() {
   if (GOOGLE.accessToken) return GOOGLE.accessToken;
-  showToast('El acceso al correo se está trasladando al servidor. Aún no disponible.');
+
+  // Con servidor: el token lo da Apps Script, ya autorizado, sin popup.
+  if (typeof BACKEND !== 'undefined' && BACKEND.disponible) {
+    try {
+      GOOGLE.accessToken = await srv('getOAuthToken');
+      return GOOGLE.accessToken;
+    } catch (e) {
+      showToast('No se pudo obtener el permiso de Google: ' + e.message);
+      return null;
+    }
+  }
+
+  showToast('El acceso al correo requiere el servidor (Apps Script).');
   return null;
 }
 

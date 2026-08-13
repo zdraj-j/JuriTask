@@ -161,6 +161,9 @@
         </div>
       </div>
 
+      <!-- Estado del almacén (solo con servidor) -->
+      <p class="config-hint" id="dashSyncEstado" style="display:none;margin:-8px 0 18px"></p>
+
       <!-- Métricas visuales -->
       <div id="dashMetricsRow" class="dash-metrics-row"></div>
 
@@ -302,8 +305,16 @@
           </div>
         </div>
 
-
-
+        <!-- Solo con servidor: los backups viven en Drive. -->
+        <div class="config-section" id="backupSection" style="display:none">
+          <h3><i data-lucide="save"></i> Backups en Drive</h3>
+          <p class="config-hint" id="backupEstado">Comprobando…</p>
+          <div class="config-btns-row" style="margin-bottom:14px">
+            <button class="btn btn-primary" id="backupNowBtn"><i data-lucide="upload"></i> Crear backup ahora</button>
+            <a class="btn-small" id="backupCarpetaLink" target="_blank" rel="noopener" style="display:none"><i data-lucide="folder-open"></i> Abrir carpeta</a>
+          </div>
+          <div id="backupList"></div>
+        </div>
 
 
         <div class="config-section config-danger-zone">
@@ -597,6 +608,7 @@
 <script src="js/a11y.js"></script>
 
 <!-- 1. Base de la app -->
+<script src="js/backend.js"></script>
 <script src="js/storage.js"></script>
 <script src="js/tramites.js"></script>
 <script src="js/filters.js"></script>
