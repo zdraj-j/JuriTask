@@ -575,14 +575,6 @@ function buildDetailContent(t) {
         <textarea id="${p}_newNota" placeholder="Escribe una nota…" rows="2"></textarea>
         <button class="btn-small" id="${p}_addNota">+ Nota</button>
       </div>
-    </div>
-    <div class="detail-section">
-      <h3><i data-lucide="mail"></i> Bitácora del correo</h3>
-      <div id="${p}_bitacora"></div>
-      <div class="config-btns-row" style="margin-top:8px">
-        <button class="btn-small" id="${p}_refreshBitacora"><i data-lucide="refresh-cw"></i> Actualizar desde el correo</button>
-        <button class="btn-small" id="${p}_agendarAudiencia"><i data-lucide="calendar-plus"></i> Detectar y agendar audiencia</button>
-      </div>
     </div>`;
 }
 
@@ -675,16 +667,6 @@ function bindDetailContent(t, container, expandWrapper) {
     container.querySelector(`#${p}_newNota`).value = '';
     if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
     saveAll(); renderNotasIn(t, container.querySelector(`#${p}_notas`)); showToast('Nota agregada.');
-  });
-
-  // Bitácora del correo (Gemini) — render inicial + botón de actualización.
-  const bitEl = container.querySelector(`#${p}_bitacora`);
-  if (bitEl && typeof renderBitacoraIn === 'function') renderBitacoraIn(t, bitEl);
-  container.querySelector(`#${p}_refreshBitacora`)?.addEventListener('click', e => {
-    if (typeof refreshTramiteBitacora === 'function') refreshTramiteBitacora(t, bitEl, e.currentTarget);
-  });
-  container.querySelector(`#${p}_agendarAudiencia`)?.addEventListener('click', e => {
-    if (typeof agendarAudienciaDesdeCorreo === 'function') agendarAudienciaDesdeCorreo(t, e.currentTarget);
   });
 }
 

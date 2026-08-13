@@ -1,20 +1,19 @@
 # Proceso: Integración con el correo (Gmail / Google Workspace)
 
 Permite que JuriTask lea el correo del usuario (con su permiso) para **detectar
-trámites nuevos** y **resumir lo que pasa en cada trámite**, más **contactos
-externos**. Todo ocurre en el navegador; no hay backend.
+trámites nuevos** y **redactar los borradores de requerimiento**. Todo ocurre en
+el navegador; no hay backend.
 
 ## Archivos
 
-- `js/gmail.js` → acceso a la Gmail API (token, búsqueda, parseo), panel de
-  detección de trámites nuevos, y bitácora por trámite.
-- `js/gemini.js` → cliente mínimo de la API de Gemini (resumen y contactos).
-- `js/ui.js` → sección "Bitácora del correo" en el detalle (`buildDetailContent`
-  / `bindDetailContent`).
+- `js/gmail.js` → acceso a la Gmail API (token, búsqueda, parseo) y panel de
+  detección de trámites nuevos. `fetchEmailsForTramite()` y `_extractRadicado()`
+  son la puerta de entrada al hilo de un trámite, y las consume `borradores.js`.
+- `js/gemini.js` → cliente mínimo de la API de Gemini.
 - `js/config.js` + `index.html` → campo en Ajustes para la API key de Gemini y
   botón "Revisar correo" en la barra superior.
 
-## Fase 1 — Detección de trámites nuevos (sin IA)
+## Detección de trámites nuevos (sin IA)
 
 1. Botón ✉️ en la barra → `runGmailScan`.
 2. `_ensureGmailToken` pide un token con scope `gmail.readonly` (popup de Google,
@@ -49,19 +48,7 @@ La caché es **de sesión**: al recargar la app se pierde y la siguiente revisi�
 vuelve a consultar Gmail. Lo descartado sí es permanente
 (`config.gmailDescartados`).
 
-## Fase 2 y 3 — Bitácora + contactos externos (con Gemini)
-
-- En el detalle de cada trámite, "Actualizar desde el correo" →
-  `refreshTramiteBitacora`:
-  1. `fetchEmailsForTramite` busca en Gmail por número y radicado (`newer_than:1y`).
-  2. `geminiGenerateJSON` con `_buildBitacoraPrompt` → `{ resumen, eventos,
-     contactos }`.
-  3. `_filtrarContactosExternos` descarta internos (dominio
-     `comfenalcovalle.com.co`) y `Garcés Lloreda`.
-  4. Se guarda en el trámite (`emailResumen`, `emailEventos`, `emailContactos`,
-     `emailBitacoraAt`) y se renderiza con `renderBitacoraIn`.
-
-## Fase 4 y 5 — Borradores de correo y bitácora de envíos
+## Borradores de correo y bitácora de envíos
 
 - `js/plantillas-correo.js` guarda el conocimiento del dominio:
   - `FAMILIA_MODULO`: contractual (CNT, OTR, OS, CNV), concepto (COT, ET, MIN),
@@ -96,9 +83,6 @@ vuelve a consultar Gmail. Lo descartado sí es permanente
     haya concedido en la sesión (el popup necesita un gesto del usuario, por lo
     que la primera revisión ocurre tras usar el correo una vez).
     No hay push real: sin backend Gmail no puede avisar con la app cerrada.
-  - **Audiencias**: "Detectar y agendar audiencia" busca la fecha/hora en el
-    correo y crea un evento de **3 horas** en Google Calendar invitando al
-    abogado responsable (requiere scope `calendar.events` + Calendar API).
 - `crearTareaRequerimiento` (tramites.js) crea además "Solicitar fecha de
   inicio" a 2 días en CNT, OS y CNV.
 
