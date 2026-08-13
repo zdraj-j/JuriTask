@@ -1,9 +1,9 @@
 /**
  * JuriTask — Service Worker
- * App-shell offline. NO cachea datos de Firestore/Auth (esos van siempre a la
- * red; la persistencia offline de datos la maneja el SDK de Firestore).
+ * App-shell offline. Los datos viven en localStorage, así que el shell es lo
+ * único que hace falta cachear.
  */
-const VERSION = 'juritask-v21';
+const VERSION = 'juritask-v22';
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 
@@ -17,10 +17,8 @@ const SHELL_ASSETS = [
   './js/tramites.js',
   './js/filters.js',
   './js/ui.js',
-  './js/firebase.js',
-  './js/auth.js',
   './js/dashboard.js',
-  './js/notifications.js',
+  './js/google-auth.js',
   './js/drive.js',
   './js/gemini.js',
   './js/plantillas-correo.js',
@@ -61,9 +59,9 @@ self.addEventListener('activate', event => {
   })());
 });
 
-// Endpoints de datos/identidad que NUNCA deben cachearse.
+// Endpoints de datos que NUNCA deben cachearse (Gmail, Drive, Gemini).
 function isDynamicApi(url) {
-  return /firestore\.googleapis\.com|identitytoolkit|securetoken|firebaseio\.com|firebaseinstallations|googleapis\.com\/.*\/(documents|channel)/i.test(url);
+  return /googleapis\.com|google\.com\/macros/i.test(url);
 }
 
 self.addEventListener('fetch', event => {

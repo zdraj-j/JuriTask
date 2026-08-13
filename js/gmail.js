@@ -26,37 +26,10 @@ const MODULO_PREFIX_ALIAS = {
 
 // ── Token de Gmail ────────────────────────────────────────────
 async function _ensureGmailToken(forceNew = false) {
-  if (!forceNew && AUTH._gmailAccessToken) return AUTH._gmailAccessToken;
-  const user = (typeof auth !== 'undefined') ? auth.currentUser : null;
-  if (!user) return null;
-  const hasGoogle = user.providerData.some(p => p.providerId === 'google.com');
-  if (!hasGoogle) {
-    showToast('Inicia sesión con Google para revisar el correo.');
-    return null;
-  }
-  try {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
-    // Conservar el permiso de Drive para no perderlo al re-autenticar.
-    provider.addScope('https://www.googleapis.com/auth/drive.file');
-    const result = await user.reauthenticateWithPopup(provider);
-    if (result.credential && result.credential.accessToken) {
-      AUTH._gmailAccessToken = result.credential.accessToken;
-      // El token también sirve para Drive (mismo scope pedido).
-      AUTH._googleAccessToken = result.credential.accessToken;
-      // Con permiso ya concedido, la vigilancia de enviados puede empezar.
-      if (typeof checkBitacoraPendientes === 'function') setTimeout(checkBitacoraPendientes, 1500);
-      return AUTH._gmailAccessToken;
-    }
-  } catch (e) {
-    if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return null;
-    console.warn('Gmail re-auth:', e.code, e.message);
-    showToast('No se pudo acceder al correo: ' + (e.code || e.message || 'error'));
-  }
-  return null;
+  if (forceNew) resetGoogleToken();
+  return ensureGoogleToken();
 }
 
-// ── Llamadas a la Gmail API ──────────────────────────────────
 async function _gmailFetch(path, token) {
   const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/' + path, {
     headers: { Authorization: 'Bearer ' + token },
@@ -170,9 +143,6 @@ function _matchAbogado(responsable) {
 
   const candidates = [];
   (STATE.config.abogados || []).forEach(a => candidates.push({ key: a.key, nombre: a.nombre }));
-  if (typeof _teamMembers !== 'undefined' && Array.isArray(_teamMembers)) {
-    _teamMembers.forEach(m => candidates.push({ key: m.uid, nombre: m.displayName || m.email || '' }));
-  }
 
   // Coincidencia exacta normalizada, o por inclusión (nombre config ⊆ responsable
   // o viceversa) para tolerar segundos nombres/apellidos abreviados.
@@ -279,7 +249,7 @@ async function scanTramiteEmails() {
   } catch (e) {
     if (e.code === 401) {
       // Token vencido: renovar una vez.
-      AUTH._gmailAccessToken = null;
+      resetGoogleToken();
       token = await _ensureGmailToken(true);
       if (!token) return null;
       try { return await doScan(token); }
@@ -541,7 +511,7 @@ async function _withGmailToken(fn) {
     return await fn(token);
   } catch (e) {
     if (e.code === 401) {
-      AUTH._gmailAccessToken = null;
+      resetGoogleToken();
       token = await _ensureGmailToken(true);
       if (!token) return null;
       try { return await fn(token); }

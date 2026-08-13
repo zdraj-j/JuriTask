@@ -4,8 +4,8 @@
  * los event listeners. Es el orquestador que conecta los módulos.
  *
  * Orden de carga requerido en index.html:
- *   storage.js → tramites.js → filters.js → ui.js
- *   → auth.js → firestore.js → dashboard.js → config.js
+ *   storage.js → tramites.js → filters.js → ui.js → dashboard.js
+ *   → google-auth.js → drive.js → gmail.js → … → config.js
  */
 
 // ============================================================
@@ -80,7 +80,7 @@ function switchView(view) {
   const _bitBtn = document.getElementById('bitacoraScanBtn');
   if (_bitBtn) _bitBtn.style.display = hide ? 'none' : '';
 
-  if      (isConfig) { renderConfig(); syncConfigAccountUI(); }
+  if      (isConfig) { renderConfig(); }
   else if (isAgenda) { renderAgenda(); }
   else if (isDash && typeof loadDashboardData === 'function') { loadDashboardData(); }
   else               { renderAll(); }
@@ -90,13 +90,8 @@ function switchView(view) {
 // INIT
 // ============================================================
 function init() {
-  const hasFirebase = typeof firebase !== 'undefined';
-
-  // Sin Firebase: arranque local inmediato
-  if (!hasFirebase) {
-    loadAll();
-    purgeExpiredFinished();
-  }
+  loadAll();
+  purgeExpiredFinished();
 
   applyCssColors();
   applyTheme(STATE.config.theme || 'claro');
@@ -113,11 +108,9 @@ function init() {
 
   setDetailMode(STATE.config.detailMode || 'expand');
   if (isMobile()) closeSidebar();
-  if (!hasFirebase) renderAll();
+  renderAll();
 
   setupContainerDrop(document.getElementById('tramiteList'));
-
-  if (typeof startStagnantChecker === 'function') startStagnantChecker();
 
   // ── Confirm dialog ───────────────────────────────────────
   document.getElementById('confirmOk')?.addEventListener('click',     () => _confirmClose(true));
@@ -211,7 +204,7 @@ function init() {
   });
 
   // ── Filtros ──────────────────────────────────────────────
-  ['filterTipo','filterAbogado','filterModulo','filterResponsable','filterEtapa','filterScope']
+  ['filterTipo','filterAbogado','filterModulo','filterResponsable','filterEtapa']
     .forEach(id => document.getElementById(id)?.addEventListener('change', renderAll));
   const searchInput = document.getElementById('searchInput');
   const runSearch = () => {
@@ -255,7 +248,7 @@ function init() {
   }
 
   document.getElementById('clearFilters').addEventListener('click', () => {
-    ['filterTipo','filterAbogado','filterModulo','filterResponsable','filterEtapa','filterScope']
+    ['filterTipo','filterAbogado','filterModulo','filterResponsable','filterEtapa']
       .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     searchInput.value = '';
     syncSearchClear();
@@ -333,38 +326,17 @@ function init() {
 
   // ── Config: abogados ─────────────────────────────────────
   document.getElementById('saveAbogadosBtn').addEventListener('click', () => {
-    // Guardar colores de miembros del equipo
-    document.querySelectorAll('#abogadosList .ab-color-team').forEach(picker => {
-      const uid = picker.dataset.uid;
-      if (!uid) return;
-      let entry = (STATE.config.abogados || []).find(x => x.key === uid);
-      if (entry) {
-        entry.color = picker.value;
-      } else {
-        const members = (typeof _teamMembers !== 'undefined') ? _teamMembers : [];
-        const m = members.find(x => x.uid === uid);
-        STATE.config.abogados.push({ key: uid, nombre: m?.displayName || m?.email || uid, color: picker.value });
-      }
-    });
-
-    // Guardar nombres y colores de colaboradores manuales
-    const manualRows = document.querySelectorAll('#abogadosList .abogado-config-row');
+    // Las filas van en el mismo orden que `config.abogados`.
     let valid = true;
-    manualRows.forEach(row => {
+    document.querySelectorAll('#abogadosList .abogado-config-row').forEach((row, idx) => {
       const nombreInput = row.querySelector('.ab-nombre');
-      const colorInput = row.querySelector('.ab-color');
-      if (!nombreInput || !colorInput) return; // Es fila de equipo, no manual
+      const colorInput  = row.querySelector('.ab-color');
+      const entry = (STATE.config.abogados || [])[idx];
+      if (!nombreInput || !colorInput || !entry) return;
       const nombre = nombreInput.value.trim();
-      const color = colorInput.value;
       if (!nombre) { valid = false; return; }
-      // Buscar por el key del abogado (basado en la posición en la lista de manuales)
-      const members = (typeof _teamMembers !== 'undefined') ? _teamMembers : [];
-      const manualAbogados = (STATE.config.abogados || []).filter(a => !members.find(m => m.uid === a.key));
-      const idx = [...document.querySelectorAll('#abogadosList .abogado-config-row')].filter(r => r.querySelector('.ab-nombre')).indexOf(row);
-      if (idx >= 0 && manualAbogados[idx]) {
-        manualAbogados[idx].nombre = titleCase(nombre);
-        manualAbogados[idx].color = color;
-      }
+      entry.nombre = titleCase(nombre);
+      entry.color  = colorInput.value;
     });
     if (!valid) { showToast('Los nombres no pueden estar vacíos.'); return; }
     saveAll(); applyCssColors(); updateAbogadoSelects(); renderAbogadosList(); renderAll();
@@ -477,33 +449,8 @@ function init() {
     renderConfig(); renderAll(); showToast('Datos borrados.');
   });
 
-  // ── Backup ───────────────────────────────────────────────
-  document.getElementById('backupNowBtn')?.addEventListener('click', () => {
-    if (typeof createBackup === 'function') {
-      createBackup().then(() => { showToast('Backup creado.'); renderBackupList(); });
-    } else {
-      // Fallback: exportar JSON como backup
-      exportData();
-    }
-  });
-
-  // ── Notificaciones ───────────────────────────────────────
-  document.getElementById('notifBtn')?.addEventListener('click', e => {
-    e.stopPropagation();
-    if (typeof toggleNotifPanel === 'function') toggleNotifPanel();
-  });
-
-  // ── Auth UI ──────────────────────────────────────────────
-  if (typeof initAuthUI    === 'function') initAuthUI();
-  if (typeof initAuth      === 'function') initAuth();
+  // ── Panel ────────────────────────────────────────────────
   if (typeof initDashboard === 'function') initDashboard();
-
-  // ── Logout ───────────────────────────────────────────────
-  document.getElementById('logoutBtn')?.addEventListener('click', () => {
-    if (typeof AUTH !== 'undefined' && AUTH.logout) {
-      if (confirm('¿Cerrar sesión?')) AUTH.logout();
-    }
-  });
 
   // ── ESC + Ctrl+Z ─────────────────────────────────────────
   document.addEventListener('keydown', e => {

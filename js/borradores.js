@@ -426,7 +426,7 @@ function _updateBitacoraBadge(n) {
 // vigente simplemente no hace nada hasta que el usuario use el correo una vez).
 async function checkBitacoraPendientes({ silencioso = true } = {}) {
   if (STATE.config.bitacoraAuto === false) return;
-  if (!AUTH || !AUTH._gmailAccessToken) return;      // sin permiso activo aún
+  if (!GOOGLE.accessToken) return;                   // sin permiso activo aún
   if (!(STATE.tramites || []).some(t => !t.terminado)) return;
 
   try {

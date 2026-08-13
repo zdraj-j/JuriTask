@@ -21,89 +21,9 @@
 <body>
 
 <!-- ============================================================
-     SPLASH SCREEN (mientras se determina sesión)
-     ============================================================ -->
-<div id="splashScreen" style="position:fixed;inset:0;z-index:9999;display:flex;align-items:center;justify-content:center;background:#f0f0f0;flex-direction:column;gap:16px">
-  <img src="assets/logo/logo.png" alt="JuriTask" style="height:56px;object-fit:contain;opacity:.9" onerror="this.style.display='none'" />
-  <div style="width:32px;height:32px;border:3px solid rgba(0,0,0,.12);border-top-color:#6e8efb;border-radius:50%;animation:spin .7s linear infinite"></div>
-  <style>@keyframes spin{to{transform:rotate(360deg)}}</style>
-</div>
-
-<!-- ============================================================
-     PANTALLA DE AUTENTICACIÓN
-     ============================================================ -->
-<div id="authScreen" style="display:none">
-  <div class="auth-bg"></div>
-  <div class="auth-card">
-    <div class="auth-logo">
-      <img src="assets/logo/logo.png" alt="JuriTask" style="height:48px;object-fit:contain;" onerror="this.style.display='none';this.nextElementSibling.style.display='block'" />
-      <span style="display:none"><i data-lucide="scale"></i> <strong>JuriTask</strong></span>
-    </div>
-    <p class="auth-tagline">Gestión de trámites inteligente</p>
-
-    <div id="authError" class="auth-message" style="display:none" role="alert" aria-live="assertive"></div>
-
-    <!-- LOGIN -->
-    <form id="loginForm">
-      <div class="auth-field">
-        <label>Correo o nombre de usuario</label>
-        <input type="text" id="loginEmail" placeholder="correo@ejemplo.com o usuario" autocomplete="username" />
-      </div>
-      <div class="auth-field">
-        <label>Contraseña</label>
-        <input type="password" id="loginPass" placeholder="••••••••" autocomplete="current-password" />
-      </div>
-      <button type="submit" class="btn btn-primary auth-submit-btn">Iniciar sesión</button>
-    </form>
-
-    <!-- RESET -->
-    <form id="resetForm" style="display:none">
-      <p class="auth-reset-hint">Ingresa tu correo y te enviaremos un enlace para restablecer tu contraseña.</p>
-      <div class="auth-field">
-        <label>Correo electrónico</label>
-        <input type="email" id="resetEmail" placeholder="correo@ejemplo.com" autocomplete="email" />
-      </div>
-      <button type="submit" class="btn btn-primary auth-submit-btn">Enviar enlace</button>
-      <button type="button" class="auth-link-btn" id="backToLoginBtn"><i data-lucide="arrow-left"></i> Volver a iniciar sesión</button>
-    </form>
-
-    <div class="auth-divider"><span>o</span></div>
-    <button class="btn-google-login" type="button">
-      <svg width="18" height="18" viewBox="0 0 48 48">
-        <path fill="#EA4335" d="M24 9.5c3.5 0 6.6 1.2 9 3.2l6.7-6.7C35.8 2.5 30.3 0 24 0 14.6 0 6.6 5.4 2.5 13.3l7.8 6C12.1 13.2 17.6 9.5 24 9.5z"/>
-        <path fill="#4285F4" d="M46.5 24.5c0-1.6-.1-3.2-.4-4.7H24v8.9h12.7c-.6 3-2.3 5.5-4.8 7.2l7.5 5.8c4.4-4.1 7.1-10.1 7.1-17.2z"/>
-        <path fill="#FBBC05" d="M10.3 28.7A14.5 14.5 0 0 1 9.5 24c0-1.6.3-3.2.8-4.7l-7.8-6A23.9 23.9 0 0 0 0 24c0 3.8.9 7.5 2.5 10.7l7.8-6z"/>
-        <path fill="#34A853" d="M24 48c6.3 0 11.6-2.1 15.5-5.6l-7.5-5.8c-2.1 1.4-4.8 2.2-8 2.2-6.4 0-11.9-3.7-13.7-9.1l-7.8 6C6.6 42.6 14.6 48 24 48z"/>
-      </svg>
-      Continuar con Google
-    </button>
-    <button class="auth-link-btn" type="button" id="forgotPassBtn">¿Olvidaste tu contraseña?</button>
-  </div>
-
-  <div id="authLoadingOverlay" style="display:none">
-    <div class="auth-spinner"></div>
-    <p>Iniciando sesión…</p>
-  </div>
-</div>
-
-<!-- ============================================================
-     PANTALLA DE ESPERA (verificación / aprobación / bloqueado)
-     ============================================================ -->
-<div id="waitScreen" style="display:none;position:fixed;inset:0;z-index:9000;background:var(--bg,#f0f2f7);flex-direction:column;align-items:center;justify-content:center;padding:24px;font-family:var(--font,'Inter',sans-serif)">
-  <div style="background:var(--surface,#fff);border-radius:20px;padding:40px 32px;max-width:420px;width:100%;text-align:center;box-shadow:0 8px 40px rgba(0,0,0,.12)">
-    <div id="waitIcon" style="font-size:52px;margin-bottom:16px"><i data-lucide="mail"></i></div>
-    <h2 id="waitTitle" style="font-size:20px;font-weight:700;color:var(--text-primary,#111827);margin-bottom:10px"></h2>
-    <p  id="waitMsg"   style="font-size:14px;color:var(--text-secondary,#4b5563);line-height:1.6;margin-bottom:24px"></p>
-    <button id="waitAction" style="display:none;width:100%;padding:12px;background:var(--accent,#3d5af1);color:#fff;border:none;border-radius:10px;font-size:14px;font-weight:600;cursor:pointer;margin-bottom:10px"></button>
-    <button id="waitResend" style="display:none;width:100%;padding:11px;background:none;border:1px solid var(--border,#e2e4ea);border-radius:10px;font-size:13px;color:var(--text-secondary,#4b5563);cursor:pointer;margin-bottom:10px">Reenviar correo de verificación</button>
-    <button id="waitLogout" style="width:100%;padding:9px;background:none;border:none;font-size:12px;color:var(--text-muted,#9ca3af);cursor:pointer;text-decoration:underline"><i data-lucide="arrow-left"></i> Volver / Cerrar sesión</button>
-  </div>
-</div>
-
-<!-- ============================================================
      APP PRINCIPAL
      ============================================================ -->
-<div id="appContainer" style="display:none">
+<div id="appContainer">
 
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-header">
@@ -134,18 +54,8 @@
     <div class="filter-group"><label>Etapa</label>
       <select id="filterEtapa"><option value="">Todas</option><option value="gestion">Gestión</option><option value="seguimiento">Seguimiento</option></select>
     </div>
-    <div class="filter-group" id="filterScopeWrap" style="display:none"><label>Alcance</label>
-      <select id="filterScope"><option value="">Todos</option><option value="private">Mis trámites</option><option value="team">Equipo</option></select>
-    </div>
     <button class="btn-clear-filters" id="clearFilters">Limpiar filtros</button>
     </div><!-- /.filter-body -->
-  </div>
-  <div class="sidebar-footer">
-    <button class="user-avatar-btn" id="userAvatarBtn">
-      <div class="user-avatar" id="userAvatar">?</div>
-      <span class="user-name-display" id="userNameDisplay"></span>
-      <span class="admin-badge" id="adminBadge" style="display:none">Admin</span>
-    </button>
   </div>
 </aside>
 
@@ -180,13 +90,8 @@
       <button class="btn-icon" id="scanMailBtn" title="Revisar correo (detectar trámites nuevos)" style="position:relative"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg><span class="scan-badge" id="scanMailBadge" style="display:none">0</span></button>
       <button class="btn-icon" id="bitacoraScanBtn" title="Actividades por registrar (correos enviados)"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg></button>
       <button class="btn btn-primary" id="newTramiteBtn" style="font-size:13px;padding:7px 14px">+ Nuevo trámite</button>
-      <button class="btn-icon notif-btn" id="notifBtn" title="Notificaciones" style="position:relative">
-        <svg id="notifBellIcon" xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M10.268 21a2 2 0 0 0 3.464 0"/><path d="M3.262 15.326A1 1 0 0 0 4 17h16a1 1 0 0 0 .74-1.673C19.41 13.956 18 12.499 18 8A6 6 0 0 0 6 8c0 4.499-1.411 5.956-2.738 7.326"/></svg><span class="notif-badge" id="notifBadge" style="display:none">0</span>
-      </button>
       <button class="btn-icon mob-opts-btn" id="mobOptsBtn" style="display:none" aria-label="Más opciones"><i data-lucide="ellipsis-vertical"></i></button>
     </div>
-    <!-- Panel de notificaciones -->
-    <div class="notif-panel" id="notifPanel"></div>
   </header>
 
   <main class="main-content">
@@ -287,46 +192,6 @@
 
     <div class="view" id="view-config">
       <div class="config-content">
-
-        <div class="config-section">
-          <h3>Mi cuenta</h3>
-          <div class="config-account-row">
-            <div class="config-account-info">
-              <div class="user-avatar" id="configAvatar" style="width:48px;height:48px;font-size:18px"></div>
-              <div>
-                <div id="configUserName"  class="config-user-name"></div>
-                <div id="configUserEmail" class="config-user-email"></div>
-                <div id="configUserRole"  class="config-user-role"></div>
-              </div>
-            </div>
-            <div class="config-account-actions">
-              <button class="btn-small" id="configEditProfileBtn"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></svg> Editar perfil</button>
-              <button class="btn-small btn-danger" id="logoutBtn"><svg xmlns="http://www.w3.org/2000/svg" width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" style="vertical-align:-2px;margin-right:3px"><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg> Cerrar sesión</button>
-            </div>
-          </div>
-        </div>
-
-        <!-- Modal editar perfil (dentro de config) -->
-        <div id="editProfileOverlay" class="overlay" style="z-index:600">
-          <div class="modal modal-sm" role="dialog" aria-modal="true" aria-label="Editar perfil">
-            <div class="modal-header">
-              <h2>Editar perfil</h2>
-              <button class="modal-close" id="editProfileClose"><i data-lucide="x"></i></button>
-            </div>
-            <div class="modal-body">
-              <div class="form-group" style="margin-bottom:14px"><label>Nombre</label><input type="text" id="profileName" /></div>
-              <div class="form-group" style="margin-bottom:18px"><label>Correo</label><input type="email" id="profileEmail" disabled /></div>
-              <button class="btn-primary" id="saveProfileBtn" style="width:100%;margin-bottom:20px">Guardar nombre</button>
-              <div style="border-top:1px solid var(--border-light);padding-top:18px">
-                <p style="font-size:11px;font-weight:700;color:var(--text-muted);text-transform:uppercase;letter-spacing:.6px;margin-bottom:14px">Cambiar contraseña</p>
-                <div class="form-group" style="margin-bottom:10px"><label>Contraseña actual</label><input type="password" id="currentPass" /></div>
-                <div class="form-group" style="margin-bottom:10px"><label>Nueva contraseña</label><input type="password" id="newPass" /></div>
-                <div class="form-group" style="margin-bottom:14px"><label>Confirmar nueva</label><input type="password" id="confirmPass" /></div>
-                <button class="btn-primary" id="changePassBtn" style="width:100%">Cambiar contraseña</button>
-              </div>
-            </div>
-          </div>
-        </div>
 
         <div class="config-section">
           <h3>Colaboradores</h3>
@@ -437,14 +302,7 @@
           </div>
         </div>
 
-        <div class="config-section">
-          <h3><i data-lucide="save"></i> Backups automáticos</h3>
-          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Se crean automáticamente al iniciar sesión y a las 8:00 a.m., 1:20 p.m. y 4:20 p.m. Se conservan por 7 días.</p>
-          <div class="config-btns-row" style="margin-bottom:14px">
-            <button class="btn btn-primary" id="backupNowBtn"><i data-lucide="upload"></i> Crear backup ahora</button>
-          </div>
-          <div id="backupList"></div>
-        </div>
+
 
 
 
@@ -646,7 +504,6 @@
             <option value="">Todos</option>
             <option value="propio">Solo míos</option>
             <option value="abogado">Compartidos</option>
-            <option value="equipo">De equipo</option>
           </select>
         </div>
         <div class="form-group"><label for="repAbogado">Colaborador</label>
@@ -664,13 +521,6 @@
         </div>
         <div class="form-group"><label for="repResponsable">Responsable de tarea</label>
           <select id="repResponsable"><option value="">Todos</option></select>
-        </div>
-        <div class="form-group"><label for="repScope">Alcance</label>
-          <select id="repScope">
-            <option value="">Todos</option>
-            <option value="private">Mis trámites</option>
-            <option value="team">Equipo</option>
-          </select>
         </div>
         <div class="form-group"><label for="repOrden">Ordenar por</label>
           <select id="repOrden">
@@ -733,27 +583,6 @@
   </div>
 </div>
 
-<!-- POPOVER PERFIL (anclado al avatar en sidebar) -->
-<div id="profileOverlay" class="profile-popover">
-  <div class="profile-popover-inner">
-    <div style="display:flex;align-items:center;gap:12px;padding:14px 16px;border-bottom:1px solid var(--border-light)">
-      <div class="user-avatar" id="profileAvatarBig" style="width:40px;height:40px;font-size:16px;flex-shrink:0"></div>
-      <div style="min-width:0">
-        <div id="profileNameDisplay" style="font-weight:700;font-size:14px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
-        <div id="profileEmailDisplay" style="font-size:12px;color:var(--text-secondary);white-space:nowrap;overflow:hidden;text-overflow:ellipsis"></div>
-        <div id="profileRoleDisplay" style="font-size:11px;color:var(--text-muted);margin-top:1px"></div>
-      </div>
-    </div>
-    <div style="padding:6px 8px">
-      <button class="profile-popover-btn" id="goToEditProfileBtn"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.375 2.625a1 1 0 0 1 3 3l-9.013 9.014a2 2 0 0 1-.853.505l-2.873.84a.5.5 0 0 1-.62-.62l.84-2.873a2 2 0 0 1 .506-.852z"/></svg> Editar perfil y contraseña</button>
-      <button class="profile-popover-btn profile-popover-btn-danger" id="profileLogoutBtn"><svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/><path d="M9 21H5a2 2 0 0 1-2-2V5a2 2 0 0 1 2-2h4"/></svg> Cerrar sesión</button>
-    </div>
-  </div>
-</div>
-
-
-
-
 
 <!-- ==================== SCRIPTS ==================== -->
 
@@ -767,52 +596,39 @@
 <!-- 0.c Accesibilidad: aria-labels + focus-trap en modales -->
 <script src="js/a11y.js"></script>
 
-<!-- 1. Firebase CDN (solo una vez, versión 10) -->
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-app-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-auth-compat.js"></script>
-<script src="https://www.gstatic.com/firebasejs/10.12.2/firebase-firestore-compat.js"></script>
-
-<!-- 2. Base de la app -->
+<!-- 1. Base de la app -->
 <script src="js/storage.js"></script>
 <script src="js/tramites.js"></script>
 <script src="js/filters.js"></script>
 <script src="js/ui.js"></script>
 
-<!-- 3. Firebase: inicialización + firestore -->
-<script src="js/firebase.js"></script>
-
-<!-- 4. Auth UI: login, registro, perfil, logout -->
-<script src="js/auth.js"></script>
-
-<!-- 5. Dashboard: backups + admin -->
+<!-- 2. Panel de indicadores -->
 <script src="js/dashboard.js"></script>
 
-<!-- 6. Sistema de notificaciones -->
-<script src="js/notifications.js"></script>
-
-<!-- 7. Google Drive integration -->
+<!-- 3. Token OAuth de Google (seam hacia Apps Script) + Drive -->
+<script src="js/google-auth.js"></script>
 <script src="js/drive.js"></script>
 
-<!-- 7.b Detección de trámites nuevos + bitácora desde el correo (Gmail / Workspace) -->
+<!-- 3.b Detección de trámites nuevos + bitácora desde el correo (Gmail / Workspace) -->
 <script src="js/gemini.js"></script>
 <script src="js/plantillas-correo.js"></script>
 <script src="js/gmail.js"></script>
 <script src="js/borradores.js"></script>
 
-<!-- 7.c Reporte de trámites + exportación a Excel (escritor .xlsx propio) -->
+<!-- 3.c Reporte de trámites + exportación a Excel (escritor .xlsx propio) -->
 <script src="js/xlsx.js"></script>
 <script src="js/reportes.js"></script>
 
-<!-- 8. Selección múltiple / acciones en lote -->
+<!-- 4. Selección múltiple / acciones en lote -->
 <script src="js/selection.js"></script>
 
-<!-- 8.b Paleta de comandos + atajos -->
+<!-- 4.b Paleta de comandos + atajos -->
 <script src="js/commandpalette.js"></script>
 
-<!-- 9. Orquestador general (debe ir de último) -->
+<!-- 5. Orquestador general (debe ir de último) -->
 <script src="js/config.js"></script>
 
-<!-- 10. PWA: registrar service worker -->
+<!-- 6. PWA: registrar service worker -->
 <script>
   if ('serviceWorker' in navigator) {
     window.addEventListener('load', () => {

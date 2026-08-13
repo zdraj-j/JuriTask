@@ -7,7 +7,7 @@
  * exporta el resultado con sus tareas pendientes.
  *
  * Depende de: xlsx.js (escritura del libro), tramites.js (helpers de fecha y
- * dominio), filters.js (`_teamMembers`) y storage.js (`STATE`).
+ * dominio) y storage.js (`STATE`).
  */
 
 // ============================================================
@@ -17,8 +17,7 @@ const REPORTE_KEY = 'juritask_reporte_filtros';
 
 const REPORTE_DEFAULTS = {
   estado:        'activos',      // activos | terminados | todos
-  tipo:          '',             // '' | propio | abogado | equipo
-  scope:         '',             // '' | private | team
+  tipo:          '',             // '' | propio | abogado
   abogado:       '',             // clave/uid del colaborador del trámite
   modulo:        '',
   etapa:         '',             // '' | gestion | seguimiento
@@ -56,19 +55,11 @@ function _repSaveFiltros() {
 // HELPERS DE DOMINIO
 // ============================================================
 function _repIsMe(u) {
-  const myUid = (typeof AUTH !== 'undefined') ? AUTH?.userProfile?.uid : null;
-  return u === 'yo' || (!!myUid && u === myUid);
-}
-
-// Responsables efectivos de una tarea (assignedTo tiene prioridad).
-function _repAsignados(s) {
-  return (s.assignedTo && s.assignedTo.length) ? s.assignedTo : [s.responsable || 'yo'];
+  return !u || u === 'yo';
 }
 
 function _repTipoLabel(t) {
-  if (esPropio(t))                return 'Propio';
-  if ((t.sharedWith || []).length) return 'Equipo';
-  return 'Compartido';
+  return esPropio(t) ? 'Propio' : 'Compartido';
 }
 
 // Fecha de vencimiento **efectiva**: una vez marcado el cumplimiento el
@@ -86,10 +77,10 @@ function _repModuloNombre(sigla) {
 
 function _repResponsablesTexto(pendientes) {
   const nombres = [];
-  pendientes.forEach(s => _repAsignados(s).forEach(a => {
-    const n = abogadoName(_repIsMe(a) ? 'yo' : a);
+  pendientes.forEach(s => {
+    const n = abogadoName(_repIsMe(s.responsable) ? 'yo' : s.responsable);
     if (!nombres.includes(n)) nombres.push(n);
-  }));
+  });
   return nombres.join(', ');
 }
 
@@ -137,15 +128,11 @@ function repBuildData(f = _repFiltros) {
 
     // ── Atributos del trámite ─────────────────────────────
     if (f.tipo === 'propio'  && !esPropio(t))                       return;
-    if (f.tipo === 'abogado' && (esPropio(t) || (t.sharedWith || []).length)) return;
-    if (f.tipo === 'equipo'  && !(t.sharedWith || []).length)       return;
-    if (f.scope   && t._scope !== f.scope)                          return;
+    if (f.tipo === 'abogado' &&  esPropio(t))                       return;
     if (f.modulo  && t.modulo !== f.modulo)                         return;
     if (f.etapa   && computeEtapa(t) !== f.etapa)                   return;
     if (f.abogado) {
-      const ok = f.abogado === 'yo'
-        ? esPropio(t)
-        : (t.abogado === f.abogado || (t.sharedWith || []).includes(f.abogado));
+      const ok = f.abogado === 'yo' ? esPropio(t) : t.abogado === f.abogado;
       if (!ok) return;
     }
 
@@ -178,8 +165,8 @@ function repBuildData(f = _repFiltros) {
 
     if (f.responsable) {
       const ok = pendientes.some(s => f.responsable === 'yo'
-        ? (_repIsMe(s.responsable) || _repAsignados(s).some(_repIsMe))
-        : _repAsignados(s).includes(f.responsable) || s.responsable === f.responsable);
+        ? _repIsMe(s.responsable)
+        : s.responsable === f.responsable);
       if (!ok) return;
     }
     if (f.soloPendientes && !pendientes.length) return;
@@ -422,7 +409,6 @@ function repDescribeFiltros(f = _repFiltros) {
   const p = [];
   p.push({ activos: 'Activos', terminados: 'Terminados', todos: 'Activos y terminados' }[f.estado] || 'Activos');
   if (f.tipo)   p.push({ propio: 'Solo míos', abogado: 'Compartidos', equipo: 'De equipo' }[f.tipo]);
-  if (f.scope)  p.push(f.scope === 'private' ? 'Alcance privado' : 'Alcance equipo');
   if (f.abogado) p.push(`Colaborador: ${abogadoName(f.abogado)}`);
   if (f.modulo) p.push(`Módulo: ${f.modulo}`);
   if (f.etapa)  p.push(`Etapa: ${f.etapa === 'gestion' ? 'Gestión' : 'Seguimiento'}`);
@@ -569,7 +555,7 @@ function _repPrintHtml(data) {
 // ============================================================
 // UI — MODAL
 // ============================================================
-const _REP_CAMPOS = ['repEstado','repTipo','repScope','repAbogado','repModulo','repEtapa',
+const _REP_CAMPOS = ['repEstado','repTipo','repAbogado','repModulo','repEtapa',
                      'repResponsable','repVencDesde','repVencHasta','repTexto','repOrden'];
 const _REP_CHECKS = { soloPendientes:'repSoloPendientes', soloVencidas:'repSoloVencidas',
                       soloUrgentes:'repSoloUrgentes', soloSinTareas:'repSoloSinTareas',
@@ -591,13 +577,7 @@ function _repPopulateSelects() {
     mod.value = cur;
   }
 
-  const items = [];
-  if (typeof _teamMembers !== 'undefined') {
-    _teamMembers.forEach(m => items.push({ key: m.uid, nombre: m.displayName || m.email || m.uid }));
-  }
-  (STATE.config.abogados || []).forEach(a => {
-    if (!items.find(x => x.key === a.key)) items.push({ key: a.key, nombre: a.nombre });
-  });
+  const items = (STATE.config.abogados || []).map(a => ({ key: a.key, nombre: a.nombre }));
 
   ['repAbogado', 'repResponsable'].forEach(id => {
     const sel = document.getElementById(id); if (!sel) return;
@@ -615,7 +595,7 @@ function _repPopulateSelects() {
 function _repUIFromFiltros() {
   const f = _repFiltros;
   const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v ?? ''; };
-  set('repEstado', f.estado);   set('repTipo', f.tipo);           set('repScope', f.scope);
+  set('repEstado', f.estado);   set('repTipo', f.tipo);
   set('repAbogado', f.abogado); set('repModulo', f.modulo);       set('repEtapa', f.etapa);
   set('repResponsable', f.responsable);
   set('repVencDesde', f.vencDesde); set('repVencHasta', f.vencHasta);
@@ -638,7 +618,6 @@ function _repFiltrosFromUI() {
   const get = id => document.getElementById(id)?.value ?? '';
   _repFiltros.estado      = get('repEstado') || 'activos';
   _repFiltros.tipo        = get('repTipo');
-  _repFiltros.scope       = get('repScope');
   _repFiltros.abogado     = get('repAbogado');
   _repFiltros.modulo      = get('repModulo');
   _repFiltros.etapa       = get('repEtapa');
@@ -745,7 +724,6 @@ function openReporteDesdeFiltros() {
   _repFiltros.modulo      = f.modulo || '';
   _repFiltros.etapa       = f.etapa || '';
   _repFiltros.responsable = f.responsable || '';
-  _repFiltros.scope       = f.scope || '';
   _repFiltros.texto       = f.search || '';
   _repSaveFiltros();
   openReporte();

@@ -40,14 +40,14 @@ las dimensiones originales aunque el panel sea más angosto.
 
 `renderReport()` recorre trámites no terminados y arma ítems de tipo
 `vencimiento`, `analisis` y `tarea` (mismo criterio que la Agenda). El filtro
-`reportFiltroAbogado` (vacío = todos, `'yo'`, o clave de abogado) decide qué se
-muestra; para tareas usa `assignedTo`/`responsable` con `isMe`.
+`reportFiltroAbogado` (vacío = todos, `'yo'`, o clave de colaborador) decide
+qué se muestra; para tareas usa `responsable` con `isMe`.
 
 Se agrupa en **Urgentes / Vencidos / Para hoy** y se ordena igual que la Agenda.
 
-> **Nota:** El criterio de "mío" del informe (`isMe = u => u === 'yo' || u ===
-> miUID`) es el mismo que reutiliza la Agenda. Si cambias uno, revisa el otro
-> para no divergir.
+> **Nota:** El criterio de "mío" del informe (`isMe = u => u === 'yo' || !u`)
+> es el mismo que reutiliza la Agenda. Si cambias uno, revisa el otro para no
+> divergir.
 
 ## Sin impresión ni copiado
 

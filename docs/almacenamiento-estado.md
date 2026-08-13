@@ -24,8 +24,9 @@ ver [agenda.md](agenda.md)).
 
 ## Persistencia
 
-- `saveAll()` vuelca `STATE` a `localStorage`. Con Firebase, además se sincroniza
-  por trámite (`saveTramiteFS`) y la config (ver [sincronizacion-firebase.md](sincronizacion-firebase.md)).
+- `saveAll()` vuelca `STATE` a `localStorage`, con debounce de 400 ms
+  (`saveAll(true)` fuerza el volcado inmediato). Es el **único** destino: no hay
+  backend. En la Fase 3 de la migración se le añadirá un envío a Drive.
 - `loadAll()` carga de `localStorage` aplicando migraciones (p. ej. normaliza
   `responsable` `'auxiliar'`/`'propio'` → `'yo'`, y migra `proximaAccion` →
   `seguimiento`).

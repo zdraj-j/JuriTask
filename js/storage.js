@@ -109,7 +109,7 @@ function undo() {
 }
 
 // ============================================================
-// PERSISTENCIA — localStorage (fallback cuando no hay Firebase)
+// PERSISTENCIA — localStorage
 // ============================================================
 const KEYS = {
   tramites: 'juritask_tramites',
@@ -120,19 +120,9 @@ const KEYS = {
 /**
  * saveAll con debounce de 400ms para evitar re-escrituras excesivas.
  * Las escrituras inline (blur, checkboxes) pasan por aquí.
- * Siempre guarda en localStorage como respaldo inmediato, incluso cuando
- * Firebase está activo, para sobrevivir recargas rápidas (Ctrl+Shift+R).
  */
 let _saveTimer = null;
 function saveAll(immediate = false) {
-  if (typeof saveConfigDebounced === 'function') {
-    // Guardar config en Firestore de inmediato + localStorage como respaldo
-    // Order y tramites van debounced para evitar escrituras excesivas
-    _flushSave();
-    if (typeof saveConfigNow === 'function') saveConfigNow();
-    saveConfigDebounced();
-    return;
-  }
   if (immediate) {
     _flushSave();
   } else {
@@ -167,8 +157,6 @@ function migrateTramite(t) {
     if (s.responsable === 'auxiliar' || s.responsable === 'propio') s.responsable = 'yo';
     if (s.urgente === undefined) s.urgente = false;
     if (!s.attachments) s.attachments = [];
-    if (!s.completedBy) s.completedBy = {};
-    if (!s.assignedTo) s.assignedTo = [];
   });
   // Migrar proximaAccion antigua
   if (t.proximaAccion?.descripcion) {

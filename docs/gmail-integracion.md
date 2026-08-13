@@ -16,8 +16,9 @@ el navegador; no hay backend.
 ## Detección de trámites nuevos (sin IA)
 
 1. Botón ✉️ en la barra → `runGmailScan`.
-2. `_ensureGmailToken` pide un token con scope `gmail.readonly` (popup de Google,
-   reutiliza `reauthenticateWithPopup`, conserva también `drive.file`).
+2. `_ensureGmailToken` delega en `ensureGoogleToken()`
+   (ver [google-auth.md](google-auth.md)), **que hoy devuelve null**: el acceso
+   al correo está en pausa hasta que pase al servidor de Apps Script.
 3. `scanTramiteEmails` busca los correos de "Notificación de trámite"
    (`GMAIL_QUERY`) y `parseTramiteEmail` extrae por etiquetas de texto:
    - **número** = campo `Trámite:` (5–6 dígitos). Fallback: radicado.
@@ -96,25 +97,26 @@ vuelve a consultar Gmail. Lo descartado sí es permanente
      días y se vuelve a autorizar con el popup).
    - Consentimiento **"Internal"** (sin aviso ni caducidad) — sólo si el proyecto
      vive en un **Google Workspace que el usuario administra**.
-3. **API key de Gemini** (Google AI Studio): se pega en Ajustes; se guarda en el
-   Firestore privado del usuario, **nunca en el repositorio**.
+3. **API key de Gemini** (Google AI Studio): se pega en Ajustes y se guarda en
+   `localStorage`, **nunca en el repositorio**. En la Fase 4 pasa a Script
+   Properties y deja de viajar al navegador.
 
 ## Seguridad de la API key (importante)
 
 Una app sin backend no puede ocultar un secreto: la key viaja al navegador. Por eso:
 
-- La key **no** está en el repo; vive en `STATE.config.geminiApiKey` (Firestore).
+- La key **no** está en el repo; vive en `STATE.config.geminiApiKey`.
 - **Restringir la key en Google Cloud**: aplicación → *HTTP referrers*
   (`https://zdraj-j.github.io/*`) y API → sólo *Generative Language API*.
-- Mejora futura opcional: proxy en Firebase Functions que guarde la key en el
-  servidor (requiere plan Blaze).
+- **Lo resuelve la migración**: en Apps Script la key vive en Script Properties
+  y las llamadas a Gemini salen del servidor.
 
 ## Al modificar
 
 - Los correos de notificación tienen formato fijo (tabla HTML con etiquetas);
   el parseo depende de esas etiquetas. Si cambia el formato, ajustar los regex
   en `parseTramiteEmail`.
-- El token de Gmail se cachea en memoria (`AUTH._gmailAccessToken`) y se renueva
-  ante un 401 (`_withGmailToken`).
+- El token se cachea en `GOOGLE.accessToken` y se invalida ante un 401
+  (`_withGmailToken` → `resetGoogleToken()`).
 - Gemini se llama con `responseMimeType: application/json`; si la respuesta no es
   JSON, `geminiGenerateJSON` intenta rescatar el primer objeto `{...}`.

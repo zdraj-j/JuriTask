@@ -29,12 +29,12 @@ Cada ítem se ordena por: urgentes primero → vencidos antes que de hoy → por
 ## Filtro por responsabilidad (Mías / De otros / Todas)
 
 Cada ítem lleva una bandera **`mine`** calculada con
-`isMe(u) = u === 'yo' || u === miUID || !u`:
+`isMe(u) = u === 'yo' || !u`:
 
 - `vencimiento`: `mine` si el trámite es propio (`resp = 'yo'`); si no, el
   responsable es `t.abogado`.
 - `analisis`: el responsable es `t.abogado` (de otro) → normalmente **no** mío.
-- `tarea`: `mine` si `s.responsable` soy yo **o** algún `assignedTo` soy yo.
+- `tarea`: `mine` si `s.responsable` es `'yo'` o está vacío.
 
 El filtro activo se guarda en `STATE.config.agendaScope` (`'mias'` | `'otros'`
 | `'all'`; por defecto **`'mias'`**, porque el uso principal es marcar lo propio).
@@ -61,9 +61,8 @@ siguiente tarea del mismo trámite, sin tener que buscarlo:
 - Campos: descripción + fecha (la fecha viene precargada a **hoy + 7 días**,
   editable). `Enter` guarda.
 - **Guardar** crea una nueva tarea de `seguimiento` en el mismo trámite,
-  heredando `responsable`/`assignedTo` de la tarea recién cerrada (así sigue
-  apareciendo en "Mías" si era tuya), notifica a los asignados externos y
-  re-renderiza la agenda.
+  heredando el `responsable` de la tarea recién cerrada (así sigue apareciendo
+  en "Mías" si era tuya) y re-renderiza la agenda.
 - **Listo, sin tarea** (o guardar con la descripción vacía) simplemente cierra
   el formulario y refresca la agenda.
 
@@ -92,9 +91,9 @@ fechas legales fijas y no se aplazan desde aquí.
 
 ## Persistencia
 
-Marcar algo como hecho llama a `_persistTramite(t)` → `saveAll()` +
-`saveTramiteFS(t)` (si Firebase está activo), registra `pushHistory(...)` para
-permitir **Deshacer** desde el toast, y vuelve a renderizar agenda + badge.
+Marcar algo como hecho llama a `_persistTramite(t)` → `saveAll()`, registra
+`pushHistory(...)` para permitir **Deshacer** desde el toast, y vuelve a
+renderizar agenda + badge.
 
 ## Al modificar
 

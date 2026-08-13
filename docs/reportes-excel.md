@@ -22,12 +22,11 @@ pendientes de cada trámite.
 | Control | Campo |
 |---|---|
 | `repEstado` | activos / terminados / ambos |
-| `repTipo` | `propio` · `abogado` (compartido) · `equipo` (`sharedWith`) |
-| `repAbogado` | `t.abogado` o `t.sharedWith` (`yo` ⇒ `esPropio`) |
+| `repTipo` | `propio` · `abogado` (a cargo de un colaborador) |
+| `repAbogado` | `t.abogado` (`yo` ⇒ `esPropio`) |
 | `repModulo` | `t.modulo` |
 | `repEtapa` | `computeEtapa(t)` |
-| `repResponsable` | responsable/`assignedTo` de alguna tarea **pendiente** |
-| `repScope` | `t._scope` (`private` / `team`) |
+| `repResponsable` | `responsable` de alguna tarea **pendiente** |
 | `repVencPresets` | vencidos · hoy · 7 · 30 días · este mes · sin fecha |
 | `repVencDesde` / `repVencHasta` | rango manual (solo con el preset «Todos») |
 | `repTexto` | número, descripción, tareas y notas |

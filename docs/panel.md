@@ -18,7 +18,7 @@ entero sobre los trámites que ya están en memoria, de forma síncrona.
 Antes era un dashboard de administración: leía perfiles uno a uno desde el
 índice `/meta/userIndex` porque las reglas de Firestore no permiten `list`
 sobre `/users/`, y gestionaba usuarios, roles, equipos y cuentas pendientes.
-Sin usuarios esa gimnasia sobra, y con ella se fueron unas 640 líneas.
+Sin usuarios esa gimnasia sobra, y con ella se fueron unas 780 líneas.
 
 | KPI | Cómo se calcula |
 |---|---|
@@ -40,10 +40,8 @@ función pura sobre los arrays que recibe.
 
 ## Backups
 
-`dashboard.js` también aloja los backups (`createBackup`, `renderBackupList`,
-`restoreBackup`, `deleteBackup`, `startAutoBackup`), que **sí** van contra
-Firestore aunque su UI viva en Ajustes. Están ahí por herencia; cuando los
-datos pasen a un JSON en Drive habrá que rehacerlos.
+Ya no hay: iban contra Firestore. Mientras tanto, **Exportar** en Ajustes baja
+el JSON completo. Vuelven en la Fase 3, sobre Drive.
 
 ## Al modificar
 

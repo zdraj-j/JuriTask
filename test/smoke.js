@@ -4,9 +4,8 @@
  *   node test/smoke.js         # sale 0 si todo pasa, 1 si algo falla
  *   JT_SHOTS=/ruta node test/smoke.js   # dónde dejar las capturas
  *
- * Requiere Playwright con Chromium. Sirve `index.html` en "modo local":
- * sin los SDK de Firebase ni los módulos que dependen de ellos.
- * Ver `docs/pruebas.md` para el porqué de cada retoque al HTML servido.
+ * Requiere Playwright con Chromium. Ver `docs/pruebas.md` para el porqué de
+ * cada retoque al HTML servido.
  */
 const { chromium } = require('playwright');
 const http = require('http');
@@ -18,11 +17,8 @@ const SHOT = process.env.JT_SHOTS || require('os').tmpdir();
 const MIME = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css',
                '.json':'application/json', '.png':'image/png', '.svg':'image/svg+xml' };
 
-// Módulos que exigen Firebase cargado; en modo local no se incluyen.
-// `dashboard.js` sí se carga: el panel es puro `STATE.tramites` y su parte de
-// backups sólo toca Firestore dentro de funciones, guardada por
-// `AUTH.userProfile?.uid`, que con el stub es null.
-const DROP = ['js/firebase.js', 'js/auth.js', 'js/notifications.js'];
+// Ya no hay módulos que exijan un backend: la app entera arranca en local.
+const DROP = [];
 
 function localIndex() {
   let html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
@@ -31,9 +27,9 @@ function localIndex() {
   // El service worker se registra y dispara location.reload() en
   // `controllerchange`, recargando a mitad de prueba. Fuera.
   html = html.replace(/<!-- 10\. PWA: registrar service worker -->[\s\S]*?<\/script>/, '');
-  // `ui.js` usa `AUTH?.userProfile?.uid`: como propiedad de window sí resuelve.
+  // Sin CDN, `icons.js` necesita un lucide de mentira.
   return html.replace('<script src="js/storage.js"></script>',
-    '<script>window.AUTH={userProfile:null};window.lucide={createIcons(){}};</script>\n<script src="js/storage.js"></script>');
+    '<script>window.lucide={createIcons(){}};</script>\n<script src="js/storage.js"></script>');
 }
 
 const server = http.createServer((req, res) => {
@@ -80,15 +76,7 @@ const ok = (c) => c ? 'PASA' : 'FALLA';
   }, [TRAMITES]);
 
   await page.goto('http://localhost:8099/index.html', { waitUntil: 'load' });
-  await page.waitForTimeout(800);
-  // En modo local nadie destapa la app: sólo lo hace firebase.js tras el login.
-  await page.evaluate(() => {
-    document.getElementById('splashScreen')?.remove();
-    document.getElementById('authScreen')?.remove();
-    const app = document.getElementById('appContainer');
-    if (app) app.style.display = '';
-  });
-  await page.waitForTimeout(400);
+  await page.waitForTimeout(900);
 
   const out = [];
 
@@ -102,6 +90,33 @@ const ok = (c) => c ? 'PASA' : 'FALLA';
   await page.waitForSelector('#tramiteList .tramite-card', { state: 'visible', timeout: 10000 });
   const cards = await page.$$eval('#tramiteList .tramite-card', e => e.length);
   out.push(['P1 la app renderiza tarjetas', cards === 1, `activas=${cards}`]);
+
+  // ── Amputación: no queda rastro de sesión ni de equipos ─
+  const authLeftovers = await page.evaluate(() => [
+    'authScreen','waitScreen','splashScreen','notifPanel','notifBtn','userAvatarBtn',
+    'profileOverlay','editProfileOverlay','logoutBtn','backupList','filterScope','repScope',
+  ].filter(id => document.getElementById(id)));
+  out.push(['AMP sin UI de sesión ni backups', authLeftovers.length === 0,
+            authLeftovers.length ? authLeftovers.join(', ') : 'ninguno']);
+  const globals = await page.evaluate(() =>
+    ['firebase','AUTH','db','auth'].filter(g => g in window));
+  out.push(['AMP sin globals de Firebase', globals.length === 0,
+            globals.length ? globals.join(', ') : 'ninguno']);
+
+  // ── Crear un trámite (saveTramite cambió bastante) ──────
+  await page.click('#newTramiteBtn');
+  await page.waitForTimeout(500);
+  await page.fill('#fNumero', '33333');
+  await page.fill('#fDescripcion', 'Trámite creado por la prueba');
+  await page.selectOption('#fModulo', 'CNT');
+  await page.click('#saveTramite');
+  await page.waitForTimeout(800);
+  const creado = await page.evaluate(() =>
+    JSON.parse(localStorage.getItem('juritask_tramites')).find(x => x.numero === '33333'));
+  out.push(['CRUD crea trámite propio, sin campos de equipo',
+            !!creado && creado.tipo === 'propio' && !('sharedWith' in creado) &&
+            !('_scope' in creado) && !('createdBy' in creado),
+            creado ? `tipo=${creado.tipo} claves=${Object.keys(creado).length}` : '(no se creó)']);
 
   // ── Punto 5: un solo botón "Nueva tarea" al expandir ────
   await page.click('#tramiteList .tramite-card .card-desc');
@@ -147,7 +162,8 @@ const ok = (c) => c ? 'PASA' : 'FALLA';
   await page.click('.nav-item[data-view="all"]');
   await page.waitForTimeout(400);
   const activeAfter = await page.$$eval('#tramiteList .tramite-card', e => e.length);
-  out.push(['P3 vuelve a la lista activa', activeAfter === 2, `activas=${activeAfter}`]);
+  // 3 = los dos sembrados (t2 reactivado) + el creado por la prueba.
+  out.push(['P3 vuelve a la lista activa', activeAfter === 3, `activas=${activeAfter}`]);
 
   // ── Panel: KPIs sobre STATE, sin usuarios ni equipos ────
   await page.click('.nav-item[data-view="dashboard"]');
@@ -159,10 +175,10 @@ const ok = (c) => c ? 'PASA' : 'FALLA';
   out.push(['PANEL 5 KPIs y ninguno de usuarios', kpis.length === 5 &&
             !kpis.some(k => /Usuario|Equipo|Compartido|Pendiente/i.test(k.label)),
             kpis.map(k => `${k.label}=${k.value}`).join(', ')]);
-  // Tras reactivar t2 hay 2 activos y 0 terminados.
+  // Tras reactivar t2 y crear el de la prueba: 3 activos, 0 terminados.
   const kpiMap = Object.fromEntries(kpis.map(k => [k.label, k.value]));
   out.push(['PANEL KPIs cuadran con el estado',
-            kpiMap['Trámites activos'] === '2' && kpiMap['Terminados'] === '0',
+            kpiMap['Trámites activos'] === '3' && kpiMap['Terminados'] === '0',
             `activos=${kpiMap['Trámites activos']} terminados=${kpiMap['Terminados']}`]);
   const metricCards = await page.$$eval('#dashMetricsRow .dash-metric-card', e => e.length);
   const vencRows = await page.$$eval('#dashVencidosBody tr', els => els.length);

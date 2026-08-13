@@ -21,19 +21,15 @@ y abogados.
 | `filterModulo` | `modulo` |
 | `filterResponsable` | `seguimiento[].responsable` (alguna tarea) |
 | `filterEtapa` | `computeEtapa(t)` |
-| `filterScope` | alcance: `private` (mis trámites) / `team` (equipo) |
 
 El predicado combina todos en AND. La búsqueda de texto corre sobre número y
 descripción.
 
 ## Detalles
 
-- `updateAbogadoSelects()` mezcla **miembros del equipo de Firestore**
-  (`_teamMembers`) con **colaboradores manuales** de `config.abogados`, evitando
-  duplicados.
+- `updateAbogadoSelects()` puebla los selects desde `config.abogados`.
 - `buildRespOptions(tipoTramite, abogadoKey, selectedValue)` arma las opciones
-  de responsable para una tarea (equipo + colaborador del trámite + "Yo").
-- `#filterScopeWrap` solo se muestra cuando hay trámites de equipo.
+  de responsable de una tarea: "Yo" más el colaborador del trámite, si lo hay.
 
 ## Buscador de la topbar
 
