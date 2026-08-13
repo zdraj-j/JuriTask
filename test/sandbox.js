@@ -114,6 +114,26 @@ const FAKE_SERVER = `<script>
       });
       return JSON.stringify({ messages: [] });
     },
+    // Fase 5: trigger diario de borradores.
+    estadoTrigger:    function () { return { activo: !!almacen.trigger, hora: almacen.triggerHora || 6 }; },
+    instalarTrigger:  function (h) {
+      almacen.trigger = true; almacen.triggerHora = h; persistir();
+      return { activo: true, hora: h };
+    },
+    quitarTrigger:    function () { almacen.trigger = false; persistir(); return { activo: false }; },
+    generarBorradoresDelDia: function () {
+      // Cuenta las tareas de requerimiento vencidas del estado guardado, que
+      // es justo lo que hace el de verdad antes de tocar Gmail.
+      var est = JSON.parse(almacen.datos || '{}');
+      var n = 0;
+      (est.tramites || []).forEach(function (t) {
+        (t.seguimiento || []).forEach(function (s) {
+          if (s.estado === 'pendiente' && /req/i.test(s.descripcion || '')) n++;
+        });
+      });
+      almacen.borradores = (almacen.borradores || 0) + n; persistir();
+      return { ok: true, generados: n, detalle: ['simulado: ' + n] };
+    },
   };
   function runner(onOk, onErr) {
     var api = {
@@ -315,7 +335,11 @@ async function correrConServidor(browser) {
     try {
       localStorage.setItem('juritask_tramites', JSON.stringify([
         { id:'s1', numero:'90001', descripcion:'Sembrado en local', modulo:'CNT',
-          tipo:'propio', terminado:false, gestion:{}, seguimiento:[] },
+          tipo:'propio', terminado:false, gestion:{},
+          // Con una tarea de requerimiento vencida: es lo que busca el
+          // generador de borradores.
+          seguimiento:[{ descripcion:'1er req', fecha:'2020-01-01',
+                         estado:'pendiente', responsable:'yo', attachments:[] }] },
       ]));
       localStorage.setItem('juritask_order', JSON.stringify(['s1']));
     } catch (_) {}
@@ -410,6 +434,28 @@ async function correrConServidor(browser) {
   out.push(['12. Gmail responde a través del servidor',
             gmail.ok && gmail.ids === 1 && /55555/.test(gmail.asunto),
             gmail.ok ? `mensajes=${gmail.ids} asunto="${gmail.asunto}"` : gmail.error]);
+
+  // 13. Trigger de borradores: la sección aparece y se activa.
+  const triggerVisible = await fr().evaluate(() => {
+    const s = document.getElementById('triggerSection');
+    return !!(s && s.offsetParent !== null);
+  });
+  await frame.locator('#triggerHora').fill('7');
+  await frame.locator('#triggerToggle').check();
+  await page.waitForTimeout(900);
+  const trig = await fr().evaluate(() => ({
+    servidor: { activo: !!window.__almacen.trigger, hora: window.__almacen.triggerHora },
+    texto: (document.getElementById('triggerEstado') || {}).textContent || '',
+  }));
+  out.push(['13. trigger diario: sección y activación',
+            triggerVisible && trig.servidor.activo && trig.servidor.hora === 7,
+            `sección=${triggerVisible ? 'visible' : 'oculta'} activo=${trig.servidor.activo} hora=${trig.servidor.hora}`]);
+
+  // 14. "Ejecutar ahora" sube el estado y llama al generador.
+  await frame.locator('#triggerProbarBtn').click();
+  await page.waitForTimeout(1500);
+  const gen = await fr().evaluate(() => window.__almacen.borradores || 0);
+  out.push(['14. ejecutar ahora llama al generador', gen >= 1, `borradores simulados=${gen}`]);
 
   console.log('\n══ Variante: con servidor simulado (google.script.run) ══\n');
   for (const [name, pass, detail] of out) {

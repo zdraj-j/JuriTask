@@ -359,6 +359,14 @@ function init() {
     showToast(`"${nombre}" añadido.`);
   });
 
+  // Índice de la sesión de Google al abrir Gmail: con varias cuentas abiertas,
+  // /u/0 no es necesariamente la del trabajo.
+  document.getElementById('gmailCuentaIndice')?.addEventListener('change', e => {
+    const n = parseInt(e.target.value, 10);
+    STATE.config.gmailCuentaIndice = Number.isFinite(n) && n >= 0 ? n : 0;
+    saveAll();
+  });
+
   // ── Config: clave de Gemini ─────────────────────────────
   // La clave va a Script Properties, no a `STATE.config`: así no viaja al
   // navegador ni acaba dentro del JSON de Drive.
@@ -468,6 +476,20 @@ function init() {
     document.getElementById('sortSelect').value = 'vencimiento';
     renderConfig(); renderAll(); showToast('Datos borrados.');
   });
+
+  // ── Borradores automáticos ───────────────────────────────
+  document.getElementById('triggerToggle')?.addEventListener('change', aplicarTrigger);
+  document.getElementById('triggerHora')?.addEventListener('change', () => {
+    if (document.getElementById('triggerToggle')?.checked) aplicarTrigger();
+  });
+  document.getElementById('borradoresIAToggle')?.addEventListener('change', e => {
+    STATE.config.borradoresConIA = e.target.checked;
+    saveAll(true);   // el servidor lo lee de Drive: hay que subirlo ya
+    showToast(e.target.checked
+      ? 'La IA adaptará los borradores. El contenido del correo saldrá hacia Gemini.'
+      : 'Los borradores usarán las plantillas tal cual.');
+  });
+  document.getElementById('triggerProbarBtn')?.addEventListener('click', e => probarTriggerAhora(e.currentTarget));
 
   // ── Backups en Drive ─────────────────────────────────────
   document.getElementById('backupNowBtn')?.addEventListener('click', e => crearBackupAhora(e.currentTarget));

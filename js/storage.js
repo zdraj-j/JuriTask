@@ -57,6 +57,11 @@ const DEFAULT_CONFIG = {
   autoReqDias:  7,
   autoReqResponsable: 'yo',
   diasRestantes: false,
+  gmailCuentaIndice: 0,   // /mail/u/N — cuál sesión de Google usar al abrir Gmail
+  // Los borradores automáticos usan las plantillas tal cual. Con esto activo,
+  // Gemini las adapta al último estado del hilo — y el contenido del correo
+  // sale hacia la API de Google.
+  borradoresConIA: false,
   agendaScope: 'mias', // 'mias' | 'otros' | 'all' — filtro por responsabilidad en la Agenda
 };
 

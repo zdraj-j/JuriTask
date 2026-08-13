@@ -86,6 +86,21 @@ for (const { file, src } of incluidos) {
 const servidor = fs.readdirSync(path.join(ROOT, 'server')).filter(f => f.endsWith('.gs'));
 for (const f of servidor) wr(f, rd(`server/${f}`));
 
+// Módulos compartidos entre cliente y servidor. Son JS puro —sin DOM, sin
+// STATE, sin APIs de navegador— así que el mismo fichero vale para los dos, y
+// copiarlo evita que las plantillas se dupliquen y se desincronicen.
+const COMPARTIDOS = [{ src: 'js/plantillas-correo.js', gs: 'Plantillas.gs' }];
+for (const { src, gs } of COMPARTIDOS) {
+  const code = rd(src);
+  for (const prohibido of ['document.', 'window.', 'localStorage', 'STATE.']) {
+    if (code.includes(prohibido)) {
+      throw new Error(`${src} usa "${prohibido}": ya no es compartible con el servidor`);
+    }
+  }
+  wr(gs, `/**\n * Generado por tools/build.js desde ${src}. No editar aquí.\n */\n\n` + code);
+  servidor.push(gs);
+}
+
 // ── 4. Manifiesto ───────────────────────────────────────────────────────────
 wr('appsscript.json', JSON.stringify({
   timeZone: 'America/Bogota',

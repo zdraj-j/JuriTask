@@ -1347,7 +1347,8 @@ function buildReportInto(contenido, filtro) {
       const tareaText = item.tipo === 'vencimiento'
         ? `Vence: ${formatDate(item.fecha)}`
         : escapeHtml(item.tarea);
-      el.innerHTML = `<div class="report-item-num">${item.urgente?'<i data-lucide="circle-alert"></i> ':''}#${escapeHtml(item.t.numero)}${copyNumBtn(item.t.numero)}</div>
+      const btnGmail = typeof gmailBuscarBtn === 'function' ? gmailBuscarBtn(item.t) : '';
+      el.innerHTML = `<div class="report-item-num">${item.urgente?'<i data-lucide="circle-alert"></i> ':''}#${escapeHtml(item.t.numero)}${copyNumBtn(item.t.numero)}${btnGmail}</div>
         <div class="report-item-body">
           <div class="report-item-desc">${escapeHtml(item.t.descripcion)}</div>
           <div class="report-item-tarea"><span class="tarea-label">${tipoLabel[item.tipo]||'<i data-lucide="pin"></i>'} — ${tareaText}</span></div>
@@ -1759,9 +1760,11 @@ function renderConfig() {
   const bInt=document.getElementById('bitacoraIntervalo');  if(bInt) bInt.value=STATE.config.bitacoraIntervalo??10;
   const bDia=document.getElementById('bitacoraDias');       if(bDia) bDia.value=STATE.config.bitacoraDias??7;
   const drT=document.getElementById('diasRestantesToggle'); if(drT) drT.checked=!!(STATE.config.diasRestantes);
+  const gci=document.getElementById('gmailCuentaIndice');   if(gci) gci.value=STATE.config.gmailCuentaIndice ?? 0;
 
-  // Backups: la sección se muestra sola solo si hay servidor.
+  // Backups y trigger: sus secciones se muestran solas solo si hay servidor.
   if (typeof renderBackupList === 'function') renderBackupList();
+  if (typeof renderTriggerSection === 'function') renderTriggerSection();
 }
 
 function renderAbogadosList() {

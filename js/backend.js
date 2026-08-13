@@ -199,3 +199,77 @@ async function borrarBackupPorId(id) {
     showToast('No se pudo eliminar: ' + e.message);
   }
 }
+
+// ============================================================
+// BORRADORES AUTOMÁTICOS (trigger diario)
+// ============================================================
+
+async function renderTriggerSection() {
+  const sec = document.getElementById('triggerSection');
+  if (!sec) return;
+  if (!BACKEND.disponible) { sec.style.display = 'none'; return; }
+  sec.style.display = '';
+
+  const est = document.getElementById('triggerEstado');
+  const tog = document.getElementById('triggerToggle');
+  const hor = document.getElementById('triggerHora');
+  const ia  = document.getElementById('borradoresIAToggle');
+  if (ia) ia.checked = STATE.config.borradoresConIA === true;
+
+  try {
+    const info = await srv('estadoTrigger');
+    if (tog) tog.checked = info.activo;
+    if (hor) hor.value   = info.hora;
+    if (est) est.textContent = info.activo
+      ? `Activo: se ejecuta cada día a las ${String(info.hora).padStart(2, '0')}:00.`
+      : 'Desactivado. Los borradores solo se generan a mano.';
+  } catch (e) {
+    if (est) est.textContent = 'No se pudo consultar el trigger: ' + e.message;
+  }
+}
+
+async function aplicarTrigger() {
+  const tog = document.getElementById('triggerToggle');
+  const hor = document.getElementById('triggerHora');
+  const est = document.getElementById('triggerEstado');
+  if (est) est.textContent = 'Aplicando…';
+  try {
+    const info = tog?.checked
+      ? await srv('instalarTrigger', parseInt(hor?.value, 10) || 6)
+      : await srv('quitarTrigger');
+    showToast(info.activo ? 'Borradores automáticos activados.' : 'Borradores automáticos desactivados.');
+    renderTriggerSection();
+  } catch (e) {
+    showToast('No se pudo aplicar: ' + e.message);
+    renderTriggerSection();
+  }
+}
+
+/**
+ * Ejecuta el generador ahora mismo. Útil para probar sin esperar a mañana.
+ *
+ * Puede tardar: recorre los trámites vencidos y consulta Gmail por cada uno, y
+ * Apps Script corta a los 6 minutos por ejecución.
+ */
+async function probarTriggerAhora(btn) {
+  const orig = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Generando…'; }
+  try {
+    // Subir lo pendiente: el servidor lee de Drive, no de esta pestaña.
+    await backendGuardar({ tramites: STATE.tramites, order: STATE.order, config: STATE.config });
+    const res = await srv('generarBorradoresDelDia');
+    showToast(res.generados
+      ? `${res.generados} borrador(es) generados. Revisa tu Gmail.`
+      : 'No había nada que generar hoy.');
+    const est = document.getElementById('triggerEstado');
+    if (est && res.detalle && res.detalle.length) {
+      est.textContent = 'Última ejecución: ' + res.detalle.join(' · ');
+    }
+    // El servidor escribió el registro de generados: recargar para no pisarlo.
+    if (res.generados && typeof sincronizarConServidor === 'function') await sincronizarConServidor();
+  } catch (e) {
+    showToast('Error al generar: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+  }
+}

@@ -71,8 +71,8 @@ Complementaria y con otro objetivo. `smoke.js` comprueba que la app **funciona**
    respaldado en `sessionStorage`, y ejercita todo lo que solo existe con
    servidor — sembrado inicial, subida tras el debounce, Drive ganando a la
    caché al recargar, backups, token OAuth, la clave de Gemini quedándose en el
-   servidor, y Gmail respondiendo por el proxy—. Es la única forma de probar
-   ese camino sin desplegar.
+   servidor, Gmail por el proxy, y el trigger de borradores—. Es la única forma
+   de probar ese camino sin desplegar.
 
 Ver [appsscript.md](appsscript.md#los-riesgos-del-sandbox-medidos) y
 [datos-drive.md](datos-drive.md).

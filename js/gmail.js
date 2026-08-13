@@ -567,3 +567,52 @@ if (typeof document !== 'undefined') {
     initGmailScan();
   }
 }
+
+// ============================================================
+// ABRIR EL TRÁMITE EN GMAIL
+// ============================================================
+// Un sitio web no puede tomar el control de una pestaña que abrió el usuario:
+// los navegadores no lo permiten. Lo que sí se puede es **nombrar** la ventana
+// al abrirla; a partir de ahí, cada `window.open` con ese mismo nombre navega
+// esa pestaña en vez de crear otra. En la práctica: el primer clic abre Gmail,
+// y los siguientes re-buscan ahí mismo.
+
+const GMAIL_VENTANA = 'juritaskGmail';
+
+function gmailBuscarBtn(t) {
+  const q = escapeAttr(_gmailQueryTramite(t));
+  return `<button type="button" class="gmail-open-btn" data-gmailq="${q}" ` +
+         `title="Buscar este trámite en Gmail" aria-label="Buscar el trámite ${escapeAttr(t.numero)} en Gmail">` +
+         `<i data-lucide="mail-search"></i></button>`;
+}
+
+function _gmailQueryTramite(t) {
+  const num = String(t.numero || '').trim();
+  const rad = typeof _extractRadicado === 'function' ? _extractRadicado(t) : '';
+  if (num && rad) return `${num} OR "${rad}"`;
+  return num || rad;
+}
+
+function abrirEnGmail(query) {
+  if (!query) return;
+  // El índice de cuenta importa cuando hay varias sesiones de Google abiertas:
+  // /u/0 es la primera, no necesariamente la del trabajo.
+  const idx = STATE.config.gmailCuentaIndice ?? 0;
+  const url = `https://mail.google.com/mail/u/${idx}/#search/${encodeURIComponent(query)}`;
+  const w = window.open(url, GMAIL_VENTANA);
+  if (!w) showToast('El navegador bloqueó la ventana de Gmail.');
+}
+
+(function _installGmailOpenHandler() {
+  if (window._gmailOpenHandlerInstalled) return;
+  window._gmailOpenHandlerInstalled = true;
+  // Captura + stopPropagation, igual que el botón de copiar número: si no, el
+  // clic abriría además el detalle del trámite.
+  document.addEventListener('click', e => {
+    const btn = e.target.closest && e.target.closest('.gmail-open-btn');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    abrirEnGmail(btn.dataset.gmailq || '');
+  }, true);
+})();

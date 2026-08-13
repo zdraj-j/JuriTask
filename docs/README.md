@@ -7,9 +7,10 @@ agenda diaria. Es de **un solo usuario**: no hay login, ni cuentas, ni equipos.
 > **Migración en curso.** El destino es una *web app de Apps Script*. Con
 > servidor, los datos van a un **JSON de Drive**
 > ([datos-drive.md](datos-drive.md)) y el correo y Gemini salen del servidor
-> ([gmail-integracion.md](gmail-integracion.md)). En un navegador normal la app
-> sigue funcionando con `localStorage`, pero sin correo ni IA. Falta la
-> automatización con triggers (Fase 5).
+> ([gmail-integracion.md](gmail-integracion.md)), con un trigger diario que
+> deja los borradores puestos ([borradores-automaticos.md](borradores-automaticos.md)).
+> En un navegador normal la app sigue funcionando con `localStorage`, pero sin
+> correo ni IA.
 
 Cada archivo de esta carpeta documenta **un proceso** de la app: para qué
 sirve, qué archivos lo implementan, su modelo de datos y los puntos delicados a
@@ -21,6 +22,7 @@ tener en cuenta al modificarlo.
 |---|---|---|
 | Estado, almacenamiento e historial | [almacenamiento-estado.md](almacenamiento-estado.md) | `js/storage.js` |
 | Datos en Drive y backups | [datos-drive.md](datos-drive.md) | `server/Datos.gs`, `js/backend.js` |
+| Borradores automáticos | [borradores-automaticos.md](borradores-automaticos.md) | `server/Triggers.gs` |
 | Trámites (CRUD y dominio) | [tramites.md](tramites.md) | `js/tramites.js`, `js/ui.js` |
 | Filtros y búsqueda | [filtros-busqueda.md](filtros-busqueda.md) | `js/filters.js` |
 | Agenda accionable | [agenda.md](agenda.md) | `js/ui.js` |

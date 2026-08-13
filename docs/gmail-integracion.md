@@ -85,13 +85,25 @@ vuelve a consultar Gmail. Lo descartado sí es permanente
     `config.bitacoraRegistrados`.
   - **Vigilancia automática**: con JuriTask abierto, `startBitacoraWatcher`
     revisa los enviados cada N minutos (config, 10 por defecto) y al volver a la
-    pestaña, y marca el botón con un badge + aviso. Solo usa Gmail API (gratis);
-    Gemini se llama al pulsar "Generar". Requiere que el permiso de Gmail ya se
-    haya concedido en la sesión (el popup necesita un gesto del usuario, por lo
-    que la primera revisión ocurre tras usar el correo una vez).
-    No hay push real: sin backend Gmail no puede avisar con la app cerrada.
+    pestaña, y marca el botón con un badge + aviso.
+    Para lo que sí funciona **con la app cerrada**, ver
+    [borradores-automaticos.md](borradores-automaticos.md).
 - `crearTareaRequerimiento` (tramites.js) crea además "Solicitar fecha de
   inicio" a 2 días en CNT, OS y CNV.
+
+## Abrir el trámite en Gmail
+
+El reporte del día lleva en cada ítem un botón que busca ese trámite en Gmail
+(`gmailBuscarBtn` / `abrirEnGmail`). La consulta combina número y radicado.
+
+Un sitio web **no puede** tomar el control de una pestaña que abrió el usuario;
+los navegadores no lo permiten. Lo que sí se puede es **nombrar** la ventana al
+abrirla: `window.open(url, 'juritaskGmail')`. El primer clic abre Gmail, y los
+siguientes navegan esa misma pestaña en vez de acumular. Verificado dentro del
+sandbox de Apps Script (ver [appsscript.md](appsscript.md#los-riesgos-del-sandbox-medidos)).
+
+`config.gmailCuentaIndice` decide el `/mail/u/N`: con varias sesiones de Google
+abiertas, `u/0` no es necesariamente la del trabajo.
 
 ## Configuración en Google (requisito del usuario)
 

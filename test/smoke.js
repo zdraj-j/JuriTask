@@ -49,7 +49,9 @@ const server = http.createServer((req, res) => {
 const TRAMITES = [
   { id:'t1', numero:'11111', descripcion:'Trámite activo de prueba', modulo:'CNT',
     tipo:'propio', fechaVencimiento:'2026-08-20', gestion:{}, terminado:false,
-    seguimiento:[{ descripcion:'1er req', fecha:'2026-08-14', estado:'pendiente', responsable:'yo', attachments:[] }] },
+    // Fecha pasada a propósito: así el trámite sale en la agenda y en el
+    // reporte del día, que es donde vive el botón de buscar en Gmail.
+    seguimiento:[{ descripcion:'1er req', fecha:'2020-01-01', estado:'pendiente', responsable:'yo', attachments:[] }] },
   { id:'t2', numero:'22222', descripcion:'Trámite terminado de prueba', modulo:'OTR',
     tipo:'propio', fechaVencimiento:'2026-07-01', gestion:{ analisis:true, cumplimiento:true },
     terminado:true, terminadoEn:new Date().toISOString(), seguimiento:[] },
@@ -208,6 +210,27 @@ const ok = (c) => c ? 'PASA' : 'FALLA';
   out.push(['P6 sin Imprimir ni Copiar', !rb.some(b => /Imprimir|Copiar/i.test(b)), rb.join(' | ')]);
   out.push(['P6 conserva Captura y Panel lateral',
             rb.some(b => /Captura/i.test(b)) && rb.some(b => /Panel lateral/i.test(b)), rb.join(' | ')]);
+
+  // ── Punto 7: buscar el trámite en Gmail ─────────────────
+  // Es puro cliente: funciona sin servidor. Se comprueba que el botón está y
+  // que `window.open` recibe el nombre de ventana, que es lo que hace que la
+  // pestaña se reutilice en vez de acumularse.
+  const gm = await page.evaluate(() => {
+    const btn = document.querySelector('#reportContent .gmail-open-btn');
+    if (!btn) return { hay: false };
+    const llamadas = [];
+    const orig = window.open;
+    window.open = (url, name) => { llamadas.push({ url, name }); return {}; };
+    btn.click();
+    window.open = orig;
+    return { hay: true, llamadas };
+  });
+  out.push(['P7 botón de Gmail con ventana nombrada',
+            gm.hay && gm.llamadas.length === 1 &&
+            gm.llamadas[0].name === 'juritaskGmail' &&
+            /mail\.google\.com.*#search/.test(gm.llamadas[0].url),
+            gm.hay ? `name="${gm.llamadas[0]?.name}" url=${(gm.llamadas[0]?.url || '').slice(0, 60)}…`
+                   : 'no se pintó el botón']);
 
   await page.screenshot({ path: path.join(SHOT, 'reporte-dia.png') });
   await page.click('#reportClose');

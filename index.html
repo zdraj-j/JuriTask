@@ -290,6 +290,7 @@
           <div class="form-grid" style="margin:8px 0 12px">
             <div class="form-group"><label>Revisar cada (minutos)</label><input type="number" id="bitacoraIntervalo" min="3" max="120" /></div>
             <div class="form-group"><label>Días de correo a revisar</label><input type="number" id="bitacoraDias" min="1" max="30" /></div>
+            <div class="form-group"><label>Sesión de Google (/mail/u/N)</label><input type="number" id="gmailCuentaIndice" min="0" max="9" title="0 = primera sesión de Google del navegador" /></div>
           </div>
           <div class="config-btns-row">
             <button class="btn-small" id="saveGeminiKeyBtn">Guardar clave</button>
@@ -303,6 +304,25 @@
             <button class="btn btn-primary" id="exportBtn"><i data-lucide="download"></i> Exportar JSON</button>
             <button class="btn-small" id="importBtn"><i data-lucide="upload"></i> Importar JSON</button>
             <input type="file" id="importFile" accept=".json" style="display:none" />
+          </div>
+        </div>
+
+        <!-- Solo con servidor: el trigger vive en Apps Script. -->
+        <div class="config-section" id="triggerSection" style="display:none">
+          <h3><i data-lucide="alarm-clock"></i> Borradores automáticos</h3>
+          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Cada mañana, por cada tarea de requerimiento que venza, deja un borrador de respuesta en el hilo del último correo que lleve el número del trámite en el asunto. <strong>Nunca envía nada.</strong> Funciona con la app cerrada.</p>
+          <div class="config-row"><label>Generar borradores cada día</label>
+            <label class="switch"><input type="checkbox" id="triggerToggle" /><span class="slider"></span></label>
+          </div>
+          <div class="form-grid" style="margin:8px 0 12px">
+            <div class="form-group"><label>Hora</label><input type="number" id="triggerHora" min="0" max="23" /></div>
+          </div>
+          <div class="config-row"><label>Adaptar el texto con IA (Gemini)</label>
+            <label class="switch"><input type="checkbox" id="borradoresIAToggle" /><span class="slider"></span></label>
+          </div>
+          <p class="config-hint" id="triggerEstado">—</p>
+          <div class="config-btns-row" style="margin-top:10px">
+            <button class="btn-small" id="triggerProbarBtn"><i data-lucide="play"></i> Ejecutar ahora</button>
           </div>
         </div>
 

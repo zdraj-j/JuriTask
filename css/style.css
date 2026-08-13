@@ -653,6 +653,15 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
   vertical-align: middle; line-height: 0; opacity: .6; flex-shrink: 0;
   transition: color var(--transition), background var(--transition), opacity var(--transition);
 }
+/* Buscar el trámite en Gmail (reporte del día) */
+.gmail-open-btn {
+  background: none; border: none; padding: 2px; margin-left: 2px;
+  cursor: pointer; color: var(--text-muted); vertical-align: middle;
+  display: inline-flex; align-items: center; border-radius: 4px;
+  transition: color var(--transition), background var(--transition);
+}
+.gmail-open-btn:hover { color: var(--accent); background: var(--accent-light); }
+.gmail-open-btn svg { width: 13px; height: 13px; }
 .copy-num-btn:hover  { color: var(--accent); background: var(--accent-light); opacity: 1; }
 .copy-num-btn:active { transform: scale(.9); }
 .copy-num-btn.copied { color: var(--success); opacity: 1; }
