@@ -1,0 +1,275 @@
+/**
+ * JuriTask — backend.js
+ * Puente con el servidor de Apps Script.
+ *
+ * La app tiene que funcionar en dos mundos:
+ *
+ *  - **En Apps Script**: existe `google.script.run` y los datos viven en un
+ *    JSON de Drive (`server/Datos.gs`).
+ *  - **En un navegador normal**: no existe, y `localStorage` es todo lo que
+ *    hay. Es el modo en que se desarrolla y en que corren las pruebas.
+ *
+ * Este módulo es la única pieza que conoce esa diferencia. El resto de la app
+ * llama a `saveAll()` / `loadAll()` como siempre.
+ */
+
+const BACKEND = {
+  /** ¿Estamos dentro de una web app de Apps Script? */
+  get disponible() {
+    return typeof google !== 'undefined' && !!(google.script && google.script.run);
+  },
+
+  // Estado de la última sincronización, para el panel y para avisar de fallos.
+  ultimoGuardado: null,   // ISO
+  ultimoError:    null,   // string
+  guardando:      false,
+};
+
+/**
+ * Envuelve `google.script.run` en una promesa.
+ *
+ *   const json = await srv('getEstado');
+ *   await srv('guardarEstado', JSON.stringify(STATE));
+ *
+ * `google.script.run` no devuelve promesas ni admite `await`: hay que pasarle
+ * los handlers antes de invocar el método. Los argumentos deben ser
+ * serializables — cadenas, números, booleanos, arrays y objetos planos. Aquí
+ * siempre viaja una cadena JSON, así que no hay sorpresas con fechas.
+ */
+function srv(fn, ...args) {
+  return new Promise((resolve, reject) => {
+    if (!BACKEND.disponible) { reject(new Error('Sin servidor: modo local')); return; }
+    google.script.run
+      .withSuccessHandler(resolve)
+      .withFailureHandler(err => reject(err instanceof Error ? err : new Error(String(err && err.message || err))))
+      [fn](...args);
+  });
+}
+
+// ============================================================
+// ESTADO
+// ============================================================
+
+/**
+ * Trae el estado del servidor. Devuelve `null` cuando no hay servidor o cuando
+ * el fichero aún no existe (primer arranque), para que quien llame se quede
+ * con lo que tenga en local.
+ */
+async function backendCargar() {
+  if (!BACKEND.disponible) return null;
+  try {
+    const json = await srv('getEstado');
+    BACKEND.ultimoError = null;
+    if (!json) return null;
+    return JSON.parse(json);
+  } catch (e) {
+    BACKEND.ultimoError = e.message;
+    console.warn('No se pudo leer el estado del servidor:', e.message);
+    return null;
+  }
+}
+
+/**
+ * Envía el estado al servidor. Sin `await` por parte de quien llama: es una
+ * escritura de fondo, y `localStorage` ya guardó una copia inmediata.
+ */
+async function backendGuardar(estado) {
+  if (!BACKEND.disponible) return false;
+  BACKEND.guardando = true;
+  try {
+    const res = await srv('guardarEstado', JSON.stringify(estado));
+    BACKEND.ultimoGuardado = (res && res.guardadoEn) || new Date().toISOString();
+    BACKEND.ultimoError = null;
+    return true;
+  } catch (e) {
+    BACKEND.ultimoError = e.message;
+    // Se avisa una sola vez por fallo: el usuario no puede hacer gran cosa,
+    // pero tiene que saber que su copia buena es la local.
+    if (typeof showToast === 'function') showToast('No se pudo guardar en Drive: ' + e.message);
+    console.error('Error guardando en el servidor:', e);
+    return false;
+  } finally {
+    BACKEND.guardando = false;
+  }
+}
+
+// ============================================================
+// BACKUPS (Drive)
+// ============================================================
+// Sustituyen a los que vivían en Firestore. La UI está en Ajustes y solo se
+// muestra con servidor: sin él no hay dónde guardarlos, y para eso está
+// "Exportar JSON".
+
+async function renderBackupList() {
+  const sec  = document.getElementById('backupSection');
+  const list = document.getElementById('backupList');
+  const est  = document.getElementById('backupEstado');
+  if (!sec) return;
+
+  if (!BACKEND.disponible) { sec.style.display = 'none'; return; }
+  sec.style.display = '';
+  if (list) list.innerHTML = '<p class="config-hint">Cargando…</p>';
+
+  try {
+    const [info, backups] = await Promise.all([srv('estadoDelAlmacen'), srv('listarBackups')]);
+
+    if (est) {
+      est.textContent = info.existe
+        ? `Datos en Drive: ${(info.bytes / 1024).toFixed(1)} KB · guardados ${formatDatetime(info.modificado)}. Los backups se conservan 30 días.`
+        : 'Todavía no hay datos guardados en Drive.';
+    }
+    const link = document.getElementById('backupCarpetaLink');
+    if (link && info.carpetaUrl) { link.href = info.carpetaUrl; link.style.display = ''; }
+
+    if (!list) return;
+    if (!backups.length) {
+      list.innerHTML = '<p class="config-hint">Sin backups todavía.</p>';
+      return;
+    }
+    list.innerHTML = '';
+    backups.forEach(b => {
+      const row = document.createElement('div');
+      row.className = 'backup-row';
+      row.innerHTML = `
+        <span class="backup-fecha">${formatDatetime(b.creadoEn)}</span>
+        <span class="backup-meta">${(b.bytes / 1024).toFixed(1)} KB</span>
+        <button class="btn-small" data-restaurar="${escapeAttr(b.id)}">Restaurar</button>
+        <button class="btn-icon btn-icon-danger" data-borrar="${escapeAttr(b.id)}" title="Eliminar"><i data-lucide="x"></i></button>`;
+      list.appendChild(row);
+    });
+    if (window.refreshIcons) window.refreshIcons();
+  } catch (e) {
+    if (est) est.textContent = 'No se pudo consultar Drive: ' + e.message;
+    if (list) list.innerHTML = '';
+  }
+}
+
+async function crearBackupAhora(btn) {
+  if (!BACKEND.disponible) { showToast('Los backups requieren el servidor.'); return; }
+  const orig = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Creando…'; }
+  try {
+    // Subir primero lo que esté pendiente: si no, se respalda una versión vieja.
+    await backendGuardar({ tramites: STATE.tramites, order: STATE.order, config: STATE.config });
+    await srv('crearBackup');
+    showToast('Backup creado en Drive.');
+    renderBackupList();
+  } catch (e) {
+    showToast('No se pudo crear el backup: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+  }
+}
+
+async function restaurarBackup(id) {
+  if (!(await showConfirm('¿Restaurar este backup? Se reemplazan todos los trámites actuales.',
+                          { danger: true, confirmLabel: 'Restaurar' }))) return;
+  try {
+    const json = await srv('leerBackup', id);
+    const datos = JSON.parse(json);
+    pushHistory('Restaurar backup');
+    STATE.tramites = Array.isArray(datos.tramites) ? datos.tramites : [];
+    STATE.order    = Array.isArray(datos.order)    ? datos.order    : [];
+    if (datos.config) {
+      STATE.config = Object.assign(
+        { ...DEFAULT_CONFIG,
+          abogados: DEFAULT_CONFIG.abogados.map(a => ({ ...a })),
+          modulos:  [...DEFAULT_CONFIG.modulos] },
+        datos.config
+      );
+    }
+    STATE.tramites.forEach(migrateTramite);
+    saveAll(true);
+    applyCssColors(); applyTheme(STATE.config.theme || 'claro');
+    populateModuloSelects(); updateAbogadoSelects();
+    renderAll(); renderConfig();
+    showToast('Backup restaurado.', null, { label: 'Deshacer', onClick: undo });
+  } catch (e) {
+    showToast('No se pudo restaurar: ' + e.message);
+  }
+}
+
+async function borrarBackupPorId(id) {
+  if (!(await showConfirm('¿Eliminar este backup?', { danger: true, confirmLabel: 'Eliminar' }))) return;
+  try {
+    await srv('borrarBackup', id);
+    showToast('Backup eliminado.');
+    renderBackupList();
+  } catch (e) {
+    showToast('No se pudo eliminar: ' + e.message);
+  }
+}
+
+// ============================================================
+// BORRADORES AUTOMÁTICOS (trigger diario)
+// ============================================================
+
+async function renderTriggerSection() {
+  const sec = document.getElementById('triggerSection');
+  if (!sec) return;
+  if (!BACKEND.disponible) { sec.style.display = 'none'; return; }
+  sec.style.display = '';
+
+  const est = document.getElementById('triggerEstado');
+  const tog = document.getElementById('triggerToggle');
+  const hor = document.getElementById('triggerHora');
+  const ia  = document.getElementById('borradoresIAToggle');
+  if (ia) ia.checked = STATE.config.borradoresConIA === true;
+
+  try {
+    const info = await srv('estadoTrigger');
+    if (tog) tog.checked = info.activo;
+    if (hor) hor.value   = info.hora;
+    if (est) est.textContent = info.activo
+      ? `Activo: se ejecuta cada día a las ${String(info.hora).padStart(2, '0')}:00.`
+      : 'Desactivado. Los borradores solo se generan a mano.';
+  } catch (e) {
+    if (est) est.textContent = 'No se pudo consultar el trigger: ' + e.message;
+  }
+}
+
+async function aplicarTrigger() {
+  const tog = document.getElementById('triggerToggle');
+  const hor = document.getElementById('triggerHora');
+  const est = document.getElementById('triggerEstado');
+  if (est) est.textContent = 'Aplicando…';
+  try {
+    const info = tog?.checked
+      ? await srv('instalarTrigger', parseInt(hor?.value, 10) || 6)
+      : await srv('quitarTrigger');
+    showToast(info.activo ? 'Borradores automáticos activados.' : 'Borradores automáticos desactivados.');
+    renderTriggerSection();
+  } catch (e) {
+    showToast('No se pudo aplicar: ' + e.message);
+    renderTriggerSection();
+  }
+}
+
+/**
+ * Ejecuta el generador ahora mismo. Útil para probar sin esperar a mañana.
+ *
+ * Puede tardar: recorre los trámites vencidos y consulta Gmail por cada uno, y
+ * Apps Script corta a los 6 minutos por ejecución.
+ */
+async function probarTriggerAhora(btn) {
+  const orig = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Generando…'; }
+  try {
+    // Subir lo pendiente: el servidor lee de Drive, no de esta pestaña.
+    await backendGuardar({ tramites: STATE.tramites, order: STATE.order, config: STATE.config });
+    const res = await srv('generarBorradoresDelDia');
+    showToast(res.generados
+      ? `${res.generados} borrador(es) generados. Revisa tu Gmail.`
+      : 'No había nada que generar hoy.');
+    const est = document.getElementById('triggerEstado');
+    if (est && res.detalle && res.detalle.length) {
+      est.textContent = 'Última ejecución: ' + res.detalle.join(' · ');
+    }
+    // El servidor escribió el registro de generados: recargar para no pisarlo.
+    if (res.generados && typeof sincronizarConServidor === 'function') await sincronizarConServidor();
+  } catch (e) {
+    showToast('Error al generar: ' + e.message);
+  } finally {
+    if (btn) { btn.disabled = false; btn.innerHTML = orig; }
+  }
+}

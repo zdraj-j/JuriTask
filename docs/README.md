@@ -1,9 +1,16 @@
 # Documentación de procesos — JuriTask
 
 JuriTask es una PWA (sin framework, JS modular cargado por `<script>`) para la
-gestión de trámites jurídicos: vencimientos, tareas de seguimiento, equipos,
-reportes y agenda diaria. Los datos viven en `localStorage` y, si hay sesión,
-se sincronizan con **Firestore**.
+gestión de trámites jurídicos: vencimientos, tareas de seguimiento, reportes y
+agenda diaria. Es de **un solo usuario**: no hay login, ni cuentas, ni equipos.
+
+> **Migración en curso.** El destino es una *web app de Apps Script*. Con
+> servidor, los datos van a un **JSON de Drive**
+> ([datos-drive.md](datos-drive.md)) y el correo y Gemini salen del servidor
+> ([gmail-integracion.md](gmail-integracion.md)), con un trigger diario que
+> deja los borradores puestos ([borradores-automaticos.md](borradores-automaticos.md)).
+> En un navegador normal la app sigue funcionando con `localStorage`, pero sin
+> correo ni IA.
 
 Cada archivo de esta carpeta documenta **un proceso** de la app: para qué
 sirve, qué archivos lo implementan, su modelo de datos y los puntos delicados a
@@ -14,36 +21,38 @@ tener en cuenta al modificarlo.
 | Proceso | Documento | Archivo(s) principal(es) |
 |---|---|---|
 | Estado, almacenamiento e historial | [almacenamiento-estado.md](almacenamiento-estado.md) | `js/storage.js` |
+| Datos en Drive y backups | [datos-drive.md](datos-drive.md) | `server/Datos.gs`, `js/backend.js` |
+| Borradores automáticos | [borradores-automaticos.md](borradores-automaticos.md) | `server/Triggers.gs` |
 | Trámites (CRUD y dominio) | [tramites.md](tramites.md) | `js/tramites.js`, `js/ui.js` |
 | Filtros y búsqueda | [filtros-busqueda.md](filtros-busqueda.md) | `js/filters.js` |
 | Agenda accionable | [agenda.md](agenda.md) | `js/ui.js` |
-| Calendario mensual | [calendario.md](calendario.md) | `js/calendar.js` |
 | Informe / reporte del día | [informe.md](informe.md) | `js/ui.js` |
 | Reporte de trámites y Excel | [reportes-excel.md](reportes-excel.md) | `js/reportes.js`, `js/xlsx.js` |
-| Autenticación (UI) | [autenticacion.md](autenticacion.md) | `js/auth.js` |
-| Sincronización con Firebase | [sincronizacion-firebase.md](sincronizacion-firebase.md) | `js/firebase.js`, `firebase.rules` |
-| Notificaciones | [notificaciones.md](notificaciones.md) | `js/notifications.js` |
-| Dashboard de administración | [dashboard-admin.md](dashboard-admin.md) | `js/dashboard.js` |
+| Panel de indicadores | [panel.md](panel.md) | `js/dashboard.js` |
+| Token OAuth de Google | [google-auth.md](google-auth.md) | `js/google-auth.js` |
 | Adjuntos y Google Drive | [drive-adjuntos.md](drive-adjuntos.md) | `js/drive.js` |
 | Selección múltiple y lotes | [seleccion-multiple.md](seleccion-multiple.md) | `js/selection.js` |
 | Paleta de comandos y atajos | [paleta-comandos.md](paleta-comandos.md) | `js/commandpalette.js` |
 | Navegación entre vistas y config | [navegacion-config.md](navegacion-config.md) | `js/config.js` |
 | PWA / offline | [pwa-offline.md](pwa-offline.md) | `sw.js`, `manifest.json` |
+| Prueba de humo en navegador | [pruebas.md](pruebas.md) | `test/smoke.js` |
+| Build y despliegue en Apps Script | [appsscript.md](appsscript.md) | `tools/build.js`, `test/sandbox.js` |
 | Accesibilidad e iconos | [accesibilidad-iconos.md](accesibilidad-iconos.md) | `js/a11y.js`, `js/icons.js` |
 
 ## Convenciones del dominio
 
-- **`tipo` de trámite**: `propio` (mío), `abogado` (de otro abogado) o `equipo`
-  (compartido). `esPropio(t)` ⇔ `t.tipo === 'propio'`.
-- **Responsable de una tarea**: campo `responsable` (clave de abogado o `'yo'`)
-  y/o `assignedTo` (array de UIDs). Se considera **mío** si el responsable es
-  `'yo'`, mi UID, o no hay responsable explícito.
+- **`tipo` de trámite**: `propio` (mío) o `abogado` (a cargo de un colaborador).
+  `esPropio(t)` ⇔ `t.tipo === 'propio'`.
+- **Colaboradores**: son **etiquetas** de `config.abogados`, no usuarios. No hay
+  UIDs ni cuentas que resolver.
+- **Responsable de una tarea**: campo `responsable` — `'yo'` o la clave del
+  colaborador del trámite. Se considera **mío** si es `'yo'` o está vacío.
 - **Etapas de gestión**: `gestion.analisis` → `gestion.cumplimiento` →
   `terminado`. Lo refleja la barra de 3 segmentos de cada tarjeta.
 - **Fechas**: cadenas `YYYY-MM-DD`; se comparan lexicográficamente. `today()`
   (en `tramites.js`) devuelve la fecha local cacheada.
 - **Vencimiento**: solo aplica mientras el trámite no esté cumplido. En todas
   las vistas la condición es `t.fechaVencimiento && !t.gestion?.cumplimiento`
-  (tarjetas, agenda, calendario, reporte del día, `esHoyOVencido()`, y
-  `_repVenc()` en el reporte de trámites). Marcado el cumplimiento, el trámite
+  (tarjetas, agenda, reporte del día, y `_repVenc()` en el reporte de
+  trámites). Marcado el cumplimiento, el trámite
   deja de mostrar fecha y de contar como vencido.

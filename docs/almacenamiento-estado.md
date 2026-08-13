@@ -19,14 +19,17 @@ STATE = {
 
 `config` incluye: `abogados`, `modulos`, `plantillas`, `columns`, `detailMode`,
 `sortBy`, `theme`, auto-requerimiento (`autoReq`, `autoReqTexto`, `autoReqDias`,
-`autoReqResponsable`), opciones del calendario (`calendarShow`,
-`calendarShowNum`, `calendarShowDesc`) y **`agendaScope`** (filtro de la Agenda,
+`autoReqResponsable`) y **`agendaScope`** (filtro de la Agenda,
 ver [agenda.md](agenda.md)).
 
 ## Persistencia
 
-- `saveAll()` vuelca `STATE` a `localStorage`. Con Firebase, además se sincroniza
-  por trámite (`saveTramiteFS`) y la config (ver [sincronizacion-firebase.md](sincronizacion-firebase.md)).
+- `saveAll()` vuelca `STATE` a `localStorage` con debounce de 400 ms y, **si hay
+  servidor**, además lo manda a Drive con debounce de 2,5 s. `saveAll(true)`
+  fuerza ambos. Los detalles del segundo destino, en
+  [datos-drive.md](datos-drive.md).
+- `sincronizarConServidor()` corre **después** del primer render: la app pinta
+  con la caché local y luego, si Drive tiene datos, los sustituye y repinta.
 - `loadAll()` carga de `localStorage` aplicando migraciones (p. ej. normaliza
   `responsable` `'auxiliar'`/`'propio'` → `'yo'`, y migra `proximaAccion` →
   `seguimiento`).

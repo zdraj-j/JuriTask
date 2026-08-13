@@ -4,8 +4,8 @@
  * los event listeners. Es el orquestador que conecta los módulos.
  *
  * Orden de carga requerido en index.html:
- *   storage.js → tramites.js → filters.js → ui.js → calendar.js
- *   → auth.js → firestore.js → dashboard.js → config.js
+ *   storage.js → tramites.js → filters.js → ui.js → dashboard.js
+ *   → google-auth.js → drive.js → gmail.js → … → config.js
  */
 
 // ============================================================
@@ -51,20 +51,17 @@ function switchView(view) {
 
   const titles = {
     all:       'Todos los trámites',
-    today:     'Hoy / Vencidos',
     agenda:    'Agenda',
-    calendar:  'Calendario',
     finished:  'Terminados',
     config:    'Configuración',
-    dashboard: '<i data-lucide="shield"></i> Dashboard Admin',
+    dashboard: 'Panel',
   };
   document.getElementById('topbarTitle').innerHTML = titles[view] || '';
 
   const isConfig = view === 'config';
-  const isCal    = view === 'calendar';
   const isDash   = view === 'dashboard';
   const isAgenda = view === 'agenda';
-  const hide     = isConfig || isCal || isDash;
+  const hide     = isConfig || isDash;
   // La agenda es una lista enfocada: oculta filtros/orden/columnas/reporte.
   const hideTools = hide || isAgenda;
 
@@ -75,7 +72,7 @@ function switchView(view) {
   document.getElementById('reportBtn').style.display      = hideTools ? 'none' : '';
   document.getElementById('newTramiteBtn').style.display  = hide ? 'none' : '';
   // El reporte general consulta todo el histórico: sigue disponible en la
-  // agenda y el calendario, solo se oculta en configuración y dashboard.
+  // agenda, solo se oculta en configuración y dashboard.
   const _repBtn = document.getElementById('reportesBtn');
   if (_repBtn) _repBtn.style.display = (isConfig || isDash) ? 'none' : '';
   const _scanBtn = document.getElementById('scanMailBtn');
@@ -83,8 +80,7 @@ function switchView(view) {
   const _bitBtn = document.getElementById('bitacoraScanBtn');
   if (_bitBtn) _bitBtn.style.display = hide ? 'none' : '';
 
-  if      (isConfig) { renderConfig(); syncConfigAccountUI(); }
-  else if (isCal)    { renderCalendar(); }
+  if      (isConfig) { renderConfig(); }
   else if (isAgenda) { renderAgenda(); }
   else if (isDash && typeof loadDashboardData === 'function') { loadDashboardData(); }
   else               { renderAll(); }
@@ -94,13 +90,8 @@ function switchView(view) {
 // INIT
 // ============================================================
 function init() {
-  const hasFirebase = typeof firebase !== 'undefined';
-
-  // Sin Firebase: arranque local inmediato
-  if (!hasFirebase) {
-    loadAll();
-    purgeExpiredFinished();
-  }
+  loadAll();
+  purgeExpiredFinished();
 
   applyCssColors();
   applyTheme(STATE.config.theme || 'claro');
@@ -117,11 +108,13 @@ function init() {
 
   setDetailMode(STATE.config.detailMode || 'expand');
   if (isMobile()) closeSidebar();
-  if (!hasFirebase) renderAll();
+  renderAll();
+
+  // Con servidor, traer lo de Drive **después** del primer render: la app ya
+  // está pintada con la caché local y no se queda en blanco esperando.
+  if (typeof sincronizarConServidor === 'function') sincronizarConServidor();
 
   setupContainerDrop(document.getElementById('tramiteList'));
-
-  if (typeof startStagnantChecker === 'function') startStagnantChecker();
 
   // ── Confirm dialog ───────────────────────────────────────
   document.getElementById('confirmOk')?.addEventListener('click',     () => _confirmClose(true));
@@ -215,7 +208,7 @@ function init() {
   });
 
   // ── Filtros ──────────────────────────────────────────────
-  ['filterTipo','filterAbogado','filterModulo','filterResponsable','filterEtapa','filterScope']
+  ['filterTipo','filterAbogado','filterModulo','filterResponsable','filterEtapa']
     .forEach(id => document.getElementById(id)?.addEventListener('change', renderAll));
   const searchInput = document.getElementById('searchInput');
   const runSearch = () => {
@@ -259,7 +252,7 @@ function init() {
   }
 
   document.getElementById('clearFilters').addEventListener('click', () => {
-    ['filterTipo','filterAbogado','filterModulo','filterResponsable','filterEtapa','filterScope']
+    ['filterTipo','filterAbogado','filterModulo','filterResponsable','filterEtapa']
       .forEach(id => { const el = document.getElementById(id); if (el) el.value = ''; });
     searchInput.value = '';
     syncSearchClear();
@@ -291,12 +284,6 @@ function init() {
     saveAll();
     renderAgenda();
   });
-  document.getElementById('reportPrintBtn').addEventListener('click', () =>
-    _printReportFrom(document.getElementById('reportContent'))
-  );
-  document.getElementById('reportCopyBtn').addEventListener('click', () =>
-    _copyReportFrom('#reportContent')
-  );
   document.getElementById('reportScreenshotBtn')?.addEventListener('click', e =>
     _screenshotReport(e.currentTarget, reportFiltroAbogado)
   );
@@ -319,31 +306,11 @@ function init() {
     renderReportDock();
     _saveDockState();
   });
-  document.getElementById('reportDockPrintBtn')?.addEventListener('click', () =>
-    _printReportFrom(document.getElementById('reportDockContent'))
-  );
-  document.getElementById('reportDockCopyBtn')?.addEventListener('click', () =>
-    _copyReportFrom('#reportDockContent')
-  );
   document.getElementById('reportDockScreenshotBtn')?.addEventListener('click', e =>
     _screenshotReport(e.currentTarget, reportDockFiltro)
   );
   // Restaurar el panel lateral si quedó abierto en la sesión previa.
   if (typeof restoreReportDock === 'function') restoreReportDock();
-
-  // ── Calendario ───────────────────────────────────────────
-  document.getElementById('calPrev').addEventListener('click', () => {
-    calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; }
-    renderCalendar();
-  });
-  document.getElementById('calNext').addEventListener('click', () => {
-    calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; }
-    renderCalendar();
-  });
-  document.getElementById('calTodayBtn').addEventListener('click', () => {
-    calYear = new Date().getFullYear(); calMonth = new Date().getMonth();
-    renderCalendar();
-  });
 
   // ── Export / Import ──────────────────────────────────────
   document.getElementById('exportBtn').addEventListener('click', exportData);
@@ -363,38 +330,17 @@ function init() {
 
   // ── Config: abogados ─────────────────────────────────────
   document.getElementById('saveAbogadosBtn').addEventListener('click', () => {
-    // Guardar colores de miembros del equipo
-    document.querySelectorAll('#abogadosList .ab-color-team').forEach(picker => {
-      const uid = picker.dataset.uid;
-      if (!uid) return;
-      let entry = (STATE.config.abogados || []).find(x => x.key === uid);
-      if (entry) {
-        entry.color = picker.value;
-      } else {
-        const members = (typeof _teamMembers !== 'undefined') ? _teamMembers : [];
-        const m = members.find(x => x.uid === uid);
-        STATE.config.abogados.push({ key: uid, nombre: m?.displayName || m?.email || uid, color: picker.value });
-      }
-    });
-
-    // Guardar nombres y colores de colaboradores manuales
-    const manualRows = document.querySelectorAll('#abogadosList .abogado-config-row');
+    // Las filas van en el mismo orden que `config.abogados`.
     let valid = true;
-    manualRows.forEach(row => {
+    document.querySelectorAll('#abogadosList .abogado-config-row').forEach((row, idx) => {
       const nombreInput = row.querySelector('.ab-nombre');
-      const colorInput = row.querySelector('.ab-color');
-      if (!nombreInput || !colorInput) return; // Es fila de equipo, no manual
+      const colorInput  = row.querySelector('.ab-color');
+      const entry = (STATE.config.abogados || [])[idx];
+      if (!nombreInput || !colorInput || !entry) return;
       const nombre = nombreInput.value.trim();
-      const color = colorInput.value;
       if (!nombre) { valid = false; return; }
-      // Buscar por el key del abogado (basado en la posición en la lista de manuales)
-      const members = (typeof _teamMembers !== 'undefined') ? _teamMembers : [];
-      const manualAbogados = (STATE.config.abogados || []).filter(a => !members.find(m => m.uid === a.key));
-      const idx = [...document.querySelectorAll('#abogadosList .abogado-config-row')].filter(r => r.querySelector('.ab-nombre')).indexOf(row);
-      if (idx >= 0 && manualAbogados[idx]) {
-        manualAbogados[idx].nombre = titleCase(nombre);
-        manualAbogados[idx].color = color;
-      }
+      entry.nombre = titleCase(nombre);
+      entry.color  = colorInput.value;
     });
     if (!valid) { showToast('Los nombres no pueden estar vacíos.'); return; }
     saveAll(); applyCssColors(); updateAbogadoSelects(); renderAbogadosList(); renderAll();
@@ -413,12 +359,36 @@ function init() {
     showToast(`"${nombre}" añadido.`);
   });
 
-  // ── Config: clave de Gemini ─────────────────────────────
-  document.getElementById('saveGeminiKeyBtn')?.addEventListener('click', () => {
-    const key = document.getElementById('geminiApiKey')?.value.trim() || '';
-    STATE.config.geminiApiKey = key;
+  // Índice de la sesión de Google al abrir Gmail: con varias cuentas abiertas,
+  // /u/0 no es necesariamente la del trabajo.
+  document.getElementById('gmailCuentaIndice')?.addEventListener('change', e => {
+    const n = parseInt(e.target.value, 10);
+    STATE.config.gmailCuentaIndice = Number.isFinite(n) && n >= 0 ? n : 0;
     saveAll();
-    showToast(key ? 'Clave de Gemini guardada.' : 'Clave de Gemini eliminada.');
+  });
+
+  // ── Config: clave de Gemini ─────────────────────────────
+  // La clave va a Script Properties, no a `STATE.config`: así no viaja al
+  // navegador ni acaba dentro del JSON de Drive.
+  document.getElementById('saveGeminiKeyBtn')?.addEventListener('click', async e => {
+    const input = document.getElementById('geminiApiKey');
+    const key = input?.value.trim() || '';
+    if (typeof BACKEND === 'undefined' || !BACKEND.disponible) {
+      showToast('Guardar la clave requiere el servidor (Apps Script).');
+      return;
+    }
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    try {
+      const configurada = await guardarGeminiKey(key);
+      if (input) input.value = '';          // no dejarla a la vista
+      _syncGeminiEstado(configurada);
+      showToast(configurada ? 'Clave de Gemini guardada en el servidor.' : 'Clave de Gemini eliminada.');
+    } catch (err) {
+      showToast('No se pudo guardar la clave: ' + err.message);
+    } finally {
+      btn.disabled = false;
+    }
   });
   // Vigilancia de correos enviados (bitácora)
   document.getElementById('bitacoraAutoToggle')?.addEventListener('change', e => {
@@ -446,20 +416,6 @@ function init() {
     STATE.config.gmailDescartados = [];
     saveAll();
     showToast('Descartados restablecidos.');
-  });
-
-  // ── Config: calendario ──────────────────────────────────
-  document.getElementById('calendarShowSelect')?.addEventListener('change', e => {
-    STATE.config.calendarShow = e.target.value; saveAll();
-    if (currentView === 'calendar') renderCalendar();
-  });
-  document.getElementById('calendarShowNumToggle')?.addEventListener('change', e => {
-    STATE.config.calendarShowNum = e.target.checked; saveAll();
-    if (currentView === 'calendar') renderCalendar();
-  });
-  document.getElementById('calendarShowDescToggle')?.addEventListener('change', e => {
-    STATE.config.calendarShowDesc = e.target.checked; saveAll();
-    if (currentView === 'calendar') renderCalendar();
   });
 
   // ── Config: colores de barra ─────────────────────────────
@@ -513,7 +469,7 @@ function init() {
   document.getElementById('clearAllBtn').addEventListener('click', () => {
     if (!confirm('¿Borrar TODOS los datos? Esta acción no se puede deshacer.')) return;
     if (!confirm('¿Estás seguro? Se perderán todos los trámites.')) return;
-    Object.values(KEYS).forEach(k => localStorage.removeItem(k));
+    try { Object.values(KEYS).forEach(k => localStorage.removeItem(k)); } catch (_) {}
     STATE.tramites = []; STATE.order = [];
     STATE.config = { ...DEFAULT_CONFIG, abogados: DEFAULT_CONFIG.abogados.map(a=>({...a})), modulos: [...DEFAULT_CONFIG.modulos] };
     applyCssColors(); applyTheme('claro'); populateModuloSelects(); updateAbogadoSelects();
@@ -521,45 +477,31 @@ function init() {
     renderConfig(); renderAll(); showToast('Datos borrados.');
   });
 
-  // ── Backup ───────────────────────────────────────────────
-  document.getElementById('backupNowBtn')?.addEventListener('click', () => {
-    if (typeof createBackup === 'function') {
-      createBackup().then(() => { showToast('Backup creado.'); renderBackupList(); });
-    } else {
-      // Fallback: exportar JSON como backup
-      exportData();
-    }
+  // ── Borradores automáticos ───────────────────────────────
+  document.getElementById('triggerToggle')?.addEventListener('change', aplicarTrigger);
+  document.getElementById('triggerHora')?.addEventListener('change', () => {
+    if (document.getElementById('triggerToggle')?.checked) aplicarTrigger();
+  });
+  document.getElementById('borradoresIAToggle')?.addEventListener('change', e => {
+    STATE.config.borradoresConIA = e.target.checked;
+    saveAll(true);   // el servidor lo lee de Drive: hay que subirlo ya
+    showToast(e.target.checked
+      ? 'La IA adaptará los borradores. El contenido del correo saldrá hacia Gemini.'
+      : 'Los borradores usarán las plantillas tal cual.');
+  });
+  document.getElementById('triggerProbarBtn')?.addEventListener('click', e => probarTriggerAhora(e.currentTarget));
+
+  // ── Backups en Drive ─────────────────────────────────────
+  document.getElementById('backupNowBtn')?.addEventListener('click', e => crearBackupAhora(e.currentTarget));
+  document.getElementById('backupList')?.addEventListener('click', e => {
+    const r = e.target.closest('[data-restaurar]');
+    if (r) { restaurarBackup(r.dataset.restaurar); return; }
+    const b = e.target.closest('[data-borrar]');
+    if (b) borrarBackupPorId(b.dataset.borrar);
   });
 
-  // ── Notificaciones ───────────────────────────────────────
-  document.getElementById('notifBtn')?.addEventListener('click', e => {
-    e.stopPropagation();
-    if (typeof toggleNotifPanel === 'function') toggleNotifPanel();
-  });
-  document.getElementById('adminMsgBroadcastBtn')?.addEventListener('click', () => {
-    const msg = document.getElementById('adminMsgText')?.value.trim();
-    const target = document.getElementById('adminMsgTarget')?.value || 'all';
-    if (typeof adminSendBroadcast === 'function') adminSendBroadcast(msg, target).then(() => {
-      if (document.getElementById('adminMsgText')) document.getElementById('adminMsgText').value = '';
-    });
-  });
-
-  // ── Auth UI ──────────────────────────────────────────────
-  if (typeof initAuthUI    === 'function') initAuthUI();
-  if (typeof initAuth      === 'function') initAuth();
+  // ── Panel ────────────────────────────────────────────────
   if (typeof initDashboard === 'function') initDashboard();
-
-  // ── Logout ───────────────────────────────────────────────
-  document.getElementById('logoutBtn')?.addEventListener('click', () => {
-    if (typeof AUTH !== 'undefined' && AUTH.logout) {
-      if (confirm('¿Cerrar sesión?')) AUTH.logout();
-    }
-  });
-
-  // ── Admin: gestión de usuarios ───────────────────────────
-  document.getElementById('adminRefreshBtn')?.addEventListener('click', () => {
-    if (typeof loadAdminUsers === 'function') loadAdminUsers();
-  });
 
   // ── ESC + Ctrl+Z ─────────────────────────────────────────
   document.addEventListener('keydown', e => {
@@ -573,7 +515,6 @@ function init() {
     if (e.key !== 'Escape') return;
     const close = sel => document.querySelector(sel)?.classList.contains('open');
     if (close('#confirmOverlay'))    { _confirmClose(false); return; }
-    if (close('#createTeamOverlay')) { if (typeof closeTeamModal === 'function') closeTeamModal(); return; }
     if (close('#reportOverlay'))  { closeReport();   return; }
     if (close('#detailOverlay'))  { closeDetail();   return; }
     if (close('#modalOverlay'))   { closeModal();    return; }
@@ -621,19 +562,6 @@ function _printHeader(titulo, subtitulo) {
       <h1>${escapeHtml(titulo)}</h1>
       <p>${escapeHtml(subtitulo || `Generado el ${formatDate(today())}`)}</p>
     </div>`;
-}
-
-// Imprime el reporte del día a partir del contenedor indicado (modal o dock).
-function _printReportFrom(area) {
-  if (!area) return;
-  _printHtml(_printHeader('Reporte del día — JuriTask') + area.innerHTML);
-}
-
-// Copia el reporte como texto plano desde el contenedor indicado.
-function _copyReportFrom(sourceSel) {
-  navigator.clipboard.writeText(buildReportTextPlain(sourceSel))
-    .then(() => showToast('Reporte copiado.'))
-    .catch(() => showToast('No se pudo copiar.'));
 }
 
 // Captura el reporte como imagen. Renderiza en un contenedor oculto cuyo ancho
@@ -701,7 +629,6 @@ document.addEventListener('click', e => {
     detailOverlay:      'closeDetail',
     reportOverlay:      'closeReport',
     reporteOverlay:     'closeReporte',
-    createTeamOverlay:  'closeTeamModal',
     editProfileOverlay: 'closeEditProfileModal',
   };
   const fn = byId[overlay.id];

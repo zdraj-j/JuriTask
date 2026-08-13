@@ -24,55 +24,21 @@ const MODULO_PREFIX_ALIAS = {
   OTRD: 'OTR',
 };
 
-// ── Token de Gmail ────────────────────────────────────────────
-async function _ensureGmailToken(forceNew = false) {
-  if (!forceNew && AUTH._gmailAccessToken) return AUTH._gmailAccessToken;
-  const user = (typeof auth !== 'undefined') ? auth.currentUser : null;
-  if (!user) return null;
-  const hasGoogle = user.providerData.some(p => p.providerId === 'google.com');
-  if (!hasGoogle) {
-    showToast('Inicia sesión con Google para revisar el correo.');
-    return null;
-  }
-  try {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
-    // Conservar el permiso de Drive para no perderlo al re-autenticar.
-    provider.addScope('https://www.googleapis.com/auth/drive.file');
-    const result = await user.reauthenticateWithPopup(provider);
-    if (result.credential && result.credential.accessToken) {
-      AUTH._gmailAccessToken = result.credential.accessToken;
-      // El token también sirve para Drive (mismo scope pedido).
-      AUTH._googleAccessToken = result.credential.accessToken;
-      // Con permiso ya concedido, la vigilancia de enviados puede empezar.
-      if (typeof checkBitacoraPendientes === 'function') setTimeout(checkBitacoraPendientes, 1500);
-      return AUTH._gmailAccessToken;
-    }
-  } catch (e) {
-    if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return null;
-    console.warn('Gmail re-auth:', e.code, e.message);
-    showToast('No se pudo acceder al correo: ' + (e.code || e.message || 'error'));
-  }
-  return null;
+// ── Acceso a Gmail ────────────────────────────────────────────
+// El transporte lo hace el servidor (`gmailApi` en server/Correo.gs): así el
+// token no viaja al navegador. Lo que devuelve es el mismo JSON que devolvía
+// `fetch`, de modo que todo el parseo de abajo sigue igual.
+async function _gmailFetch(path) {
+  return JSON.parse(await srv('gmailApi', path));
 }
 
-// ── Llamadas a la Gmail API ──────────────────────────────────
-async function _gmailFetch(path, token) {
-  const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/' + path, {
-    headers: { Authorization: 'Bearer ' + token },
-  });
-  if (res.status === 401) { const err = new Error('unauthorized'); err.code = 401; throw err; }
-  if (!res.ok) { const err = new Error('gmail-http-' + res.status); err.code = res.status; throw err; }
-  return res.json();
-}
-
-async function _listTramiteMessages(token) {
-  const data = await _gmailFetch('messages?maxResults=25&q=' + encodeURIComponent(GMAIL_QUERY), token);
+async function _listTramiteMessages() {
+  const data = await _gmailFetch('messages?maxResults=25&q=' + encodeURIComponent(GMAIL_QUERY));
   return data.messages || [];
 }
 
-async function _getMessage(id, token) {
-  return _gmailFetch('messages/' + id + '?format=full', token);
+async function _getMessage(id) {
+  return _gmailFetch('messages/' + id + '?format=full');
 }
 
 // ── Decodificación de cuerpo ─────────────────────────────────
@@ -170,9 +136,6 @@ function _matchAbogado(responsable) {
 
   const candidates = [];
   (STATE.config.abogados || []).forEach(a => candidates.push({ key: a.key, nombre: a.nombre }));
-  if (typeof _teamMembers !== 'undefined' && Array.isArray(_teamMembers)) {
-    _teamMembers.forEach(m => candidates.push({ key: m.uid, nombre: m.displayName || m.email || '' }));
-  }
 
   // Coincidencia exacta normalizada, o por inclusión (nombre config ⊆ responsable
   // o viceversa) para tolerar segundos nombres/apellidos abreviados.
@@ -255,39 +218,20 @@ function parseTramiteEmail(message) {
 
 // ── Escaneo completo ─────────────────────────────────────────
 async function scanTramiteEmails() {
-  let token = await _ensureGmailToken();
-  if (!token) return null;
-
-  const doScan = async (tk) => {
-    const list = await _listTramiteMessages(tk);
+  return _conGmail(async () => {
+    const list = await _listTramiteMessages();
     const detections = [];
     for (const ref of list) {
       try {
-        const msg = await _getMessage(ref.id, tk);
-        const d   = parseTramiteEmail(msg);
+        const d = parseTramiteEmail(await _getMessage(ref.id));
         if (d) detections.push(d);
       } catch (e) {
-        if (e.code === 401) throw e;
+        // Un correo con formato raro no debe tumbar el escaneo entero.
         console.warn('Error parseando correo', ref.id, e.message);
       }
     }
     return detections;
-  };
-
-  try {
-    return await doScan(token);
-  } catch (e) {
-    if (e.code === 401) {
-      // Token vencido: renovar una vez.
-      AUTH._gmailAccessToken = null;
-      token = await _ensureGmailToken(true);
-      if (!token) return null;
-      try { return await doScan(token); }
-      catch (e2) { showToast('Error leyendo el correo: ' + (e2.code || e2.message)); return null; }
-    }
-    showToast('Error leyendo el correo: ' + (e.code || e.message));
-    return null;
-  }
+  });
 }
 
 // Quita las detecciones cuyo número ya existe como trámite o fue descartado.
@@ -533,21 +477,25 @@ async function runGmailScan(btn, { force = false } = {}) {
 const CONTACTOS_EXCLUIR_DOMINIOS = ['comfenalcovalle.com.co'];
 const CONTACTOS_EXCLUIR_NOMBRES  = ['garces lloreda', 'garcés lloreda'];
 
-// Ejecuta `fn(token)` gestionando la obtención y renovación del token de Gmail.
-async function _withGmailToken(fn) {
-  let token = await _ensureGmailToken();
-  if (!token) return null;
+/**
+ * Ejecuta `fn` contra Gmail, con el servidor de por medio.
+ *
+ * Sustituye al antiguo `_withGmailToken`: ya no hay token que renovar ni popup
+ * que reabrir —el servidor está autorizado de forma permanente—, así que solo
+ * queda comprobar que hay servidor y traducir el fallo a algo legible.
+ */
+async function _conGmail(fn) {
+  if (typeof BACKEND === 'undefined' || !BACKEND.disponible) {
+    showToast('El correo requiere el servidor (Apps Script).');
+    return null;
+  }
   try {
-    return await fn(token);
+    return await fn();
   } catch (e) {
-    if (e.code === 401) {
-      AUTH._gmailAccessToken = null;
-      token = await _ensureGmailToken(true);
-      if (!token) return null;
-      try { return await fn(token); }
-      catch (e2) { showToast('Error de Gmail: ' + (e2.code || e2.message)); return null; }
-    }
-    showToast('Error de Gmail: ' + (e.code || e.message));
+    const msg = String(e && e.message || e);
+    showToast(msg === 'gmail-401'
+      ? 'Gmail rechazó el permiso. Vuelve a autorizar el script.'
+      : 'Error de Gmail: ' + msg);
     return null;
   }
 }
@@ -578,14 +526,14 @@ async function fetchEmailsForTramite(t) {
 
   const query = `(${terms.join(' OR ')}) newer_than:1y`;
 
-  return _withGmailToken(async (token) => {
+  return _conGmail(async () => {
     // Traer como máximo 15 correos y recortar cada cuerpo: así cada llamada a
     // Gemini consume menos tokens (menos presión sobre la cuota gratuita).
-    const data = await _gmailFetch('messages?maxResults=15&q=' + encodeURIComponent(query), token);
+    const data = await _gmailFetch('messages?maxResults=15&q=' + encodeURIComponent(query));
     const refs = data.messages || [];
     const emails = [];
     for (const ref of refs) {
-      const msg = await _getMessage(ref.id, token);
+      const msg = await _getMessage(ref.id);
       const payload = msg.payload || {};
       const body = _stripHtml(_extractBody(payload));
       emails.push({
@@ -600,134 +548,6 @@ async function fetchEmailsForTramite(t) {
     emails.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
     return emails;
   });
-}
-
-// Arma el prompt para Gemini.
-function _buildBitacoraPrompt(t, emails) {
-  const radicado = _extractRadicado(t);
-  const cabecera =
-`Eres un asistente jurídico. Analiza los correos de un trámite y responde SOLO con JSON válido.
-
-Trámite: ${t.numero}${radicado ? ' (radicado ' + radicado + ')' : ''}
-Descripción: ${t.descripcion || '(sin descripción)'}
-
-Devuelve este esquema JSON:
-{
-  "resumen": "resumen breve (2-4 frases) de en qué va el trámite según los correos",
-  "eventos": [ { "fecha": "YYYY-MM-DD", "texto": "qué pasó ese día" } ],
-  "contactos": [ { "nombre": "", "telefono": "", "email": "", "organizacion": "" } ]
-}
-
-Reglas para "contactos": incluye SOLO personas EXTERNAS con quien haya que comunicarse por el trámite.
-NO incluyas contactos internos de Comfenalco Valle (correos @comfenalcovalle.com.co) ni de Garcés Lloreda.
-Si un dato no aparece, deja el campo en cadena vacía. Si no hay contactos externos, devuelve "contactos": [].
-Ordena "eventos" de más antiguo a más reciente. No inventes datos que no estén en los correos.
-
-Correos (cronológico):`;
-
-  const cuerpo = emails.map((e, i) =>
-`\n--- Correo ${i + 1} ---
-Fecha: ${e.fecha}
-De: ${e.de}
-Para: ${e.para}
-Asunto: ${e.asunto}
-Cuerpo: ${e.cuerpo}`).join('\n');
-
-  return cabecera + cuerpo;
-}
-
-// Filtra contactos internos que el modelo pudiera haber colado.
-function _filtrarContactosExternos(contactos) {
-  if (!Array.isArray(contactos)) return [];
-  return contactos.filter(c => {
-    const email = String(c.email || '').toLowerCase();
-    const org   = String(c.organizacion || '').toLowerCase();
-    if (CONTACTOS_EXCLUIR_DOMINIOS.some(d => email.includes(d))) return false;
-    if (CONTACTOS_EXCLUIR_NOMBRES.some(n => org.includes(n)))    return false;
-    // Debe tener al menos un nombre o un teléfono para ser útil.
-    return (c.nombre && c.nombre.trim()) || (c.telefono && c.telefono.trim());
-  });
-}
-
-// Genera/actualiza la bitácora de un trámite y la guarda.
-async function refreshTramiteBitacora(t, containerEl, btn) {
-  if (!geminiConfigured()) {
-    showToast('Configura tu API key de Gemini en Ajustes para usar la bitácora.');
-    return;
-  }
-  const orig = btn ? btn.innerHTML : '';
-  if (btn) { btn.disabled = true; btn.innerHTML = 'Analizando correo…'; }
-  try {
-    const emails = await fetchEmailsForTramite(t);
-    if (emails === null) return;                 // error de Gmail (ya avisado)
-    if (!emails.length) {
-      showToast('No encontré correos de este trámite en tu Gmail.');
-      return;
-    }
-    const result = await geminiGenerateJSON(_buildBitacoraPrompt(t, emails));
-    if (!result) return;                         // error de Gemini (ya avisado)
-
-    t.emailResumen   = String(result.resumen || '').trim();
-    t.emailEventos   = Array.isArray(result.eventos) ? result.eventos : [];
-    t.emailContactos = _filtrarContactosExternos(result.contactos);
-    t.emailBitacoraAt   = new Date().toISOString();
-    t.emailBitacoraCount = emails.length;
-
-    if (typeof pushHistory === 'function') pushHistory(`Bitácora de correo #${t.numero}`);
-    if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
-    if (typeof saveAll === 'function') saveAll();
-
-    if (containerEl) renderBitacoraIn(t, containerEl);
-    showToast(`Bitácora actualizada (${emails.length} correo(s)).`);
-  } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = orig; }
-  }
-}
-
-// Renderiza la bitácora dentro de un contenedor del detalle.
-function renderBitacoraIn(t, el) {
-  if (!el) return;
-  const tieneAlgo = t.emailResumen || (t.emailEventos && t.emailEventos.length) || (t.emailContactos && t.emailContactos.length);
-
-  if (!tieneAlgo) {
-    el.innerHTML = `<p style="font-size:13px;color:var(--text-secondary);margin:0 0 4px">
-      Aún no se ha generado la bitácora desde el correo.</p>`;
-    return;
-  }
-
-  let html = '';
-  if (t.emailBitacoraAt) {
-    html += `<p style="font-size:11px;color:var(--text-secondary);margin:0 0 8px">
-      Actualizada: ${formatDatetime(t.emailBitacoraAt)}${t.emailBitacoraCount ? ` · ${t.emailBitacoraCount} correo(s)` : ''}</p>`;
-  }
-  if (t.emailResumen) {
-    html += `<div style="font-size:13px;line-height:1.45;margin-bottom:10px">${escapeHtml(t.emailResumen)}</div>`;
-  }
-  if (t.emailEventos && t.emailEventos.length) {
-    html += `<div style="margin-bottom:10px"><b style="font-size:12px">Cronología</b>
-      <ul style="margin:6px 0 0;padding-left:18px;font-size:12.5px;line-height:1.5">`;
-    t.emailEventos.forEach(ev => {
-      const f = ev.fecha ? `<b>${escapeHtml(ev.fecha)}:</b> ` : '';
-      html += `<li>${f}${escapeHtml(ev.texto || '')}</li>`;
-    });
-    html += `</ul></div>`;
-  }
-  if (t.emailContactos && t.emailContactos.length) {
-    html += `<div><b style="font-size:12px">Contactos externos</b>
-      <div style="display:flex;flex-direction:column;gap:6px;margin-top:6px">`;
-    t.emailContactos.forEach(c => {
-      const nombre = escapeHtml(c.nombre || '(sin nombre)');
-      const org    = c.organizacion ? ` · ${escapeHtml(c.organizacion)}` : '';
-      const tel    = c.telefono ? `<a href="tel:${escapeAttr(String(c.telefono).replace(/[^\d+]/g, ''))}">${escapeHtml(c.telefono)}</a>` : '';
-      const email  = c.email ? `<a href="${safeHref('mailto:' + c.email)}">${escapeHtml(c.email)}</a>` : '';
-      const linea2 = [tel, email].filter(Boolean).join(' · ');
-      html += `<div style="font-size:12.5px;border:1px solid var(--border);border-radius:8px;padding:7px 9px">
-        <div style="font-weight:600">${nombre}<span style="font-weight:400;color:var(--text-secondary)">${org}</span></div>
-        ${linea2 ? `<div style="margin-top:2px">${linea2}</div>` : ''}</div>`;
-    });
-    html += `</div></div>`;
-  }
-  el.innerHTML = html;
 }
 
 // ── Enganche del botón ───────────────────────────────────────
@@ -747,3 +567,52 @@ if (typeof document !== 'undefined') {
     initGmailScan();
   }
 }
+
+// ============================================================
+// ABRIR EL TRÁMITE EN GMAIL
+// ============================================================
+// Un sitio web no puede tomar el control de una pestaña que abrió el usuario:
+// los navegadores no lo permiten. Lo que sí se puede es **nombrar** la ventana
+// al abrirla; a partir de ahí, cada `window.open` con ese mismo nombre navega
+// esa pestaña en vez de crear otra. En la práctica: el primer clic abre Gmail,
+// y los siguientes re-buscan ahí mismo.
+
+const GMAIL_VENTANA = 'juritaskGmail';
+
+function gmailBuscarBtn(t) {
+  const q = escapeAttr(_gmailQueryTramite(t));
+  return `<button type="button" class="gmail-open-btn" data-gmailq="${q}" ` +
+         `title="Buscar este trámite en Gmail" aria-label="Buscar el trámite ${escapeAttr(t.numero)} en Gmail">` +
+         `<i data-lucide="mail-search"></i></button>`;
+}
+
+function _gmailQueryTramite(t) {
+  const num = String(t.numero || '').trim();
+  const rad = typeof _extractRadicado === 'function' ? _extractRadicado(t) : '';
+  if (num && rad) return `${num} OR "${rad}"`;
+  return num || rad;
+}
+
+function abrirEnGmail(query) {
+  if (!query) return;
+  // El índice de cuenta importa cuando hay varias sesiones de Google abiertas:
+  // /u/0 es la primera, no necesariamente la del trabajo.
+  const idx = STATE.config.gmailCuentaIndice ?? 0;
+  const url = `https://mail.google.com/mail/u/${idx}/#search/${encodeURIComponent(query)}`;
+  const w = window.open(url, GMAIL_VENTANA);
+  if (!w) showToast('El navegador bloqueó la ventana de Gmail.');
+}
+
+(function _installGmailOpenHandler() {
+  if (window._gmailOpenHandlerInstalled) return;
+  window._gmailOpenHandlerInstalled = true;
+  // Captura + stopPropagation, igual que el botón de copiar número: si no, el
+  // clic abriría además el detalle del trámite.
+  document.addEventListener('click', e => {
+    const btn = e.target.closest && e.target.closest('.gmail-open-btn');
+    if (!btn) return;
+    e.preventDefault();
+    e.stopPropagation();
+    abrirEnGmail(btn.dataset.gmailq || '');
+  }, true);
+})();

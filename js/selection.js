@@ -110,7 +110,6 @@ async function _selBulkFinish() {
   ids.forEach(id => {
     const t = STATE.tramites.find(x => x.id === id);
     t.terminado = true; t.terminadoEn = now;
-    if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
   });
   saveAll(); selExit(); renderAll();
   showToast(`${ids.length} trámite(s) terminado(s).`, null, { label: 'Deshacer', onClick: undo });
@@ -123,7 +122,6 @@ async function _selBulkDelete() {
   pushHistory(`Eliminar ${ids.length} trámites`);
   ids.forEach(id => {
     const t = STATE.tramites.find(x => x.id === id);
-    if (typeof deleteTramiteFS === 'function') deleteTramiteFS(id, t);
   });
   STATE.tramites = STATE.tramites.filter(t => !_selIds.has(t.id));
   STATE.order    = STATE.order.filter(id => !_selIds.has(id));

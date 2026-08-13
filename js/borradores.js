@@ -120,8 +120,11 @@ function _buildBorradorModal() {
   return el;
 }
 
+// Vía `copyTextToClipboard` (tramites.js), que cae a `execCommand` cuando la
+// Clipboard API no está: dentro del iframe de Apps Script la API lanza
+// NotAllowedError y el fallback es el que funciona.
 function _copiar(texto, msg) {
-  navigator.clipboard.writeText(texto)
+  copyTextToClipboard(texto)
     .then(() => showToast(msg || 'Copiado.'))
     .catch(() => showToast('No se pudo copiar.'));
 }
@@ -200,15 +203,15 @@ async function scanSentForBitacora(dias = 7) {
     if (r) porNumero.set(r, t);
   });
 
-  return _withGmailToken(async (token) => {
+  return _conGmail(async () => {
     const q = `in:sent newer_than:${dias}d`;
-    const data = await _gmailFetch('messages?maxResults=25&q=' + encodeURIComponent(q), token);
+    const data = await _gmailFetch('messages?maxResults=25&q=' + encodeURIComponent(q));
     const refs = data.messages || [];
     const hits = [];
     const yaRegistrados = new Set(STATE.config.bitacoraRegistrados || []);
 
     for (const ref of refs) {
-      const msg = await _getMessage(ref.id, token);
+      const msg = await _getMessage(ref.id);
       const payload = msg.payload || {};
       const asunto = _stripHtml(_headerValue(payload, 'Subject'));
       const nums = _numerosEnAsunto(asunto);
@@ -232,8 +235,8 @@ async function scanSentForBitacora(dias = 7) {
 
 // Trae el correo anterior del hilo (el del tercero al que se responde).
 async function _correoPrevioDelHilo(threadId, messageId) {
-  return _withGmailToken(async (token) => {
-    const data = await _gmailFetch('threads/' + threadId + '?format=full', token);
+  return _conGmail(async () => {
+    const data = await _gmailFetch('threads/' + threadId + '?format=full');
     const msgs = (data.messages || []).filter(m => m.id !== messageId);
     if (!msgs.length) return null;
     const prev = msgs[msgs.length - 1];
@@ -398,137 +401,6 @@ async function runBitacoraScan(btn) {
 }
 
 // ============================================================
-// AUDIENCIAS — detectar fecha en el correo y agendar en Calendar
-// ============================================================
-// Requiere el scope calendar.events y la Calendar API habilitada en el
-// proyecto de Google Cloud. La reunión dura 3 horas desde la hora de inicio.
-
-async function _ensureCalendarToken() {
-  if (AUTH._calendarAccessToken) return AUTH._calendarAccessToken;
-  const user = (typeof auth !== 'undefined') ? auth.currentUser : null;
-  if (!user) return null;
-  try {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    provider.addScope('https://www.googleapis.com/auth/calendar.events');
-    provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
-    const result = await user.reauthenticateWithPopup(provider);
-    if (result.credential && result.credential.accessToken) {
-      AUTH._calendarAccessToken = result.credential.accessToken;
-      AUTH._gmailAccessToken    = result.credential.accessToken;
-      return AUTH._calendarAccessToken;
-    }
-  } catch (e) {
-    if (e.code === 'auth/popup-closed-by-user' || e.code === 'auth/cancelled-popup-request') return null;
-    showToast('No se pudo acceder al calendario: ' + (e.code || e.message));
-  }
-  return null;
-}
-
-// Pregunta a Gemini por la fecha/hora de la audiencia dentro del hilo.
-async function detectarAudiencia(t, emails) {
-  const prompt = `Analiza estos correos de un trámite jurídico y determina si citan a una AUDIENCIA (conciliación, diligencia o similar).
-
-TRÁMITE ${t.numero} — ${t.descripcion || ''}
-
-CORREOS:
-${_resumenHilo(emails, 10)}
-
-Responde SOLO con JSON:
-{
-  "hay_audiencia": true/false,
-  "fecha": "YYYY-MM-DD o ''",
-  "hora": "HH:MM en formato 24h o ''",
-  "lugar": "lugar o enlace de la audiencia, o ''",
-  "asunto": "descripción breve (por ejemplo: Audiencia de conciliación — proceso de X)"
-}
-No inventes datos: si la fecha u hora no aparecen explícitamente, deja el campo vacío.`;
-  return geminiGenerateJSON(prompt);
-}
-
-// Crea el evento de 3 horas en Google Calendar e invita al abogado responsable.
-async function crearEventoAudiencia(t, info) {
-  const token = await _ensureCalendarToken();
-  if (!token) return null;
-
-  const inicio = new Date(`${info.fecha}T${info.hora || '09:00'}:00`);
-  if (isNaN(inicio.getTime())) { showToast('La fecha/hora de la audiencia no es válida.'); return null; }
-  const fin = new Date(inicio.getTime() + 3 * 60 * 60 * 1000);   // 3 horas
-
-  // Invitar al abogado responsable si su clave es un uid con correo conocido.
-  const invitados = [];
-  const uid = t.abogado || (t.sharedWith || [])[0];
-  if (uid && typeof _teamMembers !== 'undefined') {
-    const m = _teamMembers.find(x => x.uid === uid);
-    if (m && m.email) invitados.push({ email: m.email });
-  }
-
-  const evento = {
-    summary: info.asunto || `Audiencia — trámite ${t.numero}`,
-    description: `Trámite ${t.numero} · ${t.modulo || ''}\n${t.descripcion || ''}`,
-    location: info.lugar || '',
-    start: { dateTime: inicio.toISOString() },
-    end:   { dateTime: fin.toISOString() },
-    attendees: invitados,
-  };
-
-  try {
-    const res = await fetch('https://www.googleapis.com/calendar/v3/calendars/primary/events?sendUpdates=all', {
-      method: 'POST',
-      headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-      body: JSON.stringify(evento),
-    });
-    if (!res.ok) {
-      const txt = await res.text().catch(() => '');
-      console.warn('Calendar error', res.status, txt);
-      showToast(res.status === 403
-        ? 'Habilita la Calendar API en Google Cloud para agendar audiencias.'
-        : 'No se pudo crear el evento: ' + res.status);
-      return null;
-    }
-    return res.json();
-  } catch (e) {
-    showToast('No se pudo conectar con Google Calendar.');
-    return null;
-  }
-}
-
-// Flujo completo: buscar la audiencia en el correo y ofrecer agendarla.
-async function agendarAudienciaDesdeCorreo(t, btn) {
-  if (!geminiConfigured()) { showToast('Configura tu API key de Gemini en Ajustes.'); return; }
-  const orig = btn ? btn.innerHTML : '';
-  if (btn) { btn.disabled = true; btn.innerHTML = 'Buscando audiencia…'; }
-  try {
-    const emails = await fetchEmailsForTramite(t);
-    if (emails === null) return;
-    if (!emails.length) { showToast('No encontré correos de este trámite.'); return; }
-
-    const info = await detectarAudiencia(t, emails);
-    if (!info) return;
-    if (!info.hay_audiencia || !info.fecha) {
-      showToast('No encontré una fecha de audiencia en el correo.');
-      return;
-    }
-
-    const cuando = `${formatDate(info.fecha)}${info.hora ? ' a las ' + info.hora : ''}`;
-    const ok = await showConfirm(
-      `Audiencia detectada: ${cuando}. ¿Crear el evento de 3 horas en tu calendario?`,
-      { confirmLabel: 'Agendar' });
-    if (!ok) return;
-
-    const ev = await crearEventoAudiencia(t, info);
-    if (!ev) return;
-
-    t.audienciaFecha = info.fecha;
-    t.audienciaHora  = info.hora || '';
-    if (typeof saveTramiteFS === 'function') saveTramiteFS(t);
-    if (typeof saveAll === 'function') saveAll();
-    showToast(`Audiencia agendada para el ${cuando}.`);
-  } finally {
-    if (btn) { btn.disabled = false; btn.innerHTML = orig; }
-  }
-}
-
-// ============================================================
 // VIGILANCIA AUTOMÁTICA DE CORREOS ENVIADOS
 // ============================================================
 // Sin backend no es posible que Gmail "avise" a la app estando cerrada, así que
@@ -557,7 +429,7 @@ function _updateBitacoraBadge(n) {
 // vigente simplemente no hace nada hasta que el usuario use el correo una vez).
 async function checkBitacoraPendientes({ silencioso = true } = {}) {
   if (STATE.config.bitacoraAuto === false) return;
-  if (!AUTH || !AUTH._gmailAccessToken) return;      // sin permiso activo aún
+  if (!GOOGLE.accessToken) return;                   // sin permiso activo aún
   if (!(STATE.tramites || []).some(t => !t.terminado)) return;
 
   try {

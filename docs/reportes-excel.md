@@ -22,12 +22,11 @@ pendientes de cada trámite.
 | Control | Campo |
 |---|---|
 | `repEstado` | activos / terminados / ambos |
-| `repTipo` | `propio` · `abogado` (compartido) · `equipo` (`sharedWith`) |
-| `repAbogado` | `t.abogado` o `t.sharedWith` (`yo` ⇒ `esPropio`) |
+| `repTipo` | `propio` · `abogado` (a cargo de un colaborador) |
+| `repAbogado` | `t.abogado` (`yo` ⇒ `esPropio`) |
 | `repModulo` | `t.modulo` |
 | `repEtapa` | `computeEtapa(t)` |
-| `repResponsable` | responsable/`assignedTo` de alguna tarea **pendiente** |
-| `repScope` | `t._scope` (`private` / `team`) |
+| `repResponsable` | `responsable` de alguna tarea **pendiente** |
 | `repVencPresets` | vencidos · hoy · 7 · 30 días · este mes · sin fecha |
 | `repVencDesde` / `repVencHasta` | rango manual (solo con el preset «Todos») |
 | `repTexto` | número, descripción, tareas y notas |
@@ -38,7 +37,7 @@ pendientes de cada trámite.
 
 `_repVenc(t)` devuelve `''` cuando `t.gestion.cumplimiento` es `true`: un
 trámite ya cumplido no vence. Es la misma convención que las tarjetas, la
-agenda, el calendario, el reporte del día y `esHoyOVencido()`, y se aplica en
+agenda y el reporte del día, y se aplica en
 **todas** las salidas (vista previa, Excel, CSV, impresión, copiado) y también
 en el filtrado, el orden y los KPIs — de modo que un cumplido nunca sale bajo
 «Vencidos» ni «Vencen hoy», solo bajo «Sin fecha». La información no se pierde:

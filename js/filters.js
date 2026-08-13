@@ -20,45 +20,10 @@ function populateModuloSelects() {
   });
 }
 
-// ── Cargar colaboradores del equipo desde Firestore ───────────
-let _teamMembers = []; // { uid, displayName, email }
-
-async function loadTeamMembers() {
-  _teamMembers = [];
-  const teamId = AUTH?.userProfile?.teamId;
-  if (!teamId) return;
-  try {
-    const teamDoc = await db.collection('teams').doc(teamId).get();
-    if (!teamDoc.exists) return;
-    const members = teamDoc.data().members || [];
-    for (const uid of members) {
-      if (uid === AUTH.userProfile.uid) continue; // excluir al propio usuario
-      try {
-        const uDoc = await db.collection('users').doc(uid).get();
-        if (uDoc.exists) {
-          const d = uDoc.data();
-          _teamMembers.push({ uid, displayName: d.displayName || d.email || uid, email: d.email || '' });
-        }
-      } catch(_) {}
-    }
-  } catch(e) { console.warn('Error cargando equipo:', e); }
-  updateAbogadoSelects();
-}
-
 function updateAbogadoSelects() {
-  // Construir lista combinada: miembros del equipo + colaboradores manuales de config
-  // Los miembros del equipo tienen prioridad y usan su uid como key
-  const items = [];
-
-  // Primero: miembros del equipo (de Firestore)
-  _teamMembers.forEach(m => {
-    items.push({ key: m.uid, nombre: m.displayName });
-  });
-
-  // Segundo: colaboradores manuales de config (para compatibilidad con trámites existentes)
-  (STATE.config.abogados || []).forEach(a => {
-    if (!items.find(x => x.key === a.key)) items.push({ key: a.key, nombre: a.nombre });
-  });
+  // Los colaboradores son etiquetas de `config`, no usuarios: no hay equipo
+  // que consultar ni uid que resolver.
+  const items = (STATE.config.abogados || []).map(a => ({ key: a.key, nombre: a.nombre }));
 
   ['filterAbogado', 'filterResponsable'].forEach((id, idx) => {
     const sel = document.getElementById(id); if (!sel) return;
@@ -102,19 +67,10 @@ function updateAbogadoSelects() {
 
 function buildRespOptions(tipoTramite, abogadoKey, selectedValue) {
   const opts = [];
-  // Primero: miembros del equipo de Firestore
-  if (typeof _teamMembers !== 'undefined') {
-    _teamMembers.forEach(m => {
-      opts.push({ value: m.uid, label: m.displayName || m.email || m.uid });
-    });
-  }
-  // Luego: colaboradores manuales de config (que no sean ya del equipo)
-  if ((tipoTramite === 'abogado' || tipoTramite === 'equipo') && abogadoKey && abogadoKey !== 'yo') {
-    const isTeamMember = (typeof _teamMembers !== 'undefined') && _teamMembers.find(m => m.uid === abogadoKey);
-    if (!isTeamMember) {
-      const a = (STATE.config.abogados || []).find(x => x.key === abogadoKey);
-      if (a) opts.push({ value: a.key, label: a.nombre });
-    }
+  // El colaborador del trámite, si lo hay.
+  if (tipoTramite === 'abogado' && abogadoKey && abogadoKey !== 'yo') {
+    const a = (STATE.config.abogados || []).find(x => x.key === abogadoKey);
+    if (a) opts.push({ value: a.key, label: a.nombre });
   }
   // Siempre: yo mismo
   opts.push({ value: 'yo', label: 'Yo mismo' });
@@ -131,7 +87,6 @@ function getFilters() {
     modulo:      document.getElementById('filterModulo')?.value      || '',
     responsable: document.getElementById('filterResponsable')?.value || '',
     etapa:       document.getElementById('filterEtapa')?.value       || '',
-    scope:       document.getElementById('filterScope')?.value       || '',
     search:      (document.getElementById('searchInput')?.value || '').trim().toLowerCase(),
   };
 }
@@ -145,7 +100,6 @@ function applyFilters(list, f) {
     if (f.abogado     && t.abogado !== f.abogado)                                              return false;
     if (f.modulo      && t.modulo !== f.modulo)                                                return false;
     if (f.etapa       && computeEtapa(t) !== f.etapa)                                          return false;
-    if (f.scope       && t._scope !== f.scope)                                                 return false;
     if (f.responsable && !(t.seguimiento||[]).some(s => s.responsable === f.responsable))      return false;
     if (f.search) {
       const q = f.search;
@@ -184,43 +138,4 @@ function setSortBy(val) {
   saveAll(); renderAll();
 }
 
-// ============================================================
-// CUENTA EN CONFIGURACIÓN
-// ============================================================
-function syncConfigAccountUI() {
-  const p = (typeof AUTH !== 'undefined') ? AUTH.userProfile : null;
-  if (!p) return;
-
-  const el = id => document.getElementById(id);
-  const nameEl  = el('configUserName');
-  const emailEl = el('configUserEmail');
-  const roleEl  = el('configUserRole');
-  const avEl    = el('configAvatar');
-  if (nameEl)  nameEl.textContent  = p.displayName || '';
-  if (emailEl) emailEl.textContent = p.email || '';
-  if (roleEl)  roleEl.innerHTML  = p.role === 'admin' ? '<i data-lucide="crown"></i> Administrador' : '<i data-lucide="user"></i> Usuario';
-  if (avEl) {
-    if (p.photoURL) avEl.innerHTML = `<img src="${escapeAttr(p.photoURL)}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" />`;
-    else avEl.textContent = (p.displayName || p.email || '?').slice(0, 2).toUpperCase();
-  }
-
-  // Actualizar avatar y nombre en topbar
-  const topAvEl   = el('userAvatar');
-  const topNameEl = el('userNameDisplay');
-  const badgeEl   = el('adminBadge');
-  if (topAvEl) {
-    if (p.photoURL) topAvEl.innerHTML = `<img src="${escapeAttr(p.photoURL)}" style="width:100%;height:100%;border-radius:50%;object-fit:cover" />`;
-    else topAvEl.textContent = (p.displayName || p.email || '?').slice(0, 2).toUpperCase();
-  }
-  if (topNameEl) topNameEl.textContent = (p.displayName || '').split(' ')[0];
-  if (badgeEl)   badgeEl.style.display = p.role === 'admin' ? '' : 'none';
-
-  // Mostrar filtro de scope solo si tiene equipo
-  const sw = el('filterScopeWrap');
-  if (sw) sw.style.display = p.teamId ? '' : 'none';
-
-  // Mostrar nav de dashboard solo si es admin
-  const dashNav = document.querySelector('.dash-nav-item');
-  if (dashNav) dashNav.style.display = p.role === 'admin' ? '' : 'none';
-}
 const updateAbogadoNames = updateAbogadoSelects;

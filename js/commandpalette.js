@@ -14,7 +14,6 @@
 
   // ── Definición de comandos ──────────────────────────────────
   function commands() {
-    const isAdmin = (typeof AUTH !== 'undefined') && AUTH.userProfile?.role === 'admin';
     const go = v => () => { if (typeof switchView === 'function') switchView(v); };
     const theme = id => () => { if (typeof applyTheme === 'function') { applyTheme(id); if (typeof saveAll === 'function') saveAll(); } };
     const list = [
@@ -22,9 +21,8 @@
       { icon: 'search',       label: 'Buscar trámites',          hint: '/', run: focusSearch },
       { icon: 'list-checks',  label: 'Ir a: Agenda',             run: go('agenda') },
       { icon: 'layout-grid',  label: 'Ir a: Todos los trámites', run: go('all') },
-      { icon: 'clock',        label: 'Ir a: Hoy / Vencidos',     run: go('today') },
-      { icon: 'calendar',     label: 'Ir a: Calendario',         run: go('calendar') },
       { icon: 'circle-check', label: 'Ir a: Terminados',         run: go('finished') },
+      { icon: 'layout-dashboard', label: 'Ir a: Panel',          run: go('dashboard') },
       { icon: 'settings',     label: 'Ir a: Configuración',      run: go('config') },
       { icon: 'file-text',    label: 'Reporte del día',          run: () => typeof openReport === 'function' && openReport() },
       { icon: 'sheet',        label: 'Reporte de trámites (Excel)', run: () => typeof openReporte === 'function' && openReporte() },
@@ -35,7 +33,6 @@
       { icon: 'moon',         label: 'Tema: Oscuro',             run: theme('oscuro') },
       { icon: 'palette',      label: 'Tema: Pizarra',            run: theme('pizarra') },
     ];
-    if (isAdmin) list.splice(8, 0, { icon: 'shield', label: 'Ir a: Dashboard Admin', run: go('dashboard') });
     return list;
   }
 

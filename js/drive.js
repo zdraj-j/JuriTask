@@ -15,23 +15,7 @@ function initDrivePicker() {
 }
 
 async function _ensureDriveToken() {
-  if (AUTH._googleAccessToken) return AUTH._googleAccessToken;
-  const user = auth.currentUser;
-  if (!user) return null;
-  const hasGoogle = user.providerData.some(p => p.providerId === 'google.com');
-  if (!hasGoogle) return null;
-  try {
-    const provider = new firebase.auth.GoogleAuthProvider();
-    provider.addScope('https://www.googleapis.com/auth/drive.file');
-    const result = await user.reauthenticateWithPopup(provider);
-    if (result.credential) {
-      AUTH._googleAccessToken = result.credential.accessToken;
-      return AUTH._googleAccessToken;
-    }
-  } catch(e) {
-    if (e.code !== 'auth/popup-closed-by-user') console.warn('Drive re-auth:', e.code);
-  }
-  return null;
+  return ensureGoogleToken();
 }
 
 async function openDrivePicker() {
