@@ -4,10 +4,12 @@ JuriTask es una PWA (sin framework, JS modular cargado por `<script>`) para la
 gestión de trámites jurídicos: vencimientos, tareas de seguimiento, reportes y
 agenda diaria. Es de **un solo usuario**: no hay login, ni cuentas, ni equipos.
 
-> **Migración en curso.** El destino es una *web app de Apps Script*. Los datos
-> ya van a un **JSON de Drive** cuando hay servidor ([datos-drive.md](datos-drive.md));
-> en un navegador normal la app sigue funcionando solo con `localStorage`. Falta
-> mover el correo al servidor (Fase 4).
+> **Migración en curso.** El destino es una *web app de Apps Script*. Con
+> servidor, los datos van a un **JSON de Drive**
+> ([datos-drive.md](datos-drive.md)) y el correo y Gemini salen del servidor
+> ([gmail-integracion.md](gmail-integracion.md)). En un navegador normal la app
+> sigue funcionando con `localStorage`, pero sin correo ni IA. Falta la
+> automatización con triggers (Fase 5).
 
 Cada archivo de esta carpeta documenta **un proceso** de la app: para qué
 sirve, qué archivos lo implementan, su modelo de datos y los puntos delicados a

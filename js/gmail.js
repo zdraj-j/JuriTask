@@ -24,28 +24,21 @@ const MODULO_PREFIX_ALIAS = {
   OTRD: 'OTR',
 };
 
-// ── Token de Gmail ────────────────────────────────────────────
-async function _ensureGmailToken(forceNew = false) {
-  if (forceNew) resetGoogleToken();
-  return ensureGoogleToken();
+// ── Acceso a Gmail ────────────────────────────────────────────
+// El transporte lo hace el servidor (`gmailApi` en server/Correo.gs): así el
+// token no viaja al navegador. Lo que devuelve es el mismo JSON que devolvía
+// `fetch`, de modo que todo el parseo de abajo sigue igual.
+async function _gmailFetch(path) {
+  return JSON.parse(await srv('gmailApi', path));
 }
 
-async function _gmailFetch(path, token) {
-  const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/' + path, {
-    headers: { Authorization: 'Bearer ' + token },
-  });
-  if (res.status === 401) { const err = new Error('unauthorized'); err.code = 401; throw err; }
-  if (!res.ok) { const err = new Error('gmail-http-' + res.status); err.code = res.status; throw err; }
-  return res.json();
-}
-
-async function _listTramiteMessages(token) {
-  const data = await _gmailFetch('messages?maxResults=25&q=' + encodeURIComponent(GMAIL_QUERY), token);
+async function _listTramiteMessages() {
+  const data = await _gmailFetch('messages?maxResults=25&q=' + encodeURIComponent(GMAIL_QUERY));
   return data.messages || [];
 }
 
-async function _getMessage(id, token) {
-  return _gmailFetch('messages/' + id + '?format=full', token);
+async function _getMessage(id) {
+  return _gmailFetch('messages/' + id + '?format=full');
 }
 
 // ── Decodificación de cuerpo ─────────────────────────────────
@@ -225,39 +218,20 @@ function parseTramiteEmail(message) {
 
 // ── Escaneo completo ─────────────────────────────────────────
 async function scanTramiteEmails() {
-  let token = await _ensureGmailToken();
-  if (!token) return null;
-
-  const doScan = async (tk) => {
-    const list = await _listTramiteMessages(tk);
+  return _conGmail(async () => {
+    const list = await _listTramiteMessages();
     const detections = [];
     for (const ref of list) {
       try {
-        const msg = await _getMessage(ref.id, tk);
-        const d   = parseTramiteEmail(msg);
+        const d = parseTramiteEmail(await _getMessage(ref.id));
         if (d) detections.push(d);
       } catch (e) {
-        if (e.code === 401) throw e;
+        // Un correo con formato raro no debe tumbar el escaneo entero.
         console.warn('Error parseando correo', ref.id, e.message);
       }
     }
     return detections;
-  };
-
-  try {
-    return await doScan(token);
-  } catch (e) {
-    if (e.code === 401) {
-      // Token vencido: renovar una vez.
-      resetGoogleToken();
-      token = await _ensureGmailToken(true);
-      if (!token) return null;
-      try { return await doScan(token); }
-      catch (e2) { showToast('Error leyendo el correo: ' + (e2.code || e2.message)); return null; }
-    }
-    showToast('Error leyendo el correo: ' + (e.code || e.message));
-    return null;
-  }
+  });
 }
 
 // Quita las detecciones cuyo número ya existe como trámite o fue descartado.
@@ -503,21 +477,25 @@ async function runGmailScan(btn, { force = false } = {}) {
 const CONTACTOS_EXCLUIR_DOMINIOS = ['comfenalcovalle.com.co'];
 const CONTACTOS_EXCLUIR_NOMBRES  = ['garces lloreda', 'garcés lloreda'];
 
-// Ejecuta `fn(token)` gestionando la obtención y renovación del token de Gmail.
-async function _withGmailToken(fn) {
-  let token = await _ensureGmailToken();
-  if (!token) return null;
+/**
+ * Ejecuta `fn` contra Gmail, con el servidor de por medio.
+ *
+ * Sustituye al antiguo `_withGmailToken`: ya no hay token que renovar ni popup
+ * que reabrir —el servidor está autorizado de forma permanente—, así que solo
+ * queda comprobar que hay servidor y traducir el fallo a algo legible.
+ */
+async function _conGmail(fn) {
+  if (typeof BACKEND === 'undefined' || !BACKEND.disponible) {
+    showToast('El correo requiere el servidor (Apps Script).');
+    return null;
+  }
   try {
-    return await fn(token);
+    return await fn();
   } catch (e) {
-    if (e.code === 401) {
-      resetGoogleToken();
-      token = await _ensureGmailToken(true);
-      if (!token) return null;
-      try { return await fn(token); }
-      catch (e2) { showToast('Error de Gmail: ' + (e2.code || e2.message)); return null; }
-    }
-    showToast('Error de Gmail: ' + (e.code || e.message));
+    const msg = String(e && e.message || e);
+    showToast(msg === 'gmail-401'
+      ? 'Gmail rechazó el permiso. Vuelve a autorizar el script.'
+      : 'Error de Gmail: ' + msg);
     return null;
   }
 }
@@ -548,14 +526,14 @@ async function fetchEmailsForTramite(t) {
 
   const query = `(${terms.join(' OR ')}) newer_than:1y`;
 
-  return _withGmailToken(async (token) => {
+  return _conGmail(async () => {
     // Traer como máximo 15 correos y recortar cada cuerpo: así cada llamada a
     // Gemini consume menos tokens (menos presión sobre la cuota gratuita).
-    const data = await _gmailFetch('messages?maxResults=15&q=' + encodeURIComponent(query), token);
+    const data = await _gmailFetch('messages?maxResults=15&q=' + encodeURIComponent(query));
     const refs = data.messages || [];
     const emails = [];
     for (const ref of refs) {
-      const msg = await _getMessage(ref.id, token);
+      const msg = await _getMessage(ref.id);
       const payload = msg.payload || {};
       const body = _stripHtml(_extractBody(payload));
       emails.push({

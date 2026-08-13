@@ -203,15 +203,15 @@ async function scanSentForBitacora(dias = 7) {
     if (r) porNumero.set(r, t);
   });
 
-  return _withGmailToken(async (token) => {
+  return _conGmail(async () => {
     const q = `in:sent newer_than:${dias}d`;
-    const data = await _gmailFetch('messages?maxResults=25&q=' + encodeURIComponent(q), token);
+    const data = await _gmailFetch('messages?maxResults=25&q=' + encodeURIComponent(q));
     const refs = data.messages || [];
     const hits = [];
     const yaRegistrados = new Set(STATE.config.bitacoraRegistrados || []);
 
     for (const ref of refs) {
-      const msg = await _getMessage(ref.id, token);
+      const msg = await _getMessage(ref.id);
       const payload = msg.payload || {};
       const asunto = _stripHtml(_headerValue(payload, 'Subject'));
       const nums = _numerosEnAsunto(asunto);
@@ -235,8 +235,8 @@ async function scanSentForBitacora(dias = 7) {
 
 // Trae el correo anterior del hilo (el del tercero al que se responde).
 async function _correoPrevioDelHilo(threadId, messageId) {
-  return _withGmailToken(async (token) => {
-    const data = await _gmailFetch('threads/' + threadId + '?format=full', token);
+  return _conGmail(async () => {
+    const data = await _gmailFetch('threads/' + threadId + '?format=full');
     const msgs = (data.messages || []).filter(m => m.id !== messageId);
     if (!msgs.length) return null;
     const prev = msgs[msgs.length - 1];

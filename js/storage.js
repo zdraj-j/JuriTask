@@ -199,6 +199,7 @@ async function sincronizarConServidor() {
     remoto.config || {}
   );
   STATE.tramites.forEach(migrateTramite);
+  _migrarClaveGemini();
 
   _flushSave();                       // refrescar la caché local
   purgeExpiredFinished();
@@ -261,9 +262,23 @@ function loadAll() {
       }
     }
     STATE.tramites.forEach(migrateTramite);
+    _migrarClaveGemini();
   } catch (e) {
     console.error('Error cargando datos:', e);
   }
+}
+
+/**
+ * La API key de Gemini vivía en `config.geminiApiKey`, es decir: viajaba al
+ * navegador y acababa dentro del JSON de datos. Ahora está en Script
+ * Properties del servidor. Si queda un resto de la versión anterior se borra
+ * del estado —hay que volver a pegarla una vez en Ajustes—, para que el
+ * secreto no siga replicándose en cada guardado.
+ */
+function _migrarClaveGemini() {
+  if (!STATE.config || !STATE.config.geminiApiKey) return;
+  delete STATE.config.geminiApiKey;
+  console.warn('La clave de Gemini se retiró del estado local: vuelve a guardarla en Ajustes.');
 }
 
 // ============================================================

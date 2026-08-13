@@ -36,24 +36,17 @@ a `getOAuthToken()` en `Codigo.gs`, que devuelve `ScriptApp.getOAuthToken()`.
 Sin popup y sin caducidad.
 
 **Sin servidor** (navegador normal, desarrollo, pruebas) no hay token posible:
-avisa y devuelve `null`. Los flujos que dependen de él quedan inertes:
+avisa y devuelve `null`.
 
-- Revisar el correo para detectar trámites nuevos (botón ✉️).
-- Borrador de correo por tarea.
-- Bitácora de envíos y su vigilancia automática.
-- Google Drive Picker.
+## Quién lo usa realmente
 
-**Lo que no se pierde es lo que importa**: el parseo de los correos de
-notificación (`parseTramiteEmail`, los regex, `MODULO_PREFIX_ALIAS`), las
-plantillas institucionales de `plantillas-correo.js` y los prompts de Gemini
-siguen intactos. Eso es justo lo que se porta al servidor.
+Desde la Fase 4, **Gmail y Gemini ya no pasan por aquí**: sus llamadas salen del
+servidor (`server/Correo.gs`, `server/Gemini.gs`) y el token no toca el
+navegador.
 
-## Qué falta (Fase 4)
-
-El token ya llega, pero las llamadas siguen saliendo del navegador con `fetch`
-a `gmail.googleapis.com`. La Fase 4 decide si se quedan así o se mueven al
-servicio avanzado `Gmail` del lado del servidor —que es lo que además permite
-los triggers con la app cerrada—.
+Queda un consumidor de verdad: el **Google Drive Picker** (`js/drive.js`), que
+es una biblioteca de cliente y necesita el token en la página. Para eso sirve
+`getOAuthToken()` en `Codigo.gs`.
 
 ## Al modificar
 

@@ -278,11 +278,12 @@
 
         <div class="config-section">
           <h3><i data-lucide="sparkles"></i> Correo e IA (Gemini)</h3>
-          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Pega tu clave de la API de Gemini (Google AI Studio) para generar la bitácora y el resumen de cada trámite a partir del correo. La clave se guarda solo en tu cuenta (Firestore privado), nunca en el código.</p>
-          <div class="form-group full" style="margin-bottom:10px">
+          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Pega tu clave de la API de Gemini (Google AI Studio) para redactar los borradores y la bitácora a partir del correo. Se guarda en el <strong>servidor</strong> (Script Properties): no viaja al navegador ni queda en el JSON de Drive.</p>
+          <div class="form-group full" style="margin-bottom:4px">
             <label>API key de Gemini</label>
             <input type="password" id="geminiApiKey" placeholder="AIza… / clave de Google AI Studio" autocomplete="off" />
           </div>
+          <p class="config-hint" id="geminiEstado" style="margin-bottom:10px">—</p>
           <div class="config-row"><label>Vigilar correos enviados y avisar qué registrar</label>
             <label class="switch"><input type="checkbox" id="bitacoraAutoToggle" /><span class="slider"></span></label>
           </div>

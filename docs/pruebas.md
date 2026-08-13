@@ -68,10 +68,11 @@ Complementaria y con otro objetivo. `smoke.js` comprueba que la app **funciona**
    portapapeles y `localStorage`.
 2. Sandbox **sin** él — informativo, para ver qué se pierde.
 3. **Con servidor simulado**: inyecta un `google.script.run` de mentira,
-   respaldado en `sessionStorage`, y ejercita el ciclo completo de la Fase 3 —
-   sembrado inicial, subida tras el debounce, Drive ganando a la caché local al
-   recargar, backups y token OAuth—. Es la única forma de probar ese camino sin
-   desplegar.
+   respaldado en `sessionStorage`, y ejercita todo lo que solo existe con
+   servidor — sembrado inicial, subida tras el debounce, Drive ganando a la
+   caché al recargar, backups, token OAuth, la clave de Gemini quedándose en el
+   servidor, y Gmail respondiendo por el proxy—. Es la única forma de probar
+   ese camino sin desplegar.
 
 Ver [appsscript.md](appsscript.md#los-riesgos-del-sandbox-medidos) y
 [datos-drive.md](datos-drive.md).

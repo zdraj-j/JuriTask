@@ -94,6 +94,26 @@ const FAKE_SERVER = `<script>
       persistir(); return { ok: true };
     },
     getOAuthToken:    function () { return 'token-de-mentira'; },
+    // Fase 4: Gemini y Gmail desde el servidor.
+    hayGeminiKey:     function () { return !!almacen.geminiKey; },
+    guardarGeminiKey: function (k) {
+      almacen.geminiKey = String(k || '').trim(); persistir();
+      return { ok: true, configurada: !!almacen.geminiKey };
+    },
+    geminiGenerar:    function (prompt, json) {
+      if (!almacen.geminiKey) throw new Error('Falta la API key de Gemini. Configúrala en Ajustes.');
+      return json ? '{"ok":true}' : 'texto generado';
+    },
+    gmailApi:         function (path) {
+      // Devuelve la misma forma que la Gmail API, como cadena.
+      if (path.indexOf('messages?') === 0) return JSON.stringify({ messages: [{ id: 'm1' }] });
+      if (path.indexOf('messages/') === 0) return JSON.stringify({
+        id: 'm1', threadId: 't1',
+        payload: { headers: [{ name: 'Subject', value: 'Notificación de trámite 55555' }],
+                   mimeType: 'text/plain', body: { data: '' } },
+      });
+      return JSON.stringify({ messages: [] });
+    },
   };
   function runner(onOk, onErr) {
     var api = {
@@ -364,6 +384,32 @@ async function correrConServidor(browser) {
   });
   out.push(['10. el token OAuth viene del servidor', token === 'token-de-mentira',
             token ? `token="${token}"` : 'null']);
+
+  // 11. Gemini: la clave se guarda en el servidor y nunca vuelve al cliente.
+  await frame.locator('#geminiApiKey').fill('AIzaClaveDePrueba');
+  await frame.locator('#saveGeminiKeyBtn').click();
+  await page.waitForTimeout(900);
+  const gem = await fr().evaluate(() => ({
+    enServidor: window.__almacen.geminiKey || '',
+    enInput:    document.getElementById('geminiApiKey').value,
+    enEstado:   (document.getElementById('geminiEstado') || {}).textContent || '',
+    enDatos:    (window.__almacen.datos || '').includes('AIzaClaveDePrueba'),
+  }));
+  out.push(['11. la clave de Gemini vive solo en el servidor',
+            gem.enServidor === 'AIzaClaveDePrueba' && gem.enInput === '' && !gem.enDatos,
+            `servidor=sí input="${gem.enInput}" en el JSON de datos=${gem.enDatos ? 'SÍ (mal)' : 'no'}`]);
+
+  // 12. Gmail: el transporte va por el servidor, sin token en el cliente.
+  const gmail = await fr().evaluate(async () => {
+    try {
+      const data = await _gmailFetch('messages?maxResults=1&q=x');
+      const msg  = await _getMessage('m1');
+      return { ok: true, ids: (data.messages || []).length, asunto: _headerValue(msg.payload, 'Subject') };
+    } catch (e) { return { ok: false, error: String(e.message || e) }; }
+  });
+  out.push(['12. Gmail responde a través del servidor',
+            gmail.ok && gmail.ids === 1 && /55555/.test(gmail.asunto),
+            gmail.ok ? `mensajes=${gmail.ids} asunto="${gmail.asunto}"` : gmail.error]);
 
   console.log('\n══ Variante: con servidor simulado (google.script.run) ══\n');
   for (const [name, pass, detail] of out) {

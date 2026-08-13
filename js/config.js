@@ -360,11 +360,27 @@ function init() {
   });
 
   // ── Config: clave de Gemini ─────────────────────────────
-  document.getElementById('saveGeminiKeyBtn')?.addEventListener('click', () => {
-    const key = document.getElementById('geminiApiKey')?.value.trim() || '';
-    STATE.config.geminiApiKey = key;
-    saveAll();
-    showToast(key ? 'Clave de Gemini guardada.' : 'Clave de Gemini eliminada.');
+  // La clave va a Script Properties, no a `STATE.config`: así no viaja al
+  // navegador ni acaba dentro del JSON de Drive.
+  document.getElementById('saveGeminiKeyBtn')?.addEventListener('click', async e => {
+    const input = document.getElementById('geminiApiKey');
+    const key = input?.value.trim() || '';
+    if (typeof BACKEND === 'undefined' || !BACKEND.disponible) {
+      showToast('Guardar la clave requiere el servidor (Apps Script).');
+      return;
+    }
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    try {
+      const configurada = await guardarGeminiKey(key);
+      if (input) input.value = '';          // no dejarla a la vista
+      _syncGeminiEstado(configurada);
+      showToast(configurada ? 'Clave de Gemini guardada en el servidor.' : 'Clave de Gemini eliminada.');
+    } catch (err) {
+      showToast('No se pudo guardar la clave: ' + err.message);
+    } finally {
+      btn.disabled = false;
+    }
   });
   // Vigilancia de correos enviados (bitácora)
   document.getElementById('bitacoraAutoToggle')?.addEventListener('change', e => {

@@ -19,7 +19,7 @@ Un proyecto de Apps Script solo admite ficheros **`.gs` y `.html`**. No hay
 | `css/style.css` | `estilos.html` | envuelto en `<style>` |
 | `js/ui.js` | `js_ui.html` | envuelto en `<script>`; los guiones del nombre pasan a `_` |
 | `assets/logo/*.png` | — | incrustados como `data:` URI |
-| `server/*.gs` | `Codigo.gs`, `Datos.gs` | copiados tal cual: son fuente, no generados |
+| `server/*.gs` | `Codigo.gs`, `Datos.gs`, `Correo.gs`, `Gemini.gs` | copiados tal cual: son fuente, no generados |
 | — | `appsscript.json` | scopes, zona horaria, servicio avanzado de Gmail |
 
 Salida actual: del orden de **24 ficheros y ~450 KB**; el build lo
@@ -103,7 +103,7 @@ cd build && clasp push && clasp deploy
 |---|---|
 | `gmail.modify` | leer, crear borradores y etiquetar hilos |
 | `drive.file` | el JSON de datos y los backups ([datos-drive.md](datos-drive.md)) |
-| `script.external_request` | llamar a Gemini con `UrlFetchApp` |
+| `script.external_request` | llamar a Gemini y a la Gmail API con `UrlFetchApp` |
 | `script.scriptapp` | crear los triggers |
 | `script.send_mail` | el correo-resumen diario |
 
