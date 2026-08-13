@@ -6,7 +6,7 @@ etapas de gestión y una lista de tareas de seguimiento.
 ## Archivos
 
 - `js/tramites.js` → helpers de dominio y CRUD (`getById`, `esPropio`,
-  `computeEtapa`, `proximaFechaSeguimiento`, `esHoyOVencido`, `abogadoName`,
+  `computeEtapa`, `proximaFechaSeguimiento`, `abogadoName`,
   `crearTareaRequerimiento`, orden manual drag&drop, export/import config).
 - `js/ui.js` → render de tarjetas (`renderAll`, render de listas por vista),
   modal de detalle (`openDetail`), alta/edición y tareas (`_tareasIniciales`).
@@ -39,8 +39,6 @@ representado por los 3 `progress-segment` de la tarjeta (`active-1/2/3`).
 ## Helpers clave
 
 - `esPropio(t)` → `t.tipo === 'propio'`.
-- `esHoyOVencido(t)` → si el vencimiento o la próxima tarea caen hoy/antes, o
-  falta el análisis de un trámite ajeno. Define qué entra en "Hoy" y en la Agenda.
 - `proximaFechaSeguimiento(t)` → fecha pendiente más próxima.
 - `abogadoName(key, tramite)` → nombre legible (resuelve `'yo'`, UID propio,
   miembros de equipo de Firestore, colaboradores manuales de config).

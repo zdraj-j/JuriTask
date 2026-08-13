@@ -231,17 +231,6 @@ function proximaFechaSeguimiento(t) {
   return pendientes.map(s => s.fecha).sort()[0];
 }
 
-function esHoyOVencido(t) {
-  const hoy = today();
-  // Vencimiento
-  if (t.fechaVencimiento && !t.gestion?.cumplimiento && t.fechaVencimiento <= hoy) return true;
-  // Tareas de seguimiento pendientes para hoy o vencidas
-  const pf = proximaFechaSeguimiento(t);
-  if (pf && pf <= hoy) return true;
-  // Pendientes de análisis (no propios, sin análisis marcado)
-  if (!esPropio(t) && !t.gestion?.analisis) return true;
-  return false;
-}
 
 function getById(id) {
   return STATE.tramites.find(t => t.id === id);

@@ -73,8 +73,8 @@ function _repTipoLabel(t) {
 
 // Fecha de vencimiento **efectiva**: una vez marcado el cumplimiento el
 // trámite ya no vence, así que no se muestra ni cuenta como vencido. Es la
-// misma convención que las tarjetas, la agenda, el calendario, el reporte del
-// día y `esHoyOVencido()` — devuelve '' cuando no aplica.
+// misma convención que las tarjetas, la agenda y el reporte del día
+// — devuelve '' cuando no aplica.
 function _repVenc(t) {
   return (t.gestion?.cumplimiento) ? '' : (t.fechaVencimiento || '');
 }

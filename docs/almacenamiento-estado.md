@@ -19,8 +19,7 @@ STATE = {
 
 `config` incluye: `abogados`, `modulos`, `plantillas`, `columns`, `detailMode`,
 `sortBy`, `theme`, auto-requerimiento (`autoReq`, `autoReqTexto`, `autoReqDias`,
-`autoReqResponsable`), opciones del calendario (`calendarShow`,
-`calendarShowNum`, `calendarShowDesc`) y **`agendaScope`** (filtro de la Agenda,
+`autoReqResponsable`) y **`agendaScope`** (filtro de la Agenda,
 ver [agenda.md](agenda.md)).
 
 ## Persistencia

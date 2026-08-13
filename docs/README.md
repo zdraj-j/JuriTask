@@ -17,7 +17,6 @@ tener en cuenta al modificarlo.
 | Trámites (CRUD y dominio) | [tramites.md](tramites.md) | `js/tramites.js`, `js/ui.js` |
 | Filtros y búsqueda | [filtros-busqueda.md](filtros-busqueda.md) | `js/filters.js` |
 | Agenda accionable | [agenda.md](agenda.md) | `js/ui.js` |
-| Calendario mensual | [calendario.md](calendario.md) | `js/calendar.js` |
 | Informe / reporte del día | [informe.md](informe.md) | `js/ui.js` |
 | Reporte de trámites y Excel | [reportes-excel.md](reportes-excel.md) | `js/reportes.js`, `js/xlsx.js` |
 | Autenticación (UI) | [autenticacion.md](autenticacion.md) | `js/auth.js` |
@@ -44,6 +43,6 @@ tener en cuenta al modificarlo.
   (en `tramites.js`) devuelve la fecha local cacheada.
 - **Vencimiento**: solo aplica mientras el trámite no esté cumplido. En todas
   las vistas la condición es `t.fechaVencimiento && !t.gestion?.cumplimiento`
-  (tarjetas, agenda, calendario, reporte del día, `esHoyOVencido()`, y
-  `_repVenc()` en el reporte de trámites). Marcado el cumplimiento, el trámite
+  (tarjetas, agenda, reporte del día, y `_repVenc()` en el reporte de
+  trámites). Marcado el cumplimiento, el trámite
   deja de mostrar fecha y de contar como vencido.

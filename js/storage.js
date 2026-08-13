@@ -57,9 +57,6 @@ const DEFAULT_CONFIG = {
   autoReqDias:  7,
   autoReqResponsable: 'yo',
   diasRestantes: false,
-  calendarShow: 'both',
-  calendarShowNum: true,
-  calendarShowDesc: true,
   agendaScope: 'mias', // 'mias' | 'otros' | 'all' — filtro por responsabilidad en la Agenda
 };
 

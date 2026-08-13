@@ -22,8 +22,6 @@
       { icon: 'search',       label: 'Buscar trámites',          hint: '/', run: focusSearch },
       { icon: 'list-checks',  label: 'Ir a: Agenda',             run: go('agenda') },
       { icon: 'layout-grid',  label: 'Ir a: Todos los trámites', run: go('all') },
-      { icon: 'clock',        label: 'Ir a: Hoy / Vencidos',     run: go('today') },
-      { icon: 'calendar',     label: 'Ir a: Calendario',         run: go('calendar') },
       { icon: 'circle-check', label: 'Ir a: Terminados',         run: go('finished') },
       { icon: 'settings',     label: 'Ir a: Configuración',      run: go('config') },
       { icon: 'file-text',    label: 'Reporte del día',          run: () => typeof openReport === 'function' && openReport() },

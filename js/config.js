@@ -4,7 +4,7 @@
  * los event listeners. Es el orquestador que conecta los módulos.
  *
  * Orden de carga requerido en index.html:
- *   storage.js → tramites.js → filters.js → ui.js → calendar.js
+ *   storage.js → tramites.js → filters.js → ui.js
  *   → auth.js → firestore.js → dashboard.js → config.js
  */
 
@@ -51,9 +51,7 @@ function switchView(view) {
 
   const titles = {
     all:       'Todos los trámites',
-    today:     'Hoy / Vencidos',
     agenda:    'Agenda',
-    calendar:  'Calendario',
     finished:  'Terminados',
     config:    'Configuración',
     dashboard: '<i data-lucide="shield"></i> Dashboard Admin',
@@ -61,10 +59,9 @@ function switchView(view) {
   document.getElementById('topbarTitle').innerHTML = titles[view] || '';
 
   const isConfig = view === 'config';
-  const isCal    = view === 'calendar';
   const isDash   = view === 'dashboard';
   const isAgenda = view === 'agenda';
-  const hide     = isConfig || isCal || isDash;
+  const hide     = isConfig || isDash;
   // La agenda es una lista enfocada: oculta filtros/orden/columnas/reporte.
   const hideTools = hide || isAgenda;
 
@@ -75,7 +72,7 @@ function switchView(view) {
   document.getElementById('reportBtn').style.display      = hideTools ? 'none' : '';
   document.getElementById('newTramiteBtn').style.display  = hide ? 'none' : '';
   // El reporte general consulta todo el histórico: sigue disponible en la
-  // agenda y el calendario, solo se oculta en configuración y dashboard.
+  // agenda, solo se oculta en configuración y dashboard.
   const _repBtn = document.getElementById('reportesBtn');
   if (_repBtn) _repBtn.style.display = (isConfig || isDash) ? 'none' : '';
   const _scanBtn = document.getElementById('scanMailBtn');
@@ -84,7 +81,6 @@ function switchView(view) {
   if (_bitBtn) _bitBtn.style.display = hide ? 'none' : '';
 
   if      (isConfig) { renderConfig(); syncConfigAccountUI(); }
-  else if (isCal)    { renderCalendar(); }
   else if (isAgenda) { renderAgenda(); }
   else if (isDash && typeof loadDashboardData === 'function') { loadDashboardData(); }
   else               { renderAll(); }
@@ -331,20 +327,6 @@ function init() {
   // Restaurar el panel lateral si quedó abierto en la sesión previa.
   if (typeof restoreReportDock === 'function') restoreReportDock();
 
-  // ── Calendario ───────────────────────────────────────────
-  document.getElementById('calPrev').addEventListener('click', () => {
-    calMonth--; if (calMonth < 0) { calMonth = 11; calYear--; }
-    renderCalendar();
-  });
-  document.getElementById('calNext').addEventListener('click', () => {
-    calMonth++; if (calMonth > 11) { calMonth = 0; calYear++; }
-    renderCalendar();
-  });
-  document.getElementById('calTodayBtn').addEventListener('click', () => {
-    calYear = new Date().getFullYear(); calMonth = new Date().getMonth();
-    renderCalendar();
-  });
-
   // ── Export / Import ──────────────────────────────────────
   document.getElementById('exportBtn').addEventListener('click', exportData);
   document.getElementById('importBtn').addEventListener('click', () => document.getElementById('importFile').click());
@@ -446,20 +428,6 @@ function init() {
     STATE.config.gmailDescartados = [];
     saveAll();
     showToast('Descartados restablecidos.');
-  });
-
-  // ── Config: calendario ──────────────────────────────────
-  document.getElementById('calendarShowSelect')?.addEventListener('change', e => {
-    STATE.config.calendarShow = e.target.value; saveAll();
-    if (currentView === 'calendar') renderCalendar();
-  });
-  document.getElementById('calendarShowNumToggle')?.addEventListener('change', e => {
-    STATE.config.calendarShowNum = e.target.checked; saveAll();
-    if (currentView === 'calendar') renderCalendar();
-  });
-  document.getElementById('calendarShowDescToggle')?.addEventListener('change', e => {
-    STATE.config.calendarShowDesc = e.target.checked; saveAll();
-    if (currentView === 'calendar') renderCalendar();
   });
 
   // ── Config: colores de barra ─────────────────────────────

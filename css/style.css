@@ -1543,42 +1543,6 @@ body.selection-mode .tramite-card { cursor: pointer; user-select: none; }
 .backup-meta { font-size: 12px; color: var(--text-muted); }
 .backup-loading, .backup-empty { font-size: 13px; color: var(--text-muted); font-style: italic; }
 
-/* ═══════════════════ CALENDARIO ═════════════════ */
-.calendar-container { width: 100%; overflow-x: auto; }
-.cal-toolbar { display: flex; align-items: center; gap: 10px; margin-bottom: 16px; }
-.cal-nav { font-size: 20px; width: 36px; height: 36px; font-weight: 700; }
-.cal-month-title { font-size: 17px; font-weight: 700; flex: 1; }
-.cal-today-btn { padding: 6px 14px; font-size: 12px; }
-.cal-weekdays { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; margin-bottom: 4px; min-width: 0; }
-.cal-weekdays > div { text-align: center; font-size: 10px; font-weight: 700; color: var(--text-muted); padding: 4px 0; text-transform: uppercase; letter-spacing: .6px; }
-.cal-grid { display: flex; flex-direction: column; gap: 2px; min-width: 0; }
-.cal-row { display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px; min-width: 0; }
-.cal-cell { background: var(--surface); border: 1px solid var(--border-light); border-radius: var(--radius-xs); padding: 6px 7px; min-height: 78px; min-width: 0; overflow: hidden; transition: border-color var(--transition); }
-.cal-cell:hover { border-color: var(--accent); }
-.cal-cell-empty { background: transparent; border-color: transparent; min-height: 78px; }
-.cal-today { border-color: var(--accent) !important; background: var(--accent-light); }
-.cal-day-num { font-size: 11px; font-weight: 700; color: var(--text-secondary); margin-bottom: 4px; }
-.cal-day-today { color: var(--accent); }
-.cal-event-dot { font-size: 10px; padding: 2px 5px; border-radius: 4px; margin-bottom: 2px; cursor: pointer; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; transition: opacity var(--transition); line-height: 1.4; max-width: 100%; }
-.cal-event-dot:hover { opacity: .75; }
-.cal-event-dot.overdue  { background: var(--danger-light);  color: var(--danger); }
-.cal-event-dot.today    { background: var(--warning-light); color: var(--warning); }
-.cal-event-dot.upcoming { background: var(--accent-light);  color: var(--accent); }
-.cal-event-dot.tarea    { background: var(--success-light); color: var(--success); }
-.cal-event-dot.cal-urg  { border-left: 2px solid var(--danger); }
-.cal-event-more { font-size: 10px; color: var(--text-muted); padding: 1px 3px; }
-.cal-legend { display: flex; align-items: center; gap: 14px; margin-top: 14px; flex-wrap: wrap; font-size: 12px; color: var(--text-secondary); }
-.cal-dot { width: 8px; height: 8px; border-radius: 50%; display: inline-block; margin-right: 4px; }
-.cal-dot.overdue  { background: var(--danger); }
-.cal-dot.today    { background: var(--warning); }
-.cal-dot.upcoming { background: var(--accent); }
-.cal-dot.tarea    { background: var(--success); }
-@media (max-width: 768px) {
-  .cal-cell { min-height: 54px; padding: 4px; }
-  .cal-event-dot { display: none; }
-  .cal-cell:has(.cal-event-dot) .cal-day-num::after { content: '•'; color: var(--accent); margin-left: 2px; font-size: 14px; }
-}
-
 /* ═══════════════════ AUTH SCREEN ════════════════ */
 #authScreen {
   position: fixed; inset: 0; z-index: 9000;

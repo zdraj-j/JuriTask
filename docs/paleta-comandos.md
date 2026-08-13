@@ -20,7 +20,7 @@ Acceso rápido por teclado a navegación y acciones.
 
 ## Comandos de la paleta
 
-Lista navegable con acciones como "Ir a: Agenda", "Ir a: Calendario", etc.
+Lista navegable con acciones como "Ir a: Agenda", "Ir a: Terminados", etc.
 Cada comando ejecuta una función (p. ej. `go('agenda')` → `switchView('agenda')`).
 
 ## Al modificar

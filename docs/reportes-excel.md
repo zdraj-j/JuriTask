@@ -38,7 +38,7 @@ pendientes de cada trámite.
 
 `_repVenc(t)` devuelve `''` cuando `t.gestion.cumplimiento` es `true`: un
 trámite ya cumplido no vence. Es la misma convención que las tarjetas, la
-agenda, el calendario, el reporte del día y `esHoyOVencido()`, y se aplica en
+agenda y el reporte del día, y se aplica en
 **todas** las salidas (vista previa, Excel, CSV, impresión, copiado) y también
 en el filtrado, el orden y los KPIs — de modo que un cumplido nunca sale bajo
 «Vencidos» ni «Vencen hoy», solo bajo «Sin fecha». La información no se pierde:

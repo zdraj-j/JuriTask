@@ -115,9 +115,7 @@
   </div>
   <nav class="sidebar-nav">
     <button class="nav-item active"  data-view="all">      <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="3" rx="2"/><path d="M8 7v7"/><path d="M12 7v4"/><path d="M16 7v9"/></svg></span> Todos los trámites</button>
-    <button class="nav-item"         data-view="today">    <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 6v6l2 1"/><path d="M12.337 21.994a10 10 0 1 1 9.588-8.767"/><path d="m14 18 4 4 4-4"/><path d="M18 14v8"/></svg></span> Hoy / Vencidos<span class="badge" id="todayBadge">0</span></button>
     <button class="nav-item"         data-view="agenda">   <span class="nav-icon"><i data-lucide="list-checks"></i></span> Agenda<span class="badge" id="agendaBadge">0</span></button>
-    <button class="nav-item"         data-view="calendar"> <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="18" height="18" x="3" y="4" rx="2"/><path d="M16 2v4"/><path d="M3 10h18"/><path d="M8 2v4"/><path d="M17 14h-6"/><path d="M13 18H7"/><path d="M7 14h.01"/><path d="M17 18h.01"/></svg></span> Calendario</button>
     <button class="nav-item"         data-view="finished"> <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="10"/><path d="m9 12 2 2 4-4"/></svg></span> Terminados</button>
     <button class="nav-item dash-nav-item" data-view="dashboard" style="display:none"><span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M12 9v1.258"/><path d="M16 3v5.46"/><path d="M21 9.118V5a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h5.75"/><path d="M22 17.5c0 2.499-1.75 3.749-3.83 4.474a.5.5 0 0 1-.335-.005c-2.085-.72-3.835-1.97-3.835-4.47V14a.5.5 0 0 1 .5-.499c1 0 2.25-.6 3.12-1.36a.6.6 0 0 1 .76-.001c.875.765 2.12 1.36 3.12 1.36a.5.5 0 0 1 .5.5z"/><path d="M3 15h7"/><path d="M3 9h12.142"/><path d="M8 15v6"/><path d="M8 3v6"/></svg></span> Dashboard Admin</button>
     <button class="nav-item"         data-view="config">   <span class="nav-icon"><svg xmlns="http://www.w3.org/2000/svg" width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 16V8a2 2 0 0 0-1-1.73l-7-4a2 2 0 0 0-2 0l-7 4A2 2 0 0 0 3 8v8a2 2 0 0 0 1 1.73l7 4a2 2 0 0 0 2 0l7-4A2 2 0 0 0 21 16z"/><circle cx="12" cy="12" r="4"/></svg></span> Configuración</button>
@@ -201,13 +199,6 @@
       </div>
     </div>
 
-    <div class="view" id="view-today">
-      <div class="tramite-list" id="todayList"></div>
-      <div class="empty-state" id="emptyToday">
-        <div class="empty-icon"><i data-lucide="party-popper"></i></div><p>¡Sin pendientes urgentes!</p>
-      </div>
-    </div>
-
     <div class="view" id="view-agenda">
       <div class="agenda-filter-bar">
         <span class="agenda-filter-label">Responsable:</span>
@@ -220,27 +211,6 @@
       <div id="agendaContent"></div>
       <div class="empty-state" id="emptyAgenda" style="display:none">
         <div class="empty-icon"><i data-lucide="party-popper"></i></div><p>¡Agenda al día! Sin tareas pendientes para hoy.</p>
-      </div>
-    </div>
-
-    <div class="view" id="view-calendar">
-      <div class="calendar-container">
-        <div class="cal-toolbar">
-          <button class="btn-icon cal-nav" id="calPrev">‹</button>
-          <span class="cal-month-title" id="calMonthTitle"></span>
-          <button class="btn-icon cal-nav" id="calNext">›</button>
-          <button class="btn btn-small cal-today-btn" id="calTodayBtn">Hoy</button>
-        </div>
-        <div class="cal-weekdays">
-          <div>Lun</div><div>Mar</div><div>Mié</div><div>Jue</div><div>Vie</div><div>Sáb</div><div>Dom</div>
-        </div>
-        <div class="cal-grid" id="calGrid"></div>
-        <div class="cal-legend">
-          <span><span class="cal-dot overdue"></span>Vencido</span>
-          <span><span class="cal-dot today"></span>Hoy</span>
-          <span><span class="cal-dot upcoming"></span>Vencimiento</span>
-          <span><span class="cal-dot tarea"></span>Tarea</span>
-        </div>
       </div>
     </div>
 
@@ -543,28 +513,6 @@
           <div style="margin-top:18px">
             <label style="font-size:13px;color:var(--text-secondary);display:block;margin-bottom:10px">Tema</label>
             <div class="theme-grid" id="themeGrid"></div>
-          </div>
-        </div>
-
-        <div class="config-section">
-          <h3>Calendario</h3>
-          <div class="config-vis-grid">
-            <div class="config-vis-item">
-              <label>Mostrar en calendario</label>
-              <select id="calendarShowSelect" style="padding:7px 10px;border:1px solid var(--border);border-radius:var(--radius-sm);font-size:13px;background:var(--surface-2);color:var(--text-primary)">
-                <option value="both">Vencimientos y tareas</option>
-                <option value="venc">Solo vencimientos</option>
-                <option value="tarea">Solo tareas</option>
-              </select>
-            </div>
-            <div class="config-vis-item">
-              <label>Mostrar # de tr&aacute;mite</label>
-              <label class="switch"><input type="checkbox" id="calendarShowNumToggle" checked /><span class="slider"></span></label>
-            </div>
-            <div class="config-vis-item">
-              <label>Mostrar descripci&oacute;n</label>
-              <label class="switch"><input type="checkbox" id="calendarShowDescToggle" checked /><span class="slider"></span></label>
-            </div>
           </div>
         </div>
 
@@ -973,7 +921,6 @@
 <script src="js/storage.js"></script>
 <script src="js/tramites.js"></script>
 <script src="js/filters.js"></script>
-<script src="js/calendar.js"></script>
 <script src="js/ui.js"></script>
 
 <!-- 3. Firebase: inicialización + firestore -->

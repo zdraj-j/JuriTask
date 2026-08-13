@@ -196,18 +196,11 @@ function renderAll() {
   const sorted  = sortActives(actives);
 
   renderList(document.getElementById('tramiteList'),  document.getElementById('emptyAll'),      applyFilters(sorted, f));
-  const urgentes = applyFilters(sorted.filter(t => esHoyOVencido(t)), f);
-  renderList(document.getElementById('todayList'),    document.getElementById('emptyToday'),     urgentes);
-
-  const badge = document.getElementById('todayBadge');
-  badge.textContent = urgentes.length;
-  badge.classList.toggle('hidden', urgentes.length === 0);
 
   if (typeof _updateAgendaBadge === 'function') _updateAgendaBadge();
 
   renderList(document.getElementById('finishedList'), document.getElementById('emptyFinished'), applyFilters(STATE.tramites.filter(t => t.terminado), f));
 
-  if (currentView === 'calendar') renderCalendar();
   if (currentView === 'agenda')   renderAgenda();
 
   if (typeof selApplyToRendered === 'function') selApplyToRendered();   // re-marcar selección
@@ -424,10 +417,10 @@ let currentDetailId = null;
 function openDetail(id) {
   const t = getById(id); if (!t) return;
   currentDetailId = id;
-  // Force modal in calendar/dashboard views where there are no card wrappers
+  // Force modal in the dashboard view, where there are no card wrappers
   const activeView = document.querySelector('.view.active');
   const viewId = activeView ? activeView.id : '';
-  const forceModal = viewId === 'view-calendar' || viewId === 'view-dashboard';
+  const forceModal = viewId === 'view-dashboard';
   (forceModal || STATE.config.detailMode === 'modal') ? openDetailModal(t) : openDetailExpand(t);
 }
 
@@ -1970,9 +1963,6 @@ function renderConfig() {
   const bInt=document.getElementById('bitacoraIntervalo');  if(bInt) bInt.value=STATE.config.bitacoraIntervalo??10;
   const bDia=document.getElementById('bitacoraDias');       if(bDia) bDia.value=STATE.config.bitacoraDias??7;
   const drT=document.getElementById('diasRestantesToggle'); if(drT) drT.checked=!!(STATE.config.diasRestantes);
-  const calSel=document.getElementById('calendarShowSelect');     if(calSel) calSel.value=STATE.config.calendarShow||'both';
-  const calNum=document.getElementById('calendarShowNumToggle');  if(calNum) calNum.checked=STATE.config.calendarShowNum!==false;
-  const calDsc=document.getElementById('calendarShowDescToggle'); if(calDsc) calDsc.checked=STATE.config.calendarShowDesc!==false;
 
   // Mostrar sección admin solo si el usuario es admin
   const isAdmin = (typeof AUTH !== 'undefined') && AUTH.userProfile?.role === 'admin';
