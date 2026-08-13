@@ -1927,16 +1927,6 @@ function _updateAgendaBadge() {
   badge.classList.toggle('hidden', n === 0);
 }
 
-function buildReportTextPlain(sourceSel = '#reportContent') {
-  let text = `TAREAS PARA HOY — ${formatDate(today())}\n${'='.repeat(25)}\n\n`;
-  document.querySelectorAll(`${sourceSel} .report-item`).forEach(el => {
-    const num=el.querySelector('.report-item-num')?.textContent||'', desc=el.querySelector('.report-item-desc')?.textContent||'', tarea=el.querySelector('.tarea-label')?.textContent||'';
-    text += `${num} — ${desc}\n  ${tarea}\n\n`;
-  });
-  if (!text.includes('#')) text += 'Sin novedades para hoy.\n';
-  return text;
-}
-
 // ============================================================
 // CONFIGURACIÓN — render
 // ============================================================

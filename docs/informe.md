@@ -1,22 +1,22 @@
 # Proceso: Informe / reporte del día
 
-Genera un resumen imprimible/copiable de lo pendiente para hoy, con filtro por
-abogado. Es el "primo" de la Agenda, pero de solo lectura y orientado a
-compartir/imprimir.
+Genera un resumen de lo pendiente para hoy, con filtro por abogado. Es el
+"primo" de la Agenda, pero de solo lectura. Se consume de dos maneras: como
+**captura de imagen** para pegar en un chat, o **fijado como panel lateral**
+mientras se trabaja.
 
 ## Archivos
 
 - `js/ui.js` → `buildReportInto()` (núcleo compartido), `renderReport()`,
-  `buildReportTextPlain()`, `openReport()`, `closeReport()`, variable
-  `reportFiltroAbogado`. Panel lateral: `renderReportDock()`, `openReportDock()`,
-  `closeReportDock()`, `restoreReportDock()`, variable `reportDockFiltro`.
+  `openReport()`, `closeReport()`, variable `reportFiltroAbogado`. Panel lateral:
+  `renderReportDock()`, `openReportDock()`, `closeReportDock()`,
+  `restoreReportDock()`, variable `reportDockFiltro`.
 - `index.html` → `#reportOverlay`, `#reportContent`, `#reportFilterGroup`,
-  `#reportPrintBtn`, botón `#reportBtn` en la topbar. Panel lateral:
+  `#reportScreenshotBtn`, botón `#reportBtn` en la topbar. Panel lateral:
   `#reportDock`, `#reportDockContent`, `#reportDockFilter` (desplegable),
-  `#reportDockBtn` (fijar como panel) y acciones `#reportDock*`.
+  `#reportDockBtn` (fijar como panel) y `#reportDockScreenshotBtn`.
 - `js/config.js` → listener de `#reportFilterGroup` (cambia `reportFiltroAbogado`),
-  listeners del dock y helpers compartidos `_printReportFrom()`,
-  `_copyReportFrom()`, `_screenshotReport()`.
+  listeners del dock y `_screenshotReport()`.
 - `js/filters.js` → `buildRespOptions()` y poblado de `#reportFilterGroup` y del
   desplegable `#reportDockFilter`.
 
@@ -49,17 +49,15 @@ Se agrupa en **Urgentes / Vencidos / Para hoy** y se ordena igual que la Agenda.
 > miUID`) es el mismo que reutiliza la Agenda. Si cambias uno, revisa el otro
 > para no divergir.
 
-## Impresión
+## Sin impresión ni copiado
 
-`_printReportFrom(area)` (config.js) delega en `_printHtml()`, que monta el
-contenido en `#reportPrintArea`, marca `body.printing` y limpia al terminar.
-El bloque `@media print` de `style.css` es el que hace que el documento
-**pagine** en vez de salir en una sola hoja recortada; los detalles y el porqué
-de cada regla están en [reportes-excel.md](reportes-excel.md#impresión), y
-aplican igual a este reporte.
+Este reporte **no se imprime ni se copia como texto**: sus dos únicas salidas
+son la captura y el panel lateral. `_printHtml()` y `_printHeader()` siguen
+existiendo en `config.js`, pero ya solo los usa el
+[reporte de trámites](reportes-excel.md#impresión).
 
 ## Al modificar
 
-`buildReportTextPlain()` extrae texto plano del DOM ya renderizado
-(`#reportContent .report-item`); si cambias la estructura HTML del ítem, ajusta
-también los selectores de esa función.
+`_screenshotReport()` renderiza en un contenedor oculto, no sobre el nodo
+visible. Si cambias la estructura HTML del ítem, revisa que la captura siga
+saliendo con las mismas dimensiones desde el modal y desde el panel.

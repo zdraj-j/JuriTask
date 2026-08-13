@@ -287,12 +287,6 @@ function init() {
     saveAll();
     renderAgenda();
   });
-  document.getElementById('reportPrintBtn').addEventListener('click', () =>
-    _printReportFrom(document.getElementById('reportContent'))
-  );
-  document.getElementById('reportCopyBtn').addEventListener('click', () =>
-    _copyReportFrom('#reportContent')
-  );
   document.getElementById('reportScreenshotBtn')?.addEventListener('click', e =>
     _screenshotReport(e.currentTarget, reportFiltroAbogado)
   );
@@ -315,12 +309,6 @@ function init() {
     renderReportDock();
     _saveDockState();
   });
-  document.getElementById('reportDockPrintBtn')?.addEventListener('click', () =>
-    _printReportFrom(document.getElementById('reportDockContent'))
-  );
-  document.getElementById('reportDockCopyBtn')?.addEventListener('click', () =>
-    _copyReportFrom('#reportDockContent')
-  );
   document.getElementById('reportDockScreenshotBtn')?.addEventListener('click', e =>
     _screenshotReport(e.currentTarget, reportDockFiltro)
   );
@@ -589,19 +577,6 @@ function _printHeader(titulo, subtitulo) {
       <h1>${escapeHtml(titulo)}</h1>
       <p>${escapeHtml(subtitulo || `Generado el ${formatDate(today())}`)}</p>
     </div>`;
-}
-
-// Imprime el reporte del día a partir del contenedor indicado (modal o dock).
-function _printReportFrom(area) {
-  if (!area) return;
-  _printHtml(_printHeader('Reporte del día — JuriTask') + area.innerHTML);
-}
-
-// Copia el reporte como texto plano desde el contenedor indicado.
-function _copyReportFrom(sourceSel) {
-  navigator.clipboard.writeText(buildReportTextPlain(sourceSel))
-    .then(() => showToast('Reporte copiado.'))
-    .catch(() => showToast('No se pudo copiar.'));
 }
 
 // Captura el reporte como imagen. Renderiza en un contenedor oculto cuyo ancho
