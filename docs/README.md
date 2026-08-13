@@ -28,6 +28,7 @@ tener en cuenta al modificarlo.
 | Paleta de comandos y atajos | [paleta-comandos.md](paleta-comandos.md) | `js/commandpalette.js` |
 | Navegación entre vistas y config | [navegacion-config.md](navegacion-config.md) | `js/config.js` |
 | PWA / offline | [pwa-offline.md](pwa-offline.md) | `sw.js`, `manifest.json` |
+| Prueba de humo en navegador | [pruebas.md](pruebas.md) | `test/smoke.js` |
 | Accesibilidad e iconos | [accesibilidad-iconos.md](accesibilidad-iconos.md) | `js/a11y.js`, `js/icons.js` |
 
 ## Convenciones del dominio
