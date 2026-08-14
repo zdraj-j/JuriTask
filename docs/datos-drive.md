@@ -72,45 +72,34 @@ camino.
 borradores (Fase 5) también escribe el estado, y sin lock una corrida a las
 6:00 podría pisar lo que estuvieras editando.
 
-## Por qué no se usa DriveApp
+## Por qué el scope es `drive` y no `drive.file`
 
-`drive.file` da acceso **solo a lo que el propio script crea** — el mínimo para
-una app que se fabrica su propia carpeta. `DriveApp` no lo entiende: es un
-servicio de grano grueso y casi todos sus métodos exigen el scope `drive`
-entero. Buscar por nombre falla con *"Required permissions: drive.readonly ||
-drive"*, y hasta `createFolder` falla con *"Required permissions: drive"*. Con
-`drive.file` no hay forma de crear nada por ahí.
+`drive.file` es el permiso mínimo: da acceso **solo a lo que el propio script
+crea**, que sobre el papel es exactamente lo que hace falta aquí. No sirve.
+`DriveApp` es un servicio de grano grueso y casi todos sus métodos exigen el
+scope `drive` entero:
 
-Ambos errores saltan en la **primera autorización**, antes de que la app llegue
-a arrancar, y no aparecen en ninguna prueba local.
-
-La API REST de Drive sí respeta el scope, así que `Datos.gs` la llama con
-`UrlFetchApp` — el mismo patrón que `Correo.gs` usa con Gmail. Los helpers
-(`_jtDrive`, `_jtMeta`, `_jtCrearArchivo`, `_jtEscribirArchivo`,
-`_jtLeerArchivo`, `_jtPapelera`) ocupan la primera mitad del fichero; el resto
-no sabe que hay REST por debajo.
-
-La alternativa era pedir el scope `drive` completo y seguir con `DriveApp`. Se
-descartó: es un scope **restringido** —otra ronda de aprobación del
-administrador de Workspace— y entregaría el Drive entero de una cuenta
-corporativa a cambio de ahorrar un fichero.
-
-`tools/build.js` corta el build si `DriveApp` reaparece en `server/`.
-
-## Nada se busca por nombre
-
-`drive.file` tampoco permite **consultar** el Drive, ni siquiera para encontrar
-lo propio. Así que todo va por id, y los ids viven en Script Properties:
-
-| Propiedad | Qué guarda |
+| Llamada | Con `drive.file` |
 |---|---|
-| `CARPETA_ID` | la carpeta contenedora |
-| `DATOS_ID` | el JSON de estado |
-| `BACKUPS` | el índice de backups, porque la carpeta tampoco se puede listar |
+| `getFoldersByName` | ❌ *Required permissions: drive.readonly \|\| drive* |
+| `createFolder` | ❌ *Required permissions: drive* |
 
-Si `CARPETA_ID` apunta a algo borrado, se crea otra carpeta en vez de buscar la
-vieja por nombre. Puede quedar una carpeta huérfana en la papelera; es el
-precio de no poder mirar.
+Los dos errores saltan en la **primera autorización**, antes de que la app
+llegue a arrancar, y no los ve ninguna prueba local: el servidor solo existe de
+verdad una vez desplegado.
+
+Hay una vía estrecha —la API REST de Drive con `UrlFetchApp`, que sí respeta
+`drive.file`— y se llegó a implementar. Se descartó por decisión del dueño de la
+cuenta: `DriveApp` es nativo, no depende de habilitar la Drive API en la consola
+de Cloud y deja menos piezas que se puedan romper. Si algún día hace falta
+volver a estrechar el permiso, está en el historial de git.
+
+**El precio, explícito**: el script puede leer y escribir todo el Drive de la
+cuenta, no solo su carpeta. Es una cuenta corporativa con expedientes; conviene
+que quede dicho.
+
+`drive` es además un scope **restringido** en Workspace: puede requerir que el
+administrador apruebe el client ID del proyecto, igual que `gmail.modify`.
 
 ## Backups
 
@@ -118,21 +107,21 @@ Copias fechadas del JSON en la misma carpeta, con prefijo
 `juritask-backup-`. Se purgan a los 30 días, y `crearBackup()` llama a
 `purgarBackups()` para que la limpieza no dependa de un trigger.
 
-`leerBackup` y `borrarBackup` exigen que el id esté **en el índice** antes de
-tocar nada: el id llega del cliente y no conviene aceptar cualquier fichero.
-`listarBackups()` aprovecha para depurar lo que ya no está en Drive —el usuario
-puede borrar un backup a mano y el índice no se entera de otra forma.
+`leerBackup` y `borrarBackup` comprueban el prefijo antes de tocar nada: el id
+llega del cliente y, con el scope `drive`, aceptar cualquier id sería aceptar
+cualquier fichero del Drive.
 
 Antes de respaldar, el cliente **sube primero lo pendiente** (`crearBackupAhora`):
 si no, con el debounce de 2,5 s se acabaría respaldando una versión vieja.
 
 ## Al modificar
 
-- `drive.file` solo da acceso a los ficheros que la propia app crea. Basta
-  porque la carpeta la crea ella; si algún día hay que leer ficheros ajenos,
-  hará falta un scope más amplio.
-- **No vuelvas a `DriveApp`** ni introduzcas búsquedas por nombre: compilan,
-  pasan las pruebas locales y estallan en la primera autorización real.
+- **Nada de esto se puede probar en local**: el servidor solo existe una vez
+  desplegado, y los fallos de permisos aparecen en la autorización inicial. Tras
+  tocar `Datos.gs`, ejecutar `estadoDelAlmacen` desde el editor antes de dar
+  nada por bueno.
+- Si algún día se estrecha el scope a `drive.file`, hay que sustituir `DriveApp`
+  por la API REST: no es opcional, `DriveApp` no funciona con ese permiso.
 - Si el JSON crece mucho, el cuello no es Drive sino el tiempo de
   `JSON.stringify` en cada guardado. Antes de trocear, medir.
 - No metas `PropertiesService` como almacén: tope de 500 KB por almacén y 9 KB

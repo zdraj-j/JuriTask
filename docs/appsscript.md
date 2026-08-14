@@ -167,29 +167,29 @@ En cada cambio posterior: `node tools/build.js && clasp push`, y en el editor
 | Scope | Para qué |
 |---|---|
 | `gmail.modify` | leer, crear borradores y etiquetar hilos |
-| `drive.file` | el JSON de datos y los backups ([datos-drive.md](datos-drive.md)) |
+| `drive` | el JSON de datos y los backups ([datos-drive.md](datos-drive.md)) |
 | `script.external_request` | llamar a Gemini y a la Gmail API con `UrlFetchApp` |
 | `script.scriptapp` | crear los triggers |
 | `script.send_mail` | el correo-resumen diario |
 
-`gmail.modify` es un scope **restringido**: en Workspace puede requerir que el
-administrador apruebe el client ID del proyecto.
+`gmail.modify` y `drive` son scopes **restringidos**: en Workspace pueden
+requerir que el administrador apruebe el client ID del proyecto.
 
-`drive.file` es deliberadamente estrecho: solo alcanza lo que el script crea.
-Eso obliga a `Datos.gs` a hablar con la **API REST de Drive** en vez de con
-`DriveApp`, que exige el scope `drive` completo — ver
-[datos-drive.md](datos-drive.md#por-qué-no-se-usa-driveapp).
+El scope de Drive es el completo y no `drive.file` por una limitación de
+`DriveApp`, no por gusto — está explicado en
+[datos-drive.md](datos-drive.md#por-qué-el-scope-es-drive-y-no-drivefile).
 
-### Por qué se declaran los servicios avanzados de Gmail y Drive
+### Por qué se declara el servicio avanzado de Gmail
 
-`enabledAdvancedServices` incluye Gmail y Drive aunque el código **no** use
-`Gmail.Users.*` ni `Drive.Files.*`: `Correo.gs` y `Datos.gs` llaman por REST con
-`UrlFetchApp`. La declaración está para que Apps Script **habilite esas APIs en
-el proyecto de Cloud** asociado al script, que es lo que exige la llamada REST.
+`enabledAdvancedServices` incluye Gmail aunque el código **no** use
+`Gmail.Users.*` — `Correo.gs` habla con `GmailApp` y con `UrlFetchApp` contra
+`gmail.googleapis.com`. La declaración está para que Apps Script **habilite la
+Gmail API en el proyecto de Cloud** asociado al script, que es lo que exige la
+llamada REST.
 
-Si aun así devuelven un 403 diciendo que la API no está habilitada para el
+Si aun así Gmail devuelve un 403 diciendo que la API no está habilitada para el
 proyecto, hay que abrirlo desde *Configuración del proyecto → Proyecto de Google
-Cloud* y activarla a mano.
+Cloud* y activar la Gmail API a mano.
 
 ## Al modificar
 

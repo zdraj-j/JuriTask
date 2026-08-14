@@ -84,25 +84,8 @@ for (const { file, src } of incluidos) {
 // ── 3. Código de servidor ───────────────────────────────────────────────────
 // Los .gs de `server/` se copian tal cual: son fuente, no generados.
 //
-// `DriveApp` es de grano grueso: casi todos sus métodos exigen el scope `drive`
-// entero, y con `drive.file` fallan —incluido `createFolder`— con "Specified
-// permissions are not sufficient". Solo se ve en el despliegue real, en la
-// primera autorización, así que se ataja aquí. Datos.gs habla con la API REST
-// de Drive, que sí respeta `drive.file`. Ver docs/datos-drive.md.
-//
-// Se busca `DriveApp.` y no el nombre suelto para que los comentarios puedan
-// nombrarlo sin hacer fallar el build.
 const servidor = fs.readdirSync(path.join(ROOT, 'server')).filter(f => f.endsWith('.gs'));
-for (const f of servidor) {
-  const code = rd(`server/${f}`);
-  if (/DriveApp\s*\./.test(code)) {
-    throw new Error(
-      `server/${f} usa DriveApp: exige el scope "drive" completo, que aquí no se pide. ` +
-      `Usa la API REST de Drive con UrlFetchApp, como los helpers de Datos.gs.`
-    );
-  }
-  wr(f, code);
-}
+for (const f of servidor) wr(f, rd(`server/${f}`));
 
 // Módulos compartidos entre cliente y servidor. Son JS puro —sin DOM, sin
 // STATE, sin APIs de navegador— así que el mismo fichero vale para los dos, y
@@ -126,19 +109,17 @@ wr('appsscript.json', JSON.stringify({
   exceptionLogging: 'STACKDRIVER',
   oauthScopes: [
     'https://www.googleapis.com/auth/gmail.modify',       // leer + crear borradores + etiquetar
-    'https://www.googleapis.com/auth/drive.file',         // el JSON de datos y los adjuntos
-    'https://www.googleapis.com/auth/script.external_request', // Gemini, y las APIs de Gmail y Drive
+    // DriveApp exige el scope entero: con drive.file ni siquiera puede crear
+    // la carpeta. Ver docs/datos-drive.md.
+    'https://www.googleapis.com/auth/drive',              // el JSON de datos y los adjuntos
+    'https://www.googleapis.com/auth/script.external_request', // Gemini y la Gmail API
     'https://www.googleapis.com/auth/script.scriptapp',    // triggers
     'https://www.googleapis.com/auth/script.send_mail',    // correo-resumen diario
   ],
   webapp: { executeAs: 'USER_DEPLOYING', access: 'MYSELF' },
-  // Los servicios avanzados se declaran para que Apps Script **habilite esas
-  // APIs en el proyecto de Cloud** asociado; el código no usa `Gmail.*` ni
-  // `Drive.*`, llama por REST con UrlFetchApp. Ver docs/appsscript.md.
   dependencies: {
     enabledAdvancedServices: [
       { userSymbol: 'Gmail', serviceId: 'gmail', version: 'v1' },
-      { userSymbol: 'Drive', serviceId: 'drive', version: 'v3' },
     ],
   },
 }, null, 2) + '\n');
