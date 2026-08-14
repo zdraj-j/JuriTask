@@ -119,6 +119,18 @@ mano:
 `rootDir` es lo que hace que `clasp push` suba el contenido de `build/`
 ejecutándose **desde la raíz**, no desde `build/`.
 
+> **Si clasp responde `JSON5: invalid end of input at 1:1`** en *cualquier*
+> comando —incluido `clasp login`— es que hay un `.clasp.json` vacío o
+> corrupto: lo suele dejar un `clasp create` fallido. `del .clasp.json` (o
+> `rm`) y volver a escribirlo.
+>
+> En Windows conviene crearlo desde CMD en vez de con el Bloc de notas, que
+> puede guardarlo vacío o añadirle un BOM que rompe el parseo:
+>
+> ```
+> echo {"scriptId":"EL_ID","rootDir":"build"}> .clasp.json
+> ```
+
 ### 3. Subir
 
 ```bash
