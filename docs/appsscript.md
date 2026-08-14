@@ -144,14 +144,22 @@ clasp push
 
 ### 4. Autorizar y desplegar
 
-Una vez: `clasp open`, elegir cualquier función (por ejemplo
-`estadoDelAlmacen`) y ejecutarla. Google pedirá los permisos; en un proyecto sin
-verificar hay que entrar por *Configuración avanzada → Ir a JuriTask (no
-seguro)*. **Sin ese paso el web app responde con un error de permisos.**
+Este paso **se hace en el navegador**, no en la terminal. `clasp open` y
+`clasp deploy` son otros dos subcomandos renombrados en clasp 3.x (ahora
+`open-script`, `create-deployment`, `list-deployments`), y además la primera
+autorización exige pasar por el diálogo de permisos de Google de todas formas.
 
-Después, `clasp deploy` y `clasp deployments` para ver la URL `/exec`.
+1. Abrir `https://script.google.com/home/projects/EL_ID/edit`.
+2. Elegir cualquier función —por ejemplo `estadoDelAlmacen`— y **Ejecutar**.
+   Google pedirá los permisos; en un proyecto sin verificar hay que entrar por
+   *Configuración avanzada → Ir a JuriTask (no seguro)*. **Sin ese paso el web
+   app responde con un error de permisos.**
+3. *Implementar → Nueva implementación → Aplicación web*, con
+   **Ejecutar como: Yo** y **Acceso: Solo yo**. Eso da la URL `/exec`.
 
-En cada cambio posterior: `node tools/build.js && clasp push && clasp deploy`.
+En cada cambio posterior: `node tools/build.js && clasp push`, y en el editor
+*Implementar → Gestionar implementaciones → ✏️ → Versión: Nueva*. Así la URL
+`/exec` no cambia.
 
 `appsscript.json` ya deja el web app como **"Ejecutar como: yo"** y
 **"Quién tiene acceso: solo yo"**, y declara los scopes:
