@@ -4,8 +4,9 @@ Traduce el repo a la forma que exige un proyecto de Apps Script, sin tocar el
 código fuente.
 
 ```bash
-node tools/build.js      # genera build/
-node test/sandbox.js     # prueba el sandbox y el ciclo con servidor simulado
+node tools/build.js         # genera build/
+node tools/enlazar.js ID    # escribe el .clasp.json (una sola vez)
+node test/sandbox.js        # prueba el sandbox y el ciclo con servidor simulado
 ```
 
 ## Por qué hace falta un build
@@ -102,15 +103,30 @@ no topa con la política de ejecución. No hace falta cambiar nada del sistema.
 
 ### 2. Crear el proyecto y enlazarlo
 
-`clasp create --type webapp` **solo funciona en clasp 2.x**; en las versiones
-nuevas el subcomando cambió y devuelve `Invalid container file type`. Lo que no
-depende de la versión es crearlo en el navegador y escribir el `.clasp.json` a
-mano:
+**No uses `clasp create`.** Solo funciona en clasp 2.x; en las versiones nuevas
+devuelve `Invalid container file type` **y deja un `.clasp.json` vacío**, que a
+partir de ahí hace fallar *todos* los comandos —incluido `clasp login`— con
+`JSON5: invalid end of input at 1:1`, un mensaje que no insinúa cuál es el
+problema.
+
+En su lugar:
 
 1. Crear un proyecto en <https://script.google.com/home/projects/create>.
 2. Copiar el **ID de la secuencia de comandos** desde ⚙️ *Configuración del
    proyecto*.
-3. Guardar en la raíz del repo un `.clasp.json` con:
+3. Enlazarlo:
+
+```bash
+node tools/enlazar.js EL_ID_COPIADO
+```
+
+`tools/enlazar.js` escribe el `.clasp.json`, detecta y reemplaza uno vacío o
+corrupto, y acepta también la URL del proyecto en vez del ID. Existe porque
+este fichero es donde más se tropieza: hacerlo a mano con el Bloc de notas en
+Windows puede guardarlo vacío, con extensión `.txt` o con un BOM que rompe el
+parseo.
+
+El fichero es solo esto, por si hace falta escribirlo a mano:
 
 ```json
 {"scriptId": "EL_ID_COPIADO", "rootDir": "build"}
@@ -118,18 +134,6 @@ mano:
 
 `rootDir` es lo que hace que `clasp push` suba el contenido de `build/`
 ejecutándose **desde la raíz**, no desde `build/`.
-
-> **Si clasp responde `JSON5: invalid end of input at 1:1`** en *cualquier*
-> comando —incluido `clasp login`— es que hay un `.clasp.json` vacío o
-> corrupto: lo suele dejar un `clasp create` fallido. `del .clasp.json` (o
-> `rm`) y volver a escribirlo.
->
-> En Windows conviene crearlo desde CMD en vez de con el Bloc de notas, que
-> puede guardarlo vacío o añadirle un BOM que rompe el parseo:
->
-> ```
-> echo {"scriptId":"EL_ID","rootDir":"build"}> .clasp.json
-> ```
 
 ### 3. Subir
 
