@@ -477,7 +477,9 @@ async function correrConServidor(browser) {
   await new Promise(r => top.listen(PORT_TOP, r));
   await new Promise(r => sandbox.listen(PORT_SANDBOX, r));
 
-  const browser = await chromium.launch();
+  const browser = await chromium.launch(
+    process.env.JT_CHROME ? { executablePath: process.env.JT_CHROME } : {}
+  );
   console.log('=== RIESGOS DEL SANDBOX DE APPS SCRIPT ===');
   const resultados = [];
   for (const v of VARIANTES) resultados.push([v, await correr(v, browser)]);

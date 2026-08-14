@@ -72,14 +72,39 @@ camino.
 borradores (Fase 5) también escribe el estado, y sin lock una corrida a las
 6:00 podría pisar lo que estuvieras editando.
 
+## Nada se busca por nombre
+
+Con `drive.file` el script solo alcanza **lo que él mismo ha creado**. Una
+consulta por nombre —`getFoldersByName`, `getFilesByName`, `folder.getFiles()`—
+no es eso: es un barrido del Drive entero, y Google la rechaza con
+*"Specified permissions are not sufficient to call DriveApp.getFoldersByName"*
+aunque el fichero buscado sea nuestro. Salta en la primera autorización, antes
+de que la app llegue a arrancar.
+
+Por eso todo va por id, y los ids viven en Script Properties:
+
+| Propiedad | Qué guarda |
+|---|---|
+| `CARPETA_ID` | la carpeta contenedora |
+| `DATOS_ID` | el JSON de estado |
+| `BACKUPS` | el índice de backups, porque la carpeta tampoco se puede listar |
+
+Si `CARPETA_ID` apunta a algo borrado, se crea otra carpeta en vez de buscar la
+vieja por nombre. Puede quedar una carpeta huérfana en la papelera; es
+preferible a pedir el scope `drive` completo, que es **restringido** —otra
+ronda de aprobación del administrador de Workspace— a cambio de entregar todo
+el Drive.
+
 ## Backups
 
 Copias fechadas del JSON en la misma carpeta, con prefijo
 `juritask-backup-`. Se purgan a los 30 días, y `crearBackup()` llama a
 `purgarBackups()` para que la limpieza no dependa de un trigger.
 
-`leerBackup` y `borrarBackup` comprueban el prefijo antes de tocar nada: el id
-llega del cliente y no conviene aceptar cualquier fichero de Drive.
+`leerBackup` y `borrarBackup` exigen que el id esté **en el índice** antes de
+tocar nada: el id llega del cliente y no conviene aceptar cualquier fichero.
+`listarBackups()` aprovecha para depurar lo que ya no está en Drive —el usuario
+puede borrar un backup a mano y el índice no se entera de otra forma.
 
 Antes de respaldar, el cliente **sube primero lo pendiente** (`crearBackupAhora`):
 si no, con el debounce de 2,5 s se acabaría respaldando una versión vieja.
@@ -89,6 +114,8 @@ si no, con el debounce de 2,5 s se acabaría respaldando una versión vieja.
 - `drive.file` solo da acceso a los ficheros que la propia app crea. Basta
   porque la carpeta la crea ella; si algún día hay que leer ficheros ajenos,
   hará falta un scope más amplio.
+- **No introduzcas búsquedas por nombre** ni iteraciones de carpeta: compilan,
+  pasan las pruebas locales y estallan en el despliegue real.
 - Si el JSON crece mucho, el cuello no es Drive sino el tiempo de
   `JSON.stringify` en cada guardado. Antes de trocear, medir.
 - No metas `PropertiesService` como almacén: tope de 500 KB por almacén y 9 KB

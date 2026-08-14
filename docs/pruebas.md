@@ -8,9 +8,14 @@ renombrada a medias, un botón que desapareció de más, un listener huérfano.
 ```bash
 node test/smoke.js                    # sale 0 si pasa todo, 1 si algo falla
 JT_SHOTS=/tmp node test/smoke.js      # dónde dejar las capturas
+JT_CHROME=/ruta/al/chrome node test/smoke.js   # usar otro binario
 ```
 
-Requiere **Playwright con Chromium** instalado.
+Requiere **Playwright con Chromium** instalado. `JT_CHROME` existe para las
+máquinas que ya traen un Chromium: Playwright exige la build exacta que
+corresponde a su versión y falla con *"Executable doesn't exist"* si no
+coincide; con esa variable se le pasa el binario que haya y deja de importar.
+Vale para las dos pruebas.
 
 ## Cómo arranca la app en la prueba
 

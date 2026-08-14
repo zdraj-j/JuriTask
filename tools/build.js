@@ -83,8 +83,30 @@ for (const { file, src } of incluidos) {
 
 // ── 3. Código de servidor ───────────────────────────────────────────────────
 // Los .gs de `server/` se copian tal cual: son fuente, no generados.
+//
+// Con el scope `drive.file` el script solo alcanza lo que él mismo crea, así
+// que buscar por nombre o listar una carpeta revienta con "Specified
+// permissions are not sufficient" — y solo se ve en el despliegue real, en la
+// primera autorización. Se ataja aquí. Ver docs/datos-drive.md.
+// Se busca la forma de *llamada* (`.nombre(`) y no el nombre suelto, para que
+// los comentarios puedan nombrar lo prohibido sin hacer fallar el build.
+const DRIVE_PROHIBIDO = [
+  'getFoldersByName', 'getFilesByName', 'searchFiles', 'searchFolders',
+  'getFiles', 'getFolders',
+];
 const servidor = fs.readdirSync(path.join(ROOT, 'server')).filter(f => f.endsWith('.gs'));
-for (const f of servidor) wr(f, rd(`server/${f}`));
+for (const f of servidor) {
+  const code = rd(`server/${f}`);
+  for (const prohibido of DRIVE_PROHIBIDO) {
+    if (new RegExp(`\\.${prohibido}\\s*\\(`).test(code)) {
+      throw new Error(
+        `server/${f} llama a ${prohibido}(): el scope drive.file no permite buscar ni listar en Drive. ` +
+        `Guarda el id en Script Properties y usa getFileById/getFolderById.`
+      );
+    }
+  }
+  wr(f, code);
+}
 
 // Módulos compartidos entre cliente y servidor. Son JS puro —sin DOM, sin
 // STATE, sin APIs de navegador— así que el mismo fichero vale para los dos, y

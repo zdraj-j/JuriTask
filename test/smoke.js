@@ -61,7 +61,9 @@ const ok = (c) => c ? 'PASA' : 'FALLA';
 
 (async () => {
   await new Promise(r => server.listen(8099, r));
-  const browser = await chromium.launch();
+  const browser = await chromium.launch(
+    process.env.JT_CHROME ? { executablePath: process.env.JT_CHROME } : {}
+  );
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 
   const errors = [];
