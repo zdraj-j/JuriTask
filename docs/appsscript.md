@@ -89,29 +89,51 @@ lenta, pero arranca. Por eso todos los accesos van dentro de `try/catch`.
 
 ## Despliegue
 
-**Antes de nada**: activar la Apps Script API en
-<https://script.google.com/home/usersettings>. Sin eso `clasp push` falla con
-un error poco claro sobre credenciales.
+### 1. Preparativos
+
+- Activar la Apps Script API en
+  <https://script.google.com/home/usersettings>. Sin eso `clasp push` falla con
+  un error poco claro sobre credenciales.
+- `npm i -g @google/clasp` y `clasp login`.
+
+En **Windows**, si PowerShell responde *"la ejecución de scripts está
+deshabilitada"* al llamar a `npm`, usar **CMD**: ahí npm resuelve a `npm.cmd` y
+no topa con la política de ejecución. No hace falta cambiar nada del sistema.
+
+### 2. Crear el proyecto y enlazarlo
+
+`clasp create --type webapp` **solo funciona en clasp 2.x**; en las versiones
+nuevas el subcomando cambió y devuelve `Invalid container file type`. Lo que no
+depende de la versión es crearlo en el navegador y escribir el `.clasp.json` a
+mano:
+
+1. Crear un proyecto en <https://script.google.com/home/projects/create>.
+2. Copiar el **ID de la secuencia de comandos** desde ⚙️ *Configuración del
+   proyecto*.
+3. Guardar en la raíz del repo un `.clasp.json` con:
+
+```json
+{"scriptId": "EL_ID_COPIADO", "rootDir": "build"}
+```
+
+`rootDir` es lo que hace que `clasp push` suba el contenido de `build/`
+ejecutándose **desde la raíz**, no desde `build/`.
+
+### 3. Subir
 
 ```bash
-npm i -g @google/clasp
-clasp login
-
-# Desde la raíz del repo. `--rootDir build` deja el .clasp.json aquí,
-# apuntando a build/: se hace `clasp push` desde la raíz, NO desde build/.
-clasp create --type webapp --title JuriTask --rootDir build
-
 node tools/build.js
 clasp push
 ```
 
-Luego, **una vez**, hay que autorizar el script: `clasp open`, elegir cualquier
-función (por ejemplo `estadoDelAlmacen`) y ejecutarla. Google pedirá los
-permisos; en un proyecto sin verificar hay que entrar por *Configuración
-avanzada → Ir a JuriTask (no seguro)*. Sin ese paso el web app responde con un
-error de permisos.
+### 4. Autorizar y desplegar
 
-Y ya: `clasp deploy`, y `clasp deployments` para ver la URL `/exec`.
+Una vez: `clasp open`, elegir cualquier función (por ejemplo
+`estadoDelAlmacen`) y ejecutarla. Google pedirá los permisos; en un proyecto sin
+verificar hay que entrar por *Configuración avanzada → Ir a JuriTask (no
+seguro)*. **Sin ese paso el web app responde con un error de permisos.**
+
+Después, `clasp deploy` y `clasp deployments` para ver la URL `/exec`.
 
 En cada cambio posterior: `node tools/build.js && clasp push && clasp deploy`.
 
