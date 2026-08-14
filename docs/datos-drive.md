@@ -72,16 +72,35 @@ camino.
 borradores (Fase 5) también escribe el estado, y sin lock una corrida a las
 6:00 podría pisar lo que estuvieras editando.
 
+## Por qué no se usa DriveApp
+
+`drive.file` da acceso **solo a lo que el propio script crea** — el mínimo para
+una app que se fabrica su propia carpeta. `DriveApp` no lo entiende: es un
+servicio de grano grueso y casi todos sus métodos exigen el scope `drive`
+entero. Buscar por nombre falla con *"Required permissions: drive.readonly ||
+drive"*, y hasta `createFolder` falla con *"Required permissions: drive"*. Con
+`drive.file` no hay forma de crear nada por ahí.
+
+Ambos errores saltan en la **primera autorización**, antes de que la app llegue
+a arrancar, y no aparecen en ninguna prueba local.
+
+La API REST de Drive sí respeta el scope, así que `Datos.gs` la llama con
+`UrlFetchApp` — el mismo patrón que `Correo.gs` usa con Gmail. Los helpers
+(`_jtDrive`, `_jtMeta`, `_jtCrearArchivo`, `_jtEscribirArchivo`,
+`_jtLeerArchivo`, `_jtPapelera`) ocupan la primera mitad del fichero; el resto
+no sabe que hay REST por debajo.
+
+La alternativa era pedir el scope `drive` completo y seguir con `DriveApp`. Se
+descartó: es un scope **restringido** —otra ronda de aprobación del
+administrador de Workspace— y entregaría el Drive entero de una cuenta
+corporativa a cambio de ahorrar un fichero.
+
+`tools/build.js` corta el build si `DriveApp` reaparece en `server/`.
+
 ## Nada se busca por nombre
 
-Con `drive.file` el script solo alcanza **lo que él mismo ha creado**. Una
-consulta por nombre —`getFoldersByName`, `getFilesByName`, `folder.getFiles()`—
-no es eso: es un barrido del Drive entero, y Google la rechaza con
-*"Specified permissions are not sufficient to call DriveApp.getFoldersByName"*
-aunque el fichero buscado sea nuestro. Salta en la primera autorización, antes
-de que la app llegue a arrancar.
-
-Por eso todo va por id, y los ids viven en Script Properties:
+`drive.file` tampoco permite **consultar** el Drive, ni siquiera para encontrar
+lo propio. Así que todo va por id, y los ids viven en Script Properties:
 
 | Propiedad | Qué guarda |
 |---|---|
@@ -90,10 +109,8 @@ Por eso todo va por id, y los ids viven en Script Properties:
 | `BACKUPS` | el índice de backups, porque la carpeta tampoco se puede listar |
 
 Si `CARPETA_ID` apunta a algo borrado, se crea otra carpeta en vez de buscar la
-vieja por nombre. Puede quedar una carpeta huérfana en la papelera; es
-preferible a pedir el scope `drive` completo, que es **restringido** —otra
-ronda de aprobación del administrador de Workspace— a cambio de entregar todo
-el Drive.
+vieja por nombre. Puede quedar una carpeta huérfana en la papelera; es el
+precio de no poder mirar.
 
 ## Backups
 
@@ -114,8 +131,8 @@ si no, con el debounce de 2,5 s se acabaría respaldando una versión vieja.
 - `drive.file` solo da acceso a los ficheros que la propia app crea. Basta
   porque la carpeta la crea ella; si algún día hay que leer ficheros ajenos,
   hará falta un scope más amplio.
-- **No introduzcas búsquedas por nombre** ni iteraciones de carpeta: compilan,
-  pasan las pruebas locales y estallan en el despliegue real.
+- **No vuelvas a `DriveApp`** ni introduzcas búsquedas por nombre: compilan,
+  pasan las pruebas locales y estallan en la primera autorización real.
 - Si el JSON crece mucho, el cuello no es Drive sino el tiempo de
   `JSON.stringify` en cada guardado. Antes de trocear, medir.
 - No metas `PropertiesService` como almacén: tope de 500 KB por almacén y 9 KB

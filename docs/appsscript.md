@@ -175,17 +175,21 @@ En cada cambio posterior: `node tools/build.js && clasp push`, y en el editor
 `gmail.modify` es un scope **restringido**: en Workspace puede requerir que el
 administrador apruebe el client ID del proyecto.
 
-### Por qué se declara el servicio avanzado de Gmail
+`drive.file` es deliberadamente estrecho: solo alcanza lo que el script crea.
+Eso obliga a `Datos.gs` a hablar con la **API REST de Drive** en vez de con
+`DriveApp`, que exige el scope `drive` completo — ver
+[datos-drive.md](datos-drive.md#por-qué-no-se-usa-driveapp).
 
-`enabledAdvancedServices` incluye Gmail aunque el código **no** use
-`Gmail.Users.*` — `Correo.gs` habla con `GmailApp` y con `UrlFetchApp` contra
-`gmail.googleapis.com`. La declaración está para que Apps Script **habilite la
-Gmail API en el proyecto de Cloud** asociado al script, que es lo que exige la
-llamada REST.
+### Por qué se declaran los servicios avanzados de Gmail y Drive
 
-Si aun así Gmail devuelve un 403 diciendo que la API no está habilitada para el
+`enabledAdvancedServices` incluye Gmail y Drive aunque el código **no** use
+`Gmail.Users.*` ni `Drive.Files.*`: `Correo.gs` y `Datos.gs` llaman por REST con
+`UrlFetchApp`. La declaración está para que Apps Script **habilite esas APIs en
+el proyecto de Cloud** asociado al script, que es lo que exige la llamada REST.
+
+Si aun así devuelven un 403 diciendo que la API no está habilitada para el
 proyecto, hay que abrirlo desde *Configuración del proyecto → Proyecto de Google
-Cloud* y activar la Gmail API a mano.
+Cloud* y activarla a mano.
 
 ## Al modificar
 
