@@ -564,6 +564,10 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
 .btn-small.btn-icon-sm svg { display: block; }
 .btn-small.btn-danger { background: var(--danger-light); color: var(--danger); border: 1px solid var(--danger); }
 .btn-small.btn-danger:hover { background: var(--danger); color: #fff; }
+/* Variante secundaria: misma caja que .btn-small pero sin peso visual, para
+   acompañar a una acción principal (p. ej. "Cancelar" junto a "+ Agregar"). */
+.btn-small.btn-ghost { background: var(--surface); color: var(--text-secondary); border: 1px solid var(--border); }
+.btn-small.btn-ghost:hover { background: var(--surface-3); color: var(--text-primary); }
 .btn-icon {
   width: 30px; height: 30px; display: flex; align-items: center; justify-content: center;
   border: 1px solid var(--border); border-radius: 50%;
@@ -839,23 +843,41 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
   background: var(--surface-3); border-radius: 20px; padding: 1px 7px;
 }
 .act-actions-right {
-  display: inline-flex; align-items: center; gap: 2px; margin-left: auto; flex-shrink: 0;
+  display: inline-flex; align-items: center; gap: 1px; margin-left: auto; flex-shrink: 0;
 }
+/* Todos los botones de una tarea (borrador, urgente, adjuntar, enlace,
+   eliminar) comparten la misma caja. Sin esta regla `.act-attach-btn` no
+   tenía estilo propio y se quedaba con el aspecto nativo del <button>
+   —fondo gris y borde biselado—, así que la fila se veía como botones
+   sueltos de distinto tamaño junto a la X, que sí iba sin caja. */
+.act-attach-btn,
 .actividad-delete {
-  background: none; border: none; cursor: pointer;
-  color: var(--text-muted); font-size: 13px; padding: 2px;
-  border-radius: 4px; transition: color var(--transition); flex-shrink: 0;
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 24px; height: 24px; padding: 0; flex-shrink: 0;
+  background: none; border: 1px solid transparent; border-radius: var(--radius-xs);
+  color: var(--text-muted); font-size: 13px; line-height: 1; cursor: pointer;
+  transition: color var(--transition), background var(--transition), border-color var(--transition);
 }
-.actividad-delete:hover { color: var(--danger); }
+.act-attach-btn:hover,
+.actividad-delete:hover { background: var(--surface-3); color: var(--text-secondary); }
+.act-attach-btn:focus-visible,
+.actividad-delete:focus-visible { outline: none; border-color: var(--accent); color: var(--accent); }
+.act-attach-btn:disabled { opacity: .35; cursor: not-allowed; }
+.act-attach-btn:disabled:hover { background: none; color: var(--text-muted); }
 /* El icono (svg de Lucide, solo trazos) no captura clics: así todo el botón es
    zona clicleable y un clic con micro-movimiento del ratón no se pierde entre
    mousedown y mouseup sobre distintos trazos (síntoma: el botón de eliminar
    tarea "no funcionaba" en escritorio, pero sí en móvil con toque). */
 .actividad-delete > *,
 .act-attach-btn > * { pointer-events: none; }
-.act-urg-btn { opacity: .3; }
-.act-urg-btn:hover { opacity: .7; }
-.act-urg-btn.active { opacity: 1; color: var(--warning); }
+/* Cada acción toma en hover el color de su significado. */
+.act-borrador-btn:hover,
+.act-drive-btn:not(:disabled):hover,
+.act-link-btn:not(:disabled):hover { background: var(--accent-light); color: var(--accent); }
+.act-urg-btn:hover { background: var(--warning-light); color: var(--warning); }
+.act-urg-btn.active { background: var(--warning-light); color: var(--warning); }
+.actividad-delete { margin-left: 2px; }
+.actividad-delete:hover { background: var(--danger-light); color: var(--danger); }
 .actividad-item.act-urgente { background: var(--danger-light); border-radius: var(--radius-sm); margin: 0 -4px; padding: 8px 4px; }
 
 .nueva-tarea-toggle { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
@@ -1630,6 +1652,8 @@ body.selection-mode .tramite-card { cursor: pointer; user-select: none; }
   .modal.draggable-active { position: relative; left: auto !important; top: auto !important; }
   .card-body { padding: 10px 12px; }
   .check-label-text { display: none; }
+  /* Zona de toque mayor para las acciones de cada tarea. */
+  .act-attach-btn, .actividad-delete { width: 30px; height: 30px; }
   .config-card { padding: 16px; }
   .theme-grid { grid-template-columns: repeat(2, 1fr); }
   .tipo-toggle-row { flex-direction: column; }

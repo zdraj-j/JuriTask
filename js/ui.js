@@ -537,7 +537,7 @@ function buildDetailContent(t) {
 
   return `
     <div class="detail-section">
-      <h3>Seguimiento <span class="etapa-badge${etapa==='seguimiento'?' seguimiento':''}" id="${p}_etapabadge">${etapa==='seguimiento'?'Seguimiento':'Gestión'}</span></h3>
+      <h3>Tareas <span class="etapa-badge${etapa==='seguimiento'?' seguimiento':''}" id="${p}_etapabadge">${etapa==='seguimiento'?'Seguimiento':'Gestión'}</span></h3>
       <div id="${p}_actividades"></div>
       <div class="nueva-tarea-toggle">
         <button class="btn-nueva-tarea" id="${p}_btnNuevaTarea" type="button"><i data-lucide="plus"></i> Nueva tarea</button>
@@ -549,7 +549,7 @@ function buildDetailContent(t) {
         </div>
         <div class="add-actividad-btns">
           <button class="btn-small" id="${p}_addAct">+ Agregar</button>
-          <button class="btn-small" id="${p}_cancelAct" style="background:var(--surface);color:var(--text-secondary);border:1px solid var(--border)">Cancelar</button>
+          <button class="btn-small btn-ghost" id="${p}_cancelAct">Cancelar</button>
         </div>
       </div>
     </div>
