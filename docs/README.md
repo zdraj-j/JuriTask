@@ -2,13 +2,23 @@
 
 JuriTask es una PWA (sin framework, JS modular cargado por `<script>`) para la
 gestión de trámites jurídicos: vencimientos, tareas de seguimiento, reportes y
-agenda diaria. Es de **un solo usuario**: no hay login, ni cuentas, ni equipos.
-Los datos viven en `localStorage`.
+agenda diaria.
 
-> **Migración en curso.** El destino es una *web app de Apps Script*, con los
-> datos en un JSON de Drive y el correo gestionado desde el servidor. Por eso
-> ya no hay Firebase, y el acceso a Gmail/Drive está en pausa: ver
-> [google-auth.md](google-auth.md).
+Es de **un solo usuario**: hay un acceso con Google, pero no cuentas que
+gestionar, ni equipos, ni nada compartido. El login existe porque Firestore
+necesita saber de quién son los datos y porque de ahí sale el token de Gmail y
+Drive ([autenticacion.md](autenticacion.md)).
+
+Los datos viven en **Firestore**, con `localStorage` como caché
+([sincronizacion-firestore.md](sincronizacion-firestore.md)).
+
+> **Nota histórica.** Hubo un intento de trasladar la app a una *web app de
+> Apps Script*, con los datos en un JSON de Drive y el correo desde el
+> servidor. Se abandonó porque el administrador de Workspace bloqueó Apps
+> Script. Lo único que no sobrevivió es el trigger diario de borradores, que
+> pasó a ser un botón manual
+> ([borradores-automaticos.md](borradores-automaticos.md)). El trabajo queda en
+> el historial de git por si algún día se levanta el bloqueo.
 
 Cada archivo de esta carpeta documenta **un proceso** de la app: para qué
 sirve, qué archivos lo implementan, su modelo de datos y los puntos delicados a
@@ -19,6 +29,9 @@ tener en cuenta al modificarlo.
 | Proceso | Documento | Archivo(s) principal(es) |
 |---|---|---|
 | Estado, almacenamiento e historial | [almacenamiento-estado.md](almacenamiento-estado.md) | `js/storage.js` |
+| Acceso con Google | [autenticacion.md](autenticacion.md) | `js/auth.js`, `js/firebase.js` |
+| Sincronización con Firestore | [sincronizacion-firestore.md](sincronizacion-firestore.md) | `js/firebase.js` |
+| Borradores del día | [borradores-automaticos.md](borradores-automaticos.md) | `js/borradores.js` |
 | Trámites (CRUD y dominio) | [tramites.md](tramites.md) | `js/tramites.js`, `js/ui.js` |
 | Filtros y búsqueda | [filtros-busqueda.md](filtros-busqueda.md) | `js/filters.js` |
 | Agenda accionable | [agenda.md](agenda.md) | `js/ui.js` |

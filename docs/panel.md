@@ -40,8 +40,10 @@ función pura sobre los arrays que recibe.
 
 ## Backups
 
-Ya no hay: iban contra Firestore. Mientras tanto, **Exportar** en Ajustes baja
-el JSON completo. Vuelven en la Fase 3, sobre Drive.
+No hay una sección propia. Los datos viven en Firestore
+([sincronizacion-firestore.md](sincronizacion-firestore.md)), que ya guarda el
+histórico del lado de Google, y **Exportar** en Ajustes baja el JSON completo
+cuando quieres una copia en la mano.
 
 ## Al modificar
 

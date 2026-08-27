@@ -16,9 +16,9 @@ el navegador; no hay backend.
 ## Detección de trámites nuevos (sin IA)
 
 1. Botón ✉️ en la barra → `runGmailScan`.
-2. `_ensureGmailToken` delega en `ensureGoogleToken()`
-   (ver [google-auth.md](google-auth.md)), **que hoy devuelve null**: el acceso
-   al correo está en pausa hasta que pase al servidor de Apps Script.
+2. `_ensureGmailToken` delega en `ensureGoogleToken()`, que saca el token de
+   la sesión de Google (ver [google-auth.md](google-auth.md)). Si caducó, abre
+   el popup para renovarlo sin cerrar la sesión.
 3. `scanTramiteEmails` busca los correos de "Notificación de trámite"
    (`GMAIL_QUERY`) y `parseTramiteEmail` extrae por etiquetas de texto:
    - **número** = campo `Trámite:` (5–6 dígitos). Fallback: radicado.
@@ -98,8 +98,7 @@ vuelve a consultar Gmail. Lo descartado sí es permanente
    - Consentimiento **"Internal"** (sin aviso ni caducidad) — sólo si el proyecto
      vive en un **Google Workspace que el usuario administra**.
 3. **API key de Gemini** (Google AI Studio): se pega en Ajustes y se guarda en
-   `localStorage`, **nunca en el repositorio**. En la Fase 4 pasa a Script
-   Properties y deja de viajar al navegador.
+   `STATE.config`, **nunca en el repositorio**.
 
 ## Seguridad de la API key (importante)
 
@@ -108,8 +107,10 @@ Una app sin backend no puede ocultar un secreto: la key viaja al navegador. Por 
 - La key **no** está en el repo; vive en `STATE.config.geminiApiKey`.
 - **Restringir la key en Google Cloud**: aplicación → *HTTP referrers*
   (`https://zdraj-j.github.io/*`) y API → sólo *Generative Language API*.
-- **Lo resuelve la migración**: en Apps Script la key vive en Script Properties
-  y las llamadas a Gemini salen del servidor.
+- **No tiene arreglo limpio sin backend.** Llegó a resolverse moviéndola a
+  Script Properties de Apps Script, pero ese camino se cerró
+  ([README.md](README.md)). Mientras la app sea solo cliente, la restricción de
+  la key en Google Cloud es la única defensa real: consérvala puesta.
 
 ## Al modificar
 
