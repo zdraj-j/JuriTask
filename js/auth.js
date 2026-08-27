@@ -71,6 +71,13 @@ document.addEventListener('DOMContentLoaded', () => {
         _mostrarErrorAcceso('El navegador bloqueó la ventana de Google. Permite las ventanas emergentes para este sitio e inténtalo otra vez.');
         return;
       }
+      // Pasa cuando la cuenta se creó con correo y contraseña: Firebase impide
+      // que el mismo correo tenga dos cuentas, y el acceso por Google sería
+      // otra. Sin este mensaje el error es indistinguible de "no hay red".
+      if (e?.code === 'auth/account-exists-with-different-credential') {
+        _mostrarErrorAcceso('Ese correo ya tiene una cuenta creada con contraseña. En la consola de Firebase, vincula el proveedor Google a esa cuenta, o entra con otra y vuelve a importar tus datos.');
+        return;
+      }
       console.error('Error de acceso:', e);
       _mostrarErrorAcceso('No se pudo iniciar sesión. Revisa la conexión e inténtalo de nuevo.');
     }
