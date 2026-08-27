@@ -1,3 +1,4 @@
+<script>
 /**
  * JuriTask — ui.js
  * Todo el renderizado: tarjetas, paneles de detalle,
@@ -1730,6 +1731,19 @@ function _updateAgendaBadge() {
 // ============================================================
 // CONFIGURACIÓN — render
 // ============================================================
+/** Refleja si el servidor tiene clave de Gemini, sin mostrarla nunca. */
+function _syncGeminiEstado(configurada) {
+  const el = document.getElementById('geminiEstado');
+  if (!el) return;
+  if (typeof BACKEND === 'undefined' || !BACKEND.disponible) {
+    el.textContent = 'Requiere el servidor (Apps Script). Sin él, la IA no está disponible.';
+    return;
+  }
+  el.textContent = configurada
+    ? 'Clave configurada en el servidor. Escribe una nueva para reemplazarla, o guarda en blanco para borrarla.'
+    : 'Sin clave configurada.';
+}
+
 function renderConfig() {
   renderAbogadosList();
   const cb1=document.getElementById('colorBar1'); if(cb1) cb1.value=STATE.config.colorBar1||'#f59e0b';
@@ -1741,13 +1755,17 @@ function renderConfig() {
   const arD=document.getElementById('autoReqDias');         if(arD) arD.value=STATE.config.autoReqDias??7;
   const arR=document.getElementById('autoReqResponsable');  if(arR) arR.value=STATE.config.autoReqResponsable||'yo';
   syncAutoReqFields();
-  const gemK=document.getElementById('geminiApiKey');       if(gemK) gemK.value=STATE.config.geminiApiKey||'';
+  // La clave no se muestra nunca: vive en el servidor. Solo se dice si está.
+  if (typeof refrescarEstadoGemini === 'function') refrescarEstadoGemini().then(_syncGeminiEstado);
   const bAut=document.getElementById('bitacoraAutoToggle'); if(bAut) bAut.checked=STATE.config.bitacoraAuto!==false;
   const bInt=document.getElementById('bitacoraIntervalo');  if(bInt) bInt.value=STATE.config.bitacoraIntervalo??10;
   const bDia=document.getElementById('bitacoraDias');       if(bDia) bDia.value=STATE.config.bitacoraDias??7;
-  const gci=document.getElementById('gmailCuentaIndice');   if(gci) gci.value=STATE.config.gmailCuentaIndice ?? 0;
-  const bIA=document.getElementById('borradoresIAToggle');  if(bIA) bIA.checked=!!STATE.config.borradoresConIA;
   const drT=document.getElementById('diasRestantesToggle'); if(drT) drT.checked=!!(STATE.config.diasRestantes);
+  const gci=document.getElementById('gmailCuentaIndice');   if(gci) gci.value=STATE.config.gmailCuentaIndice ?? 0;
+
+  // Backups y trigger: sus secciones se muestran solas solo si hay servidor.
+  if (typeof renderBackupList === 'function') renderBackupList();
+  if (typeof renderTriggerSection === 'function') renderTriggerSection();
 }
 
 function renderAbogadosList() {
@@ -1873,3 +1891,5 @@ function initDraggableModal(modalEl) {
     header.classList.remove('is-dragging'); modalEl.classList.remove('is-dragging');
   });
 }
+
+</script>

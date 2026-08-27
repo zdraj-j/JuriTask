@@ -1,3 +1,4 @@
+<script>
 /**
  * JuriTask — storage.js
  * Todo lo relacionado con estado, localStorage, migración e historial.
@@ -57,6 +58,11 @@ const DEFAULT_CONFIG = {
   autoReqDias:  7,
   autoReqResponsable: 'yo',
   diasRestantes: false,
+  gmailCuentaIndice: 0,   // /mail/u/N — cuál sesión de Google usar al abrir Gmail
+  // Los borradores automáticos usan las plantillas tal cual. Con esto activo,
+  // Gemini las adapta al último estado del hilo — y el contenido del correo
+  // sale hacia la API de Google.
+  borradoresConIA: false,
   agendaScope: 'mias', // 'mias' | 'otros' | 'all' — filtro por responsabilidad en la Agenda
 };
 
@@ -109,7 +115,7 @@ function undo() {
 }
 
 // ============================================================
-// PERSISTENCIA — localStorage (caché) + Firestore (fuente de verdad)
+// PERSISTENCIA — localStorage
 // ============================================================
 const KEYS = {
   tramites: 'juritask_tramites',
@@ -118,40 +124,49 @@ const KEYS = {
 };
 
 /**
- * saveAll con debounce de 400 ms para evitar re-escrituras excesivas.
- * Las escrituras inline (blur, checkboxes) pasan por aquí.
+ * Guarda el estado. Dos destinos con ritmos distintos:
  *
- * Las dos capas van a ritmos distintos a propósito: localStorage es inmediato y
- * barato, así que absorbe las ráfagas de tecleo; Firestore espera más
- * (`sincronizarConFirestore`, 1,2 s) porque cada subida es una operación de red
- * que se cobra. Este es **el único punto** desde el que se sincroniza: mientras
- * cualquier cambio en STATE acabe llamando a saveAll, acaba en la nube.
+ *  - **localStorage**, con debounce de 400 ms: es la copia inmediata y la que
+ *    permite repintar al instante en el siguiente arranque.
+ *  - **Drive** (si hay servidor), con debounce de 2,5 s: cada `google.script.run`
+ *    es un viaje de ida y vuelta, así que no se manda uno por tecla.
+ *
+ * Si `localStorage` no está disponible —dentro del iframe de Apps Script puede
+ * lanzar `SecurityError`— el fallo se traga y Drive queda como único destino.
  */
-let _saveTimer = null;
+let _saveTimer   = null;
+let _syncTimer   = null;
+const SYNC_DELAY = 2500;
+
 function saveAll(immediate = false) {
-  if (typeof sincronizarConFirestore === 'function') sincronizarConFirestore();
   if (immediate) {
     _flushSave();
   } else {
     clearTimeout(_saveTimer);
     _saveTimer = setTimeout(_flushSave, 400);
   }
+  _programarSync(immediate);
 }
 
-// Asegurar guardado en localStorage antes de que la página se descargue
-window.addEventListener('beforeunload', () => _flushSave());
+function _programarSync(immediate = false) {
+  if (typeof BACKEND === 'undefined' || !BACKEND.disponible) return;
+  clearTimeout(_syncTimer);
+  if (immediate) { _flushSync(); return; }
+  _syncTimer = setTimeout(_flushSync, SYNC_DELAY);
+}
 
-/**
- * Corta la escritura en local de forma definitiva. Lo usa el cierre de sesión:
- * sin esto, vaciar `localStorage` no sirve de nada, porque el `beforeunload` de
- * la recarga vuelve a volcar STATE encima —incluida la clave de Gemini, que
- * vive en `config`— y los datos se quedan en el equipo.
- */
-let _guardadoPausado = false;
-function pausarGuardadoLocal() { _guardadoPausado = true; }
+function _flushSync() {
+  clearTimeout(_syncTimer);
+  if (typeof backendGuardar !== 'function') return;
+  backendGuardar({ tramites: STATE.tramites, order: STATE.order, config: STATE.config });
+}
+
+// Antes de descargar la página: volcar lo pendiente. El envío a Drive es
+// asíncrono y puede no llegar, pero la copia local sí queda.
+window.addEventListener('beforeunload', () => { _flushSave(); _flushSync(); });
 
 function _flushSave() {
-  if (_guardadoPausado) return;
+  clearTimeout(_saveTimer);
   try {
     localStorage.setItem(KEYS.tramites, JSON.stringify(STATE.tramites));
     localStorage.setItem(KEYS.order,    JSON.stringify(STATE.order));
@@ -159,6 +174,43 @@ function _flushSave() {
   } catch (e) {
     console.warn('Error guardando en localStorage:', e);
   }
+}
+
+/**
+ * Sincronización inicial: se llama **después** del primer render, para que la
+ * app pinte ya con lo que hay en local y no se quede en blanco esperando a
+ * Drive. Si el servidor tiene datos, sustituyen a los locales y se repinta.
+ *
+ * Drive manda: es el único sitio compartido entre dispositivos. Lo local es
+ * caché. La excepción es el primer arranque, cuando el fichero aún no existe:
+ * ahí se sube lo que haya en local para no perderlo.
+ */
+async function sincronizarConServidor() {
+  if (typeof BACKEND === 'undefined' || !BACKEND.disponible) return;
+
+  const remoto = await backendCargar();
+
+  if (!remoto) {
+    // Primer arranque: sembrar Drive con lo local (aunque esté vacío).
+    await backendGuardar({ tramites: STATE.tramites, order: STATE.order, config: STATE.config });
+    return;
+  }
+
+  STATE.tramites = Array.isArray(remoto.tramites) ? remoto.tramites : [];
+  STATE.order    = Array.isArray(remoto.order)    ? remoto.order    : [];
+  STATE.config   = Object.assign(
+    { ...DEFAULT_CONFIG,
+      abogados: DEFAULT_CONFIG.abogados.map(a => ({ ...a })),
+      modulos:  [...DEFAULT_CONFIG.modulos] },
+    remoto.config || {}
+  );
+  STATE.tramites.forEach(migrateTramite);
+  _migrarClaveGemini();
+
+  _flushSave();                       // refrescar la caché local
+  purgeExpiredFinished();
+  if (typeof renderAll === 'function') renderAll();
+  if (typeof renderConfig === 'function' && currentView === 'config') renderConfig();
 }
 
 // ============================================================
@@ -216,9 +268,23 @@ function loadAll() {
       }
     }
     STATE.tramites.forEach(migrateTramite);
+    _migrarClaveGemini();
   } catch (e) {
     console.error('Error cargando datos:', e);
   }
+}
+
+/**
+ * La API key de Gemini vivía en `config.geminiApiKey`, es decir: viajaba al
+ * navegador y acababa dentro del JSON de datos. Ahora está en Script
+ * Properties del servidor. Si queda un resto de la versión anterior se borra
+ * del estado —hay que volver a pegarla una vez en Ajustes—, para que el
+ * secreto no siga replicándose en cada guardado.
+ */
+function _migrarClaveGemini() {
+  if (!STATE.config || !STATE.config.geminiApiKey) return;
+  delete STATE.config.geminiApiKey;
+  console.warn('La clave de Gemini se retiró del estado local: vuelve a guardarla en Ajustes.');
 }
 
 // ============================================================
@@ -237,3 +303,5 @@ function purgeExpiredFinished() {
   });
   if (STATE.tramites.length !== before) saveAll(true);
 }
+
+</script>

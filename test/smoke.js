@@ -17,19 +17,35 @@ const SHOT = process.env.JT_SHOTS || require('os').tmpdir();
 const MIME = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css',
                '.json':'application/json', '.png':'image/png', '.svg':'image/svg+xml' };
 
-// Ya no hay módulos que exijan un backend: la app entera arranca en local.
-const DROP = [];
+// Módulos que exigen red y sesión: sin el SDK de Firebase no hacen nada útil,
+// y la prueba no va a autenticarse contra Google de verdad.
+const DROP = ['js/firebase.js', 'js/auth.js'];
+
+// Con esos módulos fuera, nadie llama a `init()` —el arranque cuelga de la
+// sesión— así que la prueba entra por donde entraría `mostrarApp()`.
+const ARRANQUE = `<script>
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('splashScreen')?.remove();
+  document.getElementById('authScreen')?.remove();
+  document.getElementById('appContainer').style.display = '';
+  loadAll();
+  init();
+});
+</script>`;
 
 function localIndex() {
   let html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   html = html.replace(/<script src="https:\/\/[^"]*"><\/script>\s*/g, '');
   for (const f of DROP) html = html.replace(new RegExp(`<script src="${f}"></script>\\s*`), '');
-  // El service worker se registra y dispara location.reload() en
+  // El service worker se registra y dispara `location.reload()` en
   // `controllerchange`, recargando a mitad de prueba. Fuera.
-  html = html.replace(/<!-- 10\. PWA: registrar service worker -->[\s\S]*?<\/script>/, '');
+  // El regex no mira el número del comentario: al renumerar las secciones
+  // dejaba de coincidir en silencio y el SW volvía sin que nadie se enterara.
+  html = html.replace(/<!--[^>]*PWA: registrar service worker[^>]*-->[\s\S]*?<\/script>/, '');
   // Sin CDN, `icons.js` necesita un lucide de mentira.
-  return html.replace('<script src="js/storage.js"></script>',
+  html = html.replace('<script src="js/storage.js"></script>',
     '<script>window.lucide={createIcons(){}};</script>\n<script src="js/storage.js"></script>');
+  return html.replace('</body>', `${ARRANQUE}\n</body>`);
 }
 
 const server = http.createServer((req, res) => {
@@ -61,7 +77,9 @@ const ok = (c) => c ? 'PASA' : 'FALLA';
 
 (async () => {
   await new Promise(r => server.listen(8099, r));
-  const browser = await chromium.launch();
+  const browser = await chromium.launch(
+    process.env.JT_CHROME ? { executablePath: process.env.JT_CHROME } : {}
+  );
   const page = await browser.newPage({ viewport: { width: 1280, height: 900 } });
 
   const errors = [];
@@ -93,29 +111,24 @@ const ok = (c) => c ? 'PASA' : 'FALLA';
   const cards = await page.$$eval('#tramiteList .tramite-card', e => e.length);
   out.push(['P1 la app renderiza tarjetas', cards === 1, `activas=${cards}`]);
 
-  // ── Amputación: no queda rastro de sesión ni de equipos ─
-  const authLeftovers = await page.evaluate(() => [
-    'authScreen','waitScreen','splashScreen','notifPanel','notifBtn','userAvatarBtn',
-    'profileOverlay','editProfileOverlay','logoutBtn','filterScope','repScope',
+  // ── Amputación: vuelve la sesión, no vuelven los equipos ─
+  // El login está de vuelta, pero solo el propio: nada de perfiles ajenos,
+  // notificaciones, ámbitos compartidos ni pantallas de aprobación.
+  const multiusuario = await page.evaluate(() => [
+    'waitScreen','notifPanel','notifBtn','userAvatarBtn','profileOverlay',
+    'editProfileOverlay','filterScope','repScope','backupList','inviteOverlay',
   ].filter(id => document.getElementById(id)));
-  out.push(['AMP sin UI de sesión', authLeftovers.length === 0,
-            authLeftovers.length ? authLeftovers.join(', ') : 'ninguno']);
+  out.push(['AMP sin UI multiusuario', multiusuario.length === 0,
+            multiusuario.length ? multiusuario.join(', ') : 'ninguno']);
 
-  // Sin servidor no hay dónde guardar backups: la sección debe quedar oculta.
-  await page.click('.nav-item[data-view="config"]');
-  await page.waitForTimeout(500);
-  const backupVisible = await page.evaluate(() => {
-    const s = document.getElementById('backupSection');
-    return !!(s && s.offsetParent !== null);
-  });
-  out.push(['AMP backups ocultos sin servidor', backupVisible === false,
-            backupVisible ? 'visible (no debería)' : 'oculta']);
-  await page.click('.nav-item[data-view="all"]');
-  await page.waitForTimeout(400);
-  const globals = await page.evaluate(() =>
-    ['firebase','AUTH','db','auth'].filter(g => g in window));
-  out.push(['AMP sin globals de Firebase', globals.length === 0,
-            globals.length ? globals.join(', ') : 'ninguno']);
+  // La sesión se comprueba sobre el index.html real: en la prueba los módulos
+  // de Firebase se retiran (necesitan red), así que mirar `window` no diría nada.
+  const indexReal = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  const piezas = ['id="authScreen"', 'id="btnGoogleLogin"', 'id="btnLogout"',
+                  'firebase-app-compat', 'js/firebase.js', 'js/auth.js'];
+  const faltan = piezas.filter(p => !indexReal.includes(p));
+  out.push(['SESIÓN acceso con Google declarado', faltan.length === 0,
+            faltan.length ? `faltan: ${faltan.join(', ')}` : `${piezas.length} piezas`]);
 
   // ── Crear un trámite (saveTramite cambió bastante) ──────
   await page.click('#newTramiteBtn');
@@ -212,9 +225,9 @@ const ok = (c) => c ? 'PASA' : 'FALLA';
             rb.some(b => /Captura/i.test(b)) && rb.some(b => /Panel lateral/i.test(b)), rb.join(' | ')]);
 
   // ── Punto 7: buscar el trámite en Gmail ─────────────────
-  // Es puro cliente: funciona sin servidor. Se comprueba que el botón está y
-  // que `window.open` recibe el nombre de ventana, que es lo que hace que la
-  // pestaña se reutilice en vez de acumularse.
+  // Es puro cliente: sobrevive a que no haya servidor. Se comprueba que el
+  // botón está y que `window.open` recibe el nombre de ventana, que es lo que
+  // hace que la pestaña se reutilice en vez de acumularse.
   const gm = await page.evaluate(() => {
     const btn = document.querySelector('#reportContent .gmail-open-btn');
     if (!btn) return { hay: false };
@@ -231,6 +244,43 @@ const ok = (c) => c ? 'PASA' : 'FALLA';
             /mail\.google\.com.*#search/.test(gm.llamadas[0].url),
             gm.hay ? `name="${gm.llamadas[0]?.name}" url=${(gm.llamadas[0]?.url || '').slice(0, 60)}…`
                    : 'no se pintó el botón']);
+
+  // ── Punto 8: borradores del día, ahora manual ───────────
+  // El trigger de Apps Script murió con el servidor; queda el botón.
+  const b8 = await page.evaluate(() => ({
+    boton:   !!document.getElementById('borradoresDiaBtn'),
+    ia:      !!document.getElementById('borradoresIAToggle'),
+    trigger: !!document.getElementById('triggerToggle') || !!document.getElementById('triggerHora'),
+  }));
+  out.push(['P8 botón manual, sin restos del trigger',
+            b8.boton && b8.ia && !b8.trigger,
+            `botón=${b8.boton} ia=${b8.ia} trigger=${b8.trigger}`]);
+
+  // La selección de tareas es lógica pura sobre STATE, así que se puede
+  // comprobar sin tocar Gmail. `addScriptTag` corre en el mundo principal;
+  // `page.evaluate` no vería `_tareasParaBorrador`.
+  await page.addScriptTag({ content: `
+    (function () {
+      STATE.tramites = [
+        { id:'x1', numero:'55555', modulo:'CNT', terminado:false, seguimiento:[
+            { descripcion:'1er req', fecha:'2020-01-01', estado:'pendiente' },
+            { descripcion:'1er req', fecha:'2099-01-01', estado:'pendiente' },
+            { descripcion:'1er req', fecha:'2020-01-01', estado:'completada' },
+            { descripcion:'llamar al abogado', fecha:'2020-01-01', estado:'pendiente' } ] },
+        { id:'x2', numero:'66666', modulo:'CNT', terminado:true, seguimiento:[
+            { descripcion:'1er req', fecha:'2020-01-01', estado:'pendiente' } ] },
+      ];
+      var r = _tareasParaBorrador();
+      var el = document.createElement('div');
+      el.id = '__b8';
+      el.textContent = JSON.stringify({ n: r.length, ids: r.map(function (x) { return x.t.id; }) });
+      document.body.appendChild(el);
+    })();
+  ` });
+  const sel = JSON.parse(await page.$eval('#__b8', e => e.textContent));
+  out.push(['P8 solo requerimientos vencidos y sin terminar',
+            sel.n === 1 && sel.ids[0] === 'x1',
+            `seleccionadas=${sel.n} (${sel.ids.join(',') || 'ninguna'})`]);
 
   await page.screenshot({ path: path.join(SHOT, 'reporte-dia.png') });
   await page.click('#reportClose');

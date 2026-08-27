@@ -1,0 +1,67 @@
+<script>
+/**
+ * JuriTask — gemini.js
+ * Fachada del cliente sobre `server/Gemini.gs`.
+ *
+ * La llamada a la API y —lo importante— **la clave** viven en el servidor. Una
+ * app sin backend no puede ocultar un secreto: antes la key viajaba al
+ * navegador y se guardaba junto a los datos. Ahora está en Script Properties y
+ * no sale de ahí.
+ */
+
+// Se consulta al servidor una vez y se cachea: `geminiConfigured()` la usan
+// varios flujos y no conviene un viaje de ida y vuelta en cada uno.
+let _geminiConfigurada = null;
+
+function geminiConfigured() {
+  return _geminiConfigurada === true;
+}
+
+/** Refresca el cache de "¿hay clave?". Se llama al abrir Ajustes. */
+async function refrescarEstadoGemini() {
+  if (typeof BACKEND === 'undefined' || !BACKEND.disponible) { _geminiConfigurada = false; return false; }
+  try {
+    _geminiConfigurada = await srv('hayGeminiKey');
+  } catch (_) {
+    _geminiConfigurada = false;
+  }
+  return _geminiConfigurada;
+}
+
+async function guardarGeminiKey(key) {
+  const res = await srv('guardarGeminiKey', key);
+  _geminiConfigurada = !!(res && res.configurada);
+  return _geminiConfigurada;
+}
+
+/** Devuelve el texto generado, o null si algo falla (ya avisado por toast). */
+async function geminiGenerate(promptText, { json = false } = {}) {
+  if (typeof BACKEND === 'undefined' || !BACKEND.disponible) {
+    showToast('La IA requiere el servidor (Apps Script).');
+    return null;
+  }
+  try {
+    return await srv('geminiGenerar', promptText, json);
+  } catch (e) {
+    showToast(String(e && e.message || e));
+    return null;
+  }
+}
+
+/** Igual que `geminiGenerate` pero parsea la respuesta como JSON. */
+async function geminiGenerateJSON(promptText) {
+  const txt = await geminiGenerate(promptText, { json: true });
+  if (!txt) return null;
+  try {
+    return JSON.parse(txt);
+  } catch (_) {
+    // Rescate: extraer el primer objeto {...} del texto. Gemini a veces
+    // envuelve el JSON en explicaciones pese a pedirle responseMimeType.
+    const m = txt.match(/\{[\s\S]*\}/);
+    if (m) { try { return JSON.parse(m[0]); } catch (__) {} }
+    console.warn('Gemini: respuesta no es JSON válido:', txt.slice(0, 300));
+    return null;
+  }
+}
+
+</script>

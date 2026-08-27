@@ -1,55 +1,65 @@
 # Proceso: Token OAuth de Google
 
-Punto **único** por donde la app obtiene el token de acceso a Gmail, Drive y
-Calendar. Hoy es un tope deliberado: devuelve `null` y avisa.
+Punto **único** por donde la app obtiene el token de acceso a Gmail y Drive.
 
 ## Archivos
 
 - `js/google-auth.js` → `GOOGLE.accessToken`, `ensureGoogleToken()`,
   `resetGoogleToken()`.
+- `js/firebase.js` → de donde sale el token: `AUTH.loginGoogle()` y
+  `AUTH.refrescarTokenGoogle()`.
 - Lo consumen `js/gmail.js` (`_ensureGmailToken`), `js/drive.js`
   (`_ensureDriveToken`) y `js/borradores.js` (la vigilancia de enviados).
 
-## Por qué existe
+## De dónde sale el token
 
-Hasta la retirada de Firebase, el token lo daba **Firebase Auth**:
+De la sesión de Firebase. `signInWithPopup` con el proveedor de Google
+devuelve, junto a las credenciales de Firebase, un `accessToken` de Google con
+los scopes que se pidieron:
 
 ```js
-const provider = new firebase.auth.GoogleAuthProvider();
-provider.addScope('https://www.googleapis.com/auth/gmail.readonly');
-const result = await user.reauthenticateWithPopup(provider);
+const p = new firebase.auth.GoogleAuthProvider();
+p.addScope('https://www.googleapis.com/auth/drive.file');
+p.addScope('https://www.googleapis.com/auth/gmail.modify');
+const r = await auth.signInWithPopup(p);
+r.credential.accessToken       // ← este
 ```
 
-Sin Firebase el navegador se queda sin ese mecanismo. Montar un segundo OAuth
-de cliente sería trabajo desechable: el sustituto previsto es el **servidor de
-Apps Script**, que se autoriza una sola vez y expone el token con
-`ScriptApp.getOAuthToken()`, sin popup, sin caducidad a 7 días y sin aviso de
-"app no verificada".
+Ese es el que aceptan `gmail.googleapis.com` y el selector de Drive.
 
-Así que en vez de dejar cuatro sitios rotos, hay **una** función que centraliza
-la decisión y un solo lugar que tocar en la Fase 4.
+**Esta es la razón de que la app tenga login.** No hay usuarios que separar
+—solo hay uno— pero sin sesión no hay token, y sin token no hay correo ni
+adjuntos. Ver [autenticacion.md](autenticacion.md).
 
-## Estado actual
+## El detalle que muerde: Firebase no lo renueva
 
-**Con servidor** (Apps Script) ya funciona: `ensureGoogleToken()` pide el token
-a `getOAuthToken()` en `Codigo.gs`, que devuelve `ScriptApp.getOAuthToken()`.
-Sin popup y sin caducidad.
+El `accessToken` de Google llega **solo en el momento del login** y caduca en
+torno a una hora. Firebase renueva su propio token de sesión, pero no este: la
+sesión sigue viva mientras el token de Google ya está muerto.
 
-**Sin servidor** (navegador normal, desarrollo, pruebas) no hay token posible:
-avisa y devuelve `null`.
+Por eso el ciclo es:
 
-## Quién lo usa realmente
+1. Gmail responde **401**.
+2. `resetGoogleToken()` lo borra.
+3. La siguiente llamada a `ensureGoogleToken()` abre
+   `reauthenticateWithPopup()`, que devuelve uno nuevo **sin cerrar la sesión**.
 
-Desde la Fase 4, **Gmail y Gemini ya no pasan por aquí**: sus llamadas salen del
-servidor (`server/Correo.gs`, `server/Gemini.gs`) y el token no toca el
-navegador.
+`_withGmailToken()` (gmail.js) ya implementa el reintento: llama, y si sale 401
+pide token nuevo y repite una vez.
 
-Queda un consumidor de verdad: el **Google Drive Picker** (`js/drive.js`), que
-es una biblioteca de cliente y necesita el token en la página. Para eso sirve
-`getOAuthToken()` en `Codigo.gs`.
+## Por qué todo pasa por aquí
+
+`ensureGoogleToken()` es la única función que pide el token, y nadie lee
+`AUTH.googleAccessToken` directamente. Así el reintento —y el popup, que es lo
+molesto— vive en un solo sitio.
+
+También hay un cerrojo: si dos módulos piden el token a la vez, comparten la
+misma promesa. Dos `reauthenticateWithPopup` simultáneos se cancelan entre sí
+con `auth/cancelled-popup-request`, y el usuario vería dos ventanas.
 
 ## Al modificar
 
-No añadas otra vía de obtener el token. Si un módulo nuevo necesita hablar con
-una API de Google, que pase por `ensureGoogleToken()`: el valor de este archivo
-es ser el **único** sitio que cambia cuando llegue el servidor.
+- No añadas otra vía de obtener el token.
+- El popup necesita un **gesto del usuario** para no ser bloqueado. Por eso la
+  vigilancia automática de enviados (`checkBitacoraPendientes`) es silenciosa:
+  si no hay token vigente no hace nada, en vez de abrir una ventana sola.

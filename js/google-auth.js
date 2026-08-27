@@ -2,38 +2,53 @@
  * JuriTask — google-auth.js
  * Punto único de obtención del token OAuth de Google (Gmail, Drive).
  *
- * Antes lo daba Firebase Auth con `reauthenticateWithPopup`, con su popup, su
- * caducidad a los 7 días y su aviso de "app no verificada". Ahora lo da el
- * servidor de Apps Script vía `ScriptApp.getOAuthToken()`: autorizado una sola
- * vez al desplegar, sin popup y sin caducidad.
+ * El token sale de la sesión de Firebase: `signInWithPopup` con el proveedor de
+ * Google devuelve, junto a las credenciales de Firebase, un `accessToken` de
+ * Google con los scopes que se pidieron. Ese es el que aceptan las APIs de
+ * Gmail y el selector de Drive.
  *
- * En un navegador sin servidor —desarrollo y pruebas— no hay token posible:
- * avisa y devuelve null. El resto de la app lo trata como "sin permiso".
+ * El detalle que importa: **Firebase no lo guarda ni lo renueva.** Solo llega
+ * en el momento del login, y caduca en torno a una hora. Cuando Gmail responde
+ * 401, `resetGoogleToken()` lo borra y la siguiente llamada abre otra vez el
+ * popup de Google para conseguir uno nuevo, sin tocar la sesión de Firebase.
+ *
+ * Por eso todo pasa por aquí y nadie lee `AUTH.googleAccessToken` directamente:
+ * así el reintento vive en un solo sitio. Ver docs/google-auth.md.
  */
 
 const GOOGLE = {
-  accessToken: null,
+  get accessToken() { return (typeof AUTH !== 'undefined' && AUTH.googleAccessToken) || null; },
 };
 
+let _pidiendoToken = null;
+
 async function ensureGoogleToken() {
-  if (GOOGLE.accessToken) return GOOGLE.accessToken;
-
-  // Con servidor: el token lo da Apps Script, ya autorizado, sin popup.
-  if (typeof BACKEND !== 'undefined' && BACKEND.disponible) {
-    try {
-      GOOGLE.accessToken = await srv('getOAuthToken');
-      return GOOGLE.accessToken;
-    } catch (e) {
-      showToast('No se pudo obtener el permiso de Google: ' + e.message);
-      return null;
-    }
+  if (typeof AUTH === 'undefined' || !AUTH.activa) {
+    showToast('Inicia sesión para acceder al correo.');
+    return null;
   }
+  if (AUTH.googleAccessToken) return AUTH.googleAccessToken;
 
-  showToast('El acceso al correo requiere el servidor (Apps Script).');
-  return null;
+  // Un solo popup aunque varios módulos pidan el token a la vez: dos
+  // `reauthenticateWithPopup` simultáneos se cancelan entre sí.
+  if (_pidiendoToken) return _pidiendoToken;
+
+  _pidiendoToken = AUTH.refrescarTokenGoogle()
+    .catch(e => {
+      if (e?.code === 'auth/popup-blocked') {
+        showToast('El navegador bloqueó la ventana de Google. Permite las ventanas emergentes.');
+      } else if (e?.code !== 'auth/popup-closed-by-user' && e?.code !== 'auth/cancelled-popup-request') {
+        console.warn('No se pudo obtener el token de Google:', e);
+        showToast('No se pudo obtener el permiso de Google.');
+      }
+      return null;
+    })
+    .finally(() => { _pidiendoToken = null; });
+
+  return _pidiendoToken;
 }
 
-// Invalidar el token cacheado ante un 401.
+/** Invalidar el token cacheado ante un 401. */
 function resetGoogleToken() {
-  GOOGLE.accessToken = null;
+  if (typeof AUTH !== 'undefined') AUTH.googleAccessToken = null;
 }

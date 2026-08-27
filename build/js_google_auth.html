@@ -1,0 +1,42 @@
+<script>
+/**
+ * JuriTask — google-auth.js
+ * Punto único de obtención del token OAuth de Google (Gmail, Drive).
+ *
+ * Antes lo daba Firebase Auth con `reauthenticateWithPopup`, con su popup, su
+ * caducidad a los 7 días y su aviso de "app no verificada". Ahora lo da el
+ * servidor de Apps Script vía `ScriptApp.getOAuthToken()`: autorizado una sola
+ * vez al desplegar, sin popup y sin caducidad.
+ *
+ * En un navegador sin servidor —desarrollo y pruebas— no hay token posible:
+ * avisa y devuelve null. El resto de la app lo trata como "sin permiso".
+ */
+
+const GOOGLE = {
+  accessToken: null,
+};
+
+async function ensureGoogleToken() {
+  if (GOOGLE.accessToken) return GOOGLE.accessToken;
+
+  // Con servidor: el token lo da Apps Script, ya autorizado, sin popup.
+  if (typeof BACKEND !== 'undefined' && BACKEND.disponible) {
+    try {
+      GOOGLE.accessToken = await srv('getOAuthToken');
+      return GOOGLE.accessToken;
+    } catch (e) {
+      showToast('No se pudo obtener el permiso de Google: ' + e.message);
+      return null;
+    }
+  }
+
+  showToast('El acceso al correo requiere el servidor (Apps Script).');
+  return null;
+}
+
+// Invalidar el token cacheado ante un 401.
+function resetGoogleToken() {
+  GOOGLE.accessToken = null;
+}
+
+</script>

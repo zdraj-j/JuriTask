@@ -1,0 +1,780 @@
+<script>
+/**
+ * JuriTask — reportes.js
+ * Reporte general de trámites con filtros y exportación a Excel/CSV.
+ *
+ * A diferencia del "Reporte del día" (ui.js), que solo muestra lo vencido/para
+ * hoy, aquí se consulta **todo el histórico** con filtros combinables y se
+ * exporta el resultado con sus tareas pendientes.
+ *
+ * Depende de: xlsx.js (escritura del libro), tramites.js (helpers de fecha y
+ * dominio) y storage.js (`STATE`).
+ */
+
+// ============================================================
+// ESTADO DE LOS FILTROS
+// ============================================================
+const REPORTE_KEY = 'juritask_reporte_filtros';
+
+const REPORTE_DEFAULTS = {
+  estado:        'activos',      // activos | terminados | todos
+  tipo:          '',             // '' | propio | abogado
+  abogado:       '',             // clave/uid del colaborador del trámite
+  modulo:        '',
+  etapa:         '',             // '' | gestion | seguimiento
+  responsable:   '',             // responsable de alguna tarea pendiente
+  vencPreset:    'todos',        // todos | vencidos | hoy | 7 | 30 | mes | sin
+  vencDesde:     '',
+  vencHasta:     '',
+  texto:         '',
+  soloPendientes: false,
+  soloVencidas:   false,
+  soloUrgentes:   false,
+  soloSinTareas:  false,
+  incluirHechas:  false,         // incluir tareas ya realizadas en la hoja de tareas
+  orden:         'vencimiento',  // vencimiento | numero | modulo | abogado | pendientes | creacion
+  hojas: { tramites: true, tareas: true, notas: false, resumen: true },
+};
+
+let _repFiltros = JSON.parse(JSON.stringify(REPORTE_DEFAULTS));
+
+function _repLoadFiltros() {
+  try {
+    const raw = localStorage.getItem(REPORTE_KEY);
+    if (!raw) return;
+    const saved = JSON.parse(raw);
+    _repFiltros = { ...JSON.parse(JSON.stringify(REPORTE_DEFAULTS)), ...saved,
+                    hojas: { ...REPORTE_DEFAULTS.hojas, ...(saved.hojas || {}) } };
+  } catch (_) {}
+}
+
+function _repSaveFiltros() {
+  try { localStorage.setItem(REPORTE_KEY, JSON.stringify(_repFiltros)); } catch (_) {}
+}
+
+// ============================================================
+// HELPERS DE DOMINIO
+// ============================================================
+function _repIsMe(u) {
+  return !u || u === 'yo';
+}
+
+function _repTipoLabel(t) {
+  return esPropio(t) ? 'Propio' : 'Compartido';
+}
+
+// Fecha de vencimiento **efectiva**: una vez marcado el cumplimiento el
+// trámite ya no vence, así que no se muestra ni cuenta como vencido. Es la
+// misma convención que las tarjetas, la agenda y el reporte del día
+// — devuelve '' cuando no aplica.
+function _repVenc(t) {
+  return (t.gestion?.cumplimiento) ? '' : (t.fechaVencimiento || '');
+}
+
+function _repModuloNombre(sigla) {
+  const m = (STATE.config.modulos || []).find(x => x.sigla === sigla);
+  return m ? m.nombre : '';
+}
+
+function _repResponsablesTexto(pendientes) {
+  const nombres = [];
+  pendientes.forEach(s => {
+    const n = abogadoName(_repIsMe(s.responsable) ? 'yo' : s.responsable);
+    if (!nombres.includes(n)) nombres.push(n);
+  });
+  return nombres.join(', ');
+}
+
+// Rango de fechas resultante del preset (o del rango manual si es "todos").
+function _repRango(f) {
+  const hoy = today();
+  switch (f.vencPreset) {
+    case 'vencidos': return { desde: '', hasta: _repShiftDay(hoy, -1), sinFecha: false };
+    case 'hoy':      return { desde: hoy, hasta: hoy, sinFecha: false };
+    case '7':        return { desde: hoy, hasta: nDaysFromToday(7),  sinFecha: false };
+    case '30':       return { desde: hoy, hasta: nDaysFromToday(30), sinFecha: false };
+    case 'mes': {
+      const d = new Date();
+      const ini = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-01`;
+      const fin = new Date(d.getFullYear(), d.getMonth() + 1, 0);
+      const fs  = `${fin.getFullYear()}-${String(fin.getMonth() + 1).padStart(2, '0')}-${String(fin.getDate()).padStart(2, '0')}`;
+      return { desde: ini, hasta: fs, sinFecha: false };
+    }
+    case 'sin':      return { desde: '', hasta: '', sinFecha: true };
+    default:         return { desde: f.vencDesde || '', hasta: f.vencHasta || '', sinFecha: false };
+  }
+}
+
+function _repShiftDay(iso, delta) {
+  const d = new Date(iso + 'T00:00:00');
+  d.setDate(d.getDate() + delta);
+  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+}
+
+// ============================================================
+// CONSTRUCCIÓN DEL CONJUNTO DE DATOS
+// ============================================================
+// Devuelve { filas, tareas, notas, stats } ya filtrado y ordenado.
+function repBuildData(f = _repFiltros) {
+  const hoy   = today();
+  const rango = _repRango(f);
+  const q     = (f.texto || '').trim().toLowerCase();
+
+  const filas = [];
+
+  (STATE.tramites || []).forEach(t => {
+    // ── Estado ────────────────────────────────────────────
+    if (f.estado === 'activos'    && t.terminado)  return;
+    if (f.estado === 'terminados' && !t.terminado) return;
+
+    // ── Atributos del trámite ─────────────────────────────
+    if (f.tipo === 'propio'  && !esPropio(t))                       return;
+    if (f.tipo === 'abogado' &&  esPropio(t))                       return;
+    if (f.modulo  && t.modulo !== f.modulo)                         return;
+    if (f.etapa   && computeEtapa(t) !== f.etapa)                   return;
+    if (f.abogado) {
+      const ok = f.abogado === 'yo' ? esPropio(t) : t.abogado === f.abogado;
+      if (!ok) return;
+    }
+
+    // ── Vencimiento ───────────────────────────────────────
+    // Se filtra por la fecha efectiva: un trámite cumplido no tiene
+    // vencimiento vigente, así que solo aparece bajo "Sin fecha".
+    const venc = _repVenc(t);
+    if (rango.sinFecha) {
+      if (venc) return;
+    } else {
+      if (rango.desde && (!venc || venc < rango.desde)) return;
+      if (rango.hasta && (!venc || venc > rango.hasta)) return;
+    }
+
+    // ── Texto libre ───────────────────────────────────────
+    if (q) {
+      const ok =
+        String(t.numero || '').toLowerCase().includes(q) ||
+        (t.descripcion || '').toLowerCase().includes(q) ||
+        (t.seguimiento || []).some(s => (s.descripcion || '').toLowerCase().includes(q)) ||
+        (t.notas || []).some(n => (n.texto || '').toLowerCase().includes(q));
+      if (!ok) return;
+    }
+
+    // ── Tareas ────────────────────────────────────────────
+    const segs       = t.seguimiento || [];
+    const pendientes = segs.filter(s => s.estado === 'pendiente');
+    const vencidas   = pendientes.filter(s => s.fecha && s.fecha < hoy);
+    const urgentes   = pendientes.filter(s => s.urgente);
+
+    if (f.responsable) {
+      const ok = pendientes.some(s => f.responsable === 'yo'
+        ? _repIsMe(s.responsable)
+        : s.responsable === f.responsable);
+      if (!ok) return;
+    }
+    if (f.soloPendientes && !pendientes.length) return;
+    if (f.soloSinTareas  &&  pendientes.length) return;
+    if (f.soloVencidas   && !vencidas.length)   return;
+    if (f.soloUrgentes   && !urgentes.length)   return;
+
+    const proxima = pendientes
+      .filter(s => s.fecha)
+      .sort((a, b) => a.fecha.localeCompare(b.fecha))[0] || null;
+
+    filas.push({ t, pendientes, vencidas, urgentes, proxima, segs });
+  });
+
+  // ── Orden ───────────────────────────────────────────────
+  const cmpFecha = (a, b) => {
+    // Los trámites sin fecha van al final.
+    if (!a && !b) return 0;
+    if (!a) return 1;
+    if (!b) return -1;
+    return a.localeCompare(b);
+  };
+  const orden = {
+    vencimiento: (a, b) => cmpFecha(_repVenc(a.t), _repVenc(b.t)),
+    numero:      (a, b) => String(a.t.numero || '').localeCompare(String(b.t.numero || ''), 'es', { numeric: true }),
+    modulo:      (a, b) => String(a.t.modulo || '').localeCompare(String(b.t.modulo || '')) ||
+                           cmpFecha(_repVenc(a.t), _repVenc(b.t)),
+    abogado:     (a, b) => abogadoName(a.t.abogado || 'yo', a.t).localeCompare(abogadoName(b.t.abogado || 'yo', b.t)) ||
+                           cmpFecha(_repVenc(a.t), _repVenc(b.t)),
+    pendientes:  (a, b) => b.pendientes.length - a.pendientes.length,
+    creacion:    (a, b) => String(b.t.creadoEn || '').localeCompare(String(a.t.creadoEn || '')),
+    proxima:     (a, b) => cmpFecha(a.proxima?.fecha, b.proxima?.fecha),
+  };
+  filas.sort(orden[f.orden] || orden.vencimiento);
+
+  // ── Tareas (una fila por tarea) ─────────────────────────
+  const tareas = [];
+  filas.forEach(row => {
+    const lista = f.incluirHechas ? row.segs : row.pendientes;
+    lista.forEach(s => tareas.push({ t: row.t, s }));
+  });
+
+  // ── Notas ───────────────────────────────────────────────
+  const notas = [];
+  filas.forEach(row => (row.t.notas || []).forEach(n => notas.push({ t: row.t, n })));
+
+  return { filas, tareas, notas, stats: _repStats(filas, hoy) };
+}
+
+function _repStats(filas, hoy) {
+  const st = {
+    tramites: filas.length,
+    activos: 0, terminados: 0,
+    vencidos: 0, venceHoy: 0, sinVencimiento: 0,
+    tareasPendientes: 0, tareasVencidas: 0, tareasUrgentes: 0,
+    porModulo: {}, porColaborador: {}, porEtapa: { gestion: 0, seguimiento: 0 },
+  };
+  filas.forEach(({ t, pendientes, vencidas, urgentes }) => {
+    if (t.terminado) st.terminados++; else st.activos++;
+    // Vencido/vence hoy solo tiene sentido en los trámites aún abiertos. Los
+    // cumplidos ya no vencen, así que `_repVenc` los deja sin fecha.
+    const v = _repVenc(t);
+    if (!v) st.sinVencimiento++;
+    else if (t.terminado) { /* ya cerrado: no cuenta como vencido */ }
+    else if (v < hoy)   st.vencidos++;
+    else if (v === hoy) st.venceHoy++;
+
+    st.tareasPendientes += pendientes.length;
+    st.tareasVencidas   += vencidas.length;
+    st.tareasUrgentes   += urgentes.length;
+
+    const mod = t.modulo || '(sin módulo)';
+    st.porModulo[mod] = (st.porModulo[mod] || 0) + 1;
+    const col = esPropio(t) ? 'Yo mismo' : abogadoName(t.abogado || 'yo', t);
+    st.porColaborador[col] = (st.porColaborador[col] || 0) + 1;
+    st.porEtapa[computeEtapa(t)] = (st.porEtapa[computeEtapa(t)] || 0) + 1;
+  });
+  return st;
+}
+
+// ============================================================
+// HOJAS PARA EXCEL / CSV
+// ============================================================
+const _SI_NO = b => (b ? 'Sí' : 'No');
+const _D     = iso => (iso ? { t: 'date', v: iso } : '');
+
+function _repHojaTramites(data) {
+  return {
+    name: 'Trámites',
+    columns: [
+      { header: 'N.º',                    width: 14 },
+      { header: 'Módulo',                 width: 9 },
+      { header: 'Nombre del módulo',      width: 30 },
+      { header: 'Descripción',            width: 46, wrap: true },
+      { header: 'Tipo',                   width: 12 },
+      { header: 'Colaborador',            width: 22 },
+      { header: 'Etapa',                  width: 13 },
+      { header: 'Estado',                 width: 11 },
+      { header: 'Vencimiento',            width: 13 },
+      { header: 'Días restantes',         width: 13 },
+      { header: 'Análisis',               width: 9 },
+      { header: 'Cumplimiento',           width: 12 },
+      { header: 'Tareas pendientes',      width: 10 },
+      { header: 'Tareas vencidas',        width: 10 },
+      { header: 'Tareas urgentes',        width: 10 },
+      { header: 'Próxima acción',         width: 13 },
+      { header: 'Próxima tarea',          width: 40, wrap: true },
+      { header: 'Responsables',           width: 24 },
+      { header: 'Notas',                  width: 7 },
+      { header: 'Adjuntos',               width: 8 },
+      { header: 'Creado',                 width: 13 },
+      { header: 'Terminado el',           width: 13 },
+      { header: 'Detalle de pendientes',  width: 60, wrap: true },
+    ],
+    rows: data.filas.map(({ t, pendientes, vencidas, urgentes, proxima }) => {
+      const venc = _repVenc(t);
+      const dias = venc ? diasRestantesNum(venc) : null;
+      const detalle = pendientes
+        .map(s => `• ${s.descripcion || ''}${s.fecha ? ` (${formatDate(s.fecha)})` : ''}${s.urgente ? ' [urgente]' : ''}`)
+        .join('\n');
+      return [
+        String(t.numero || ''),
+        t.modulo || '',
+        _repModuloNombre(t.modulo),
+        t.descripcion || '',
+        _repTipoLabel(t),
+        esPropio(t) ? 'Yo mismo' : abogadoName(t.abogado || 'yo', t),
+        computeEtapa(t) === 'seguimiento' ? 'Seguimiento' : 'Gestión',
+        t.terminado ? 'Terminado' : 'Activo',
+        _D(venc),
+        dias === null ? '' : { t: 'number', v: dias },
+        _SI_NO(t.gestion?.analisis),
+        _SI_NO(t.gestion?.cumplimiento),
+        { t: 'number', v: pendientes.length },
+        { t: 'number', v: vencidas.length },
+        { t: 'number', v: urgentes.length },
+        _D(proxima?.fecha),
+        proxima?.descripcion || '',
+        _repResponsablesTexto(pendientes),
+        { t: 'number', v: (t.notas || []).length },
+        { t: 'number', v: (t.attachments || []).length },
+        _D((t.creadoEn || '').slice(0, 10)),
+        _D((t.terminadoEn || '').slice(0, 10)),
+        detalle,
+      ];
+    }),
+  };
+}
+
+function _repHojaTareas(data) {
+  const hoy = today();
+  return {
+    name: 'Tareas',
+    columns: [
+      { header: 'N.º trámite',        width: 14 },
+      { header: 'Módulo',             width: 9 },
+      { header: 'Descripción trámite', width: 40, wrap: true },
+      { header: 'Tarea',              width: 50, wrap: true },
+      { header: 'Fecha de la tarea',  width: 14 },
+      { header: 'Estado',             width: 12 },
+      { header: 'Vencida',            width: 9 },
+      { header: 'Días de atraso',     width: 12 },
+      { header: 'Urgente',            width: 9 },
+      { header: 'Responsable',        width: 24 },
+      { header: 'Vencimiento trámite', width: 14 },
+    ],
+    rows: data.tareas.map(({ t, s }) => {
+      const pend    = s.estado === 'pendiente';
+      const vencida = pend && s.fecha && s.fecha < hoy;
+      const atraso  = vencida ? Math.abs(diasRestantesNum(s.fecha)) : null;
+      return [
+        String(t.numero || ''),
+        t.modulo || '',
+        t.descripcion || '',
+        s.descripcion || '',
+        _D(s.fecha),
+        pend ? 'Pendiente' : 'Realizada',
+        _SI_NO(vencida),
+        atraso === null ? '' : { t: 'number', v: atraso },
+        _SI_NO(s.urgente),
+        _repResponsablesTexto([s]),
+        _D(_repVenc(t)),
+      ];
+    }),
+  };
+}
+
+function _repHojaNotas(data) {
+  return {
+    name: 'Notas',
+    columns: [
+      { header: 'N.º trámite', width: 14 },
+      { header: 'Módulo',      width: 9 },
+      { header: 'Fecha',       width: 18 },
+      { header: 'Nota',        width: 80, wrap: true },
+    ],
+    rows: data.notas.map(({ t, n }) => [
+      String(t.numero || ''),
+      t.modulo || '',
+      n.fecha ? formatDatetime(n.fecha) : '',
+      n.texto || '',
+    ]),
+  };
+}
+
+function _repHojaResumen(data, f) {
+  const st   = data.stats;
+  const rows = [];
+  const add  = (sec, concepto, valor) => rows.push([sec, concepto, { t: 'number', v: valor }]);
+
+  rows.push(['Reporte', 'Generado el', formatDate(today())]);
+  rows.push(['Reporte', 'Filtros aplicados', repDescribeFiltros(f)]);
+  add('General', 'Trámites en el reporte', st.tramites);
+  add('General', 'Activos', st.activos);
+  add('General', 'Terminados', st.terminados);
+  add('General', 'Vencidos', st.vencidos);
+  add('General', 'Vencen hoy', st.venceHoy);
+  add('General', 'Sin fecha de vencimiento', st.sinVencimiento);
+  add('Tareas', 'Pendientes', st.tareasPendientes);
+  add('Tareas', 'Pendientes vencidas', st.tareasVencidas);
+  add('Tareas', 'Pendientes urgentes', st.tareasUrgentes);
+  add('Etapa', 'Gestión', st.porEtapa.gestion || 0);
+  add('Etapa', 'Seguimiento', st.porEtapa.seguimiento || 0);
+  Object.keys(st.porModulo).sort().forEach(k => add('Por módulo', k, st.porModulo[k]));
+  Object.keys(st.porColaborador).sort().forEach(k => add('Por colaborador', k, st.porColaborador[k]));
+
+  return {
+    name: 'Resumen',
+    columns: [
+      { header: 'Sección',  width: 20 },
+      { header: 'Concepto', width: 42 },
+      { header: 'Valor',    width: 42, wrap: true },
+    ],
+    rows,
+  };
+}
+
+// Descripción legible de los filtros (va en el resumen y en la copia de texto).
+function repDescribeFiltros(f = _repFiltros) {
+  const p = [];
+  p.push({ activos: 'Activos', terminados: 'Terminados', todos: 'Activos y terminados' }[f.estado] || 'Activos');
+  if (f.tipo)   p.push({ propio: 'Solo míos', abogado: 'Compartidos', equipo: 'De equipo' }[f.tipo]);
+  if (f.abogado) p.push(`Colaborador: ${abogadoName(f.abogado)}`);
+  if (f.modulo) p.push(`Módulo: ${f.modulo}`);
+  if (f.etapa)  p.push(`Etapa: ${f.etapa === 'gestion' ? 'Gestión' : 'Seguimiento'}`);
+  if (f.responsable) p.push(`Responsable: ${abogadoName(f.responsable)}`);
+  const presets = { vencidos: 'Vencidos', hoy: 'Vencen hoy', 7: 'Próximos 7 días', 30: 'Próximos 30 días', mes: 'Este mes', sin: 'Sin vencimiento' };
+  if (f.vencPreset !== 'todos') p.push(presets[f.vencPreset]);
+  else if (f.vencDesde || f.vencHasta) p.push(`Vence ${f.vencDesde ? 'desde ' + formatDate(f.vencDesde) : ''}${f.vencHasta ? ' hasta ' + formatDate(f.vencHasta) : ''}`.trim());
+  if (f.texto) p.push(`Texto: "${f.texto}"`);
+  if (f.soloPendientes) p.push('Solo con tareas pendientes');
+  if (f.soloSinTareas)  p.push('Solo sin tareas pendientes');
+  if (f.soloVencidas)   p.push('Solo con tareas vencidas');
+  if (f.soloUrgentes)   p.push('Solo con tareas urgentes');
+  return p.join(' · ');
+}
+
+// Hojas seleccionadas, en el orden en que aparecerán en el libro.
+function repBuildSheets(data, f = _repFiltros) {
+  const sheets = [];
+  if (f.hojas.resumen)  sheets.push(_repHojaResumen(data, f));
+  if (f.hojas.tramites) sheets.push(_repHojaTramites(data));
+  if (f.hojas.tareas)   sheets.push(_repHojaTareas(data));
+  if (f.hojas.notas)    sheets.push(_repHojaNotas(data));
+  if (!sheets.length)   sheets.push(_repHojaTramites(data));
+  return sheets;
+}
+
+// Los navegadores ignoran el atributo `download` si el nombre trae caracteres
+// raros (y descargan como "download"): se normaliza a ASCII.
+function _repSlug(s) {
+  return String(s)
+    .normalize('NFD').replace(/[\u0300-\u036f]/g, '')
+    .replace(/[^a-zA-Z0-9]+/g, '-')
+    .replace(/^-|-$/g, '')
+    .toLowerCase();
+}
+
+function _repFileBase() {
+  const partes = ['juritask', 'reporte'];
+  if (_repFiltros.modulo)  partes.push(_repSlug(_repFiltros.modulo));
+  if (_repFiltros.estado !== 'activos') partes.push(_repFiltros.estado);
+  partes.push(today());
+  return partes.join('_');
+}
+
+// ============================================================
+// ACCIONES DE EXPORTACIÓN
+// ============================================================
+function repExportXLSX() {
+  const data = repBuildData();
+  if (!data.filas.length) { showToast('No hay trámites que coincidan con los filtros.'); return; }
+  try {
+    xlsxDownload(`${_repFileBase()}.xlsx`, repBuildSheets(data));
+    showToast(`Excel generado: ${data.filas.length} trámite(s) y ${data.tareas.length} tarea(s).`);
+  } catch (e) {
+    console.error(e);
+    showToast('No se pudo generar el Excel.');
+  }
+}
+
+function repExportCSV() {
+  const data = repBuildData();
+  if (!data.filas.length) { showToast('No hay trámites que coincidan con los filtros.'); return; }
+  // El CSV es de una sola tabla: se usa la primera hoja de datos elegida.
+  const hoja = repBuildSheets(data).find(s => s.name !== 'Resumen') || _repHojaTramites(data);
+  const rows = [hoja.columns.map(c => c.header), ...hoja.rows.map(r => r.map(v => {
+    if (v && typeof v === 'object' && v.t === 'date') return formatDate(v.v);
+    return (v && typeof v === 'object') ? v.v : v;
+  }))];
+  csvDownload(`${_repFileBase()}_${_repSlug(hoja.name)}.csv`, rows);
+  showToast(`CSV generado (${hoja.name}).`);
+}
+
+function repCopyTexto() {
+  const data = repBuildData();
+  const lin  = [`REPORTE DE TRÁMITES — ${formatDate(today())}`, repDescribeFiltros(), ''];
+  data.filas.forEach(({ t, pendientes }) => {
+    lin.push(`#${t.numero} · ${t.modulo || '—'} · ${t.descripcion || ''}`);
+    const venc = _repVenc(t);
+    if (venc) lin.push(`   Vence: ${formatDate(venc)}`);
+    pendientes.forEach(s => lin.push(`   - ${s.descripcion || ''}${s.fecha ? ` (${formatDate(s.fecha)})` : ''}${s.urgente ? ' [urgente]' : ''}`));
+    lin.push('');
+  });
+  lin.push(`Total: ${data.filas.length} trámite(s), ${data.stats.tareasPendientes} tarea(s) pendiente(s).`);
+  copyTextToClipboard(lin.join('\n'));
+}
+
+// Imprime el reporte completo. No reutiliza `#reporteTabla` porque la vista
+// previa está recortada a REP_PREVIEW_MAX filas: aquí se reconstruye la tabla
+// con TODOS los trámites del filtro.
+function repPrint() {
+  const data = repBuildData();
+  if (!data.filas.length) { showToast('No hay trámites que coincidan con los filtros.'); return; }
+  if (typeof _printHtml !== 'function') { window.print(); return; }
+  _printHtml(_repPrintHtml(data));
+}
+
+function _repPrintHtml(data) {
+  const hoy = today();
+  const st  = data.stats;
+
+  const kpis = [
+    ['Trámites', st.tramites], ['Vencidos', st.vencidos], ['Vencen hoy', st.venceHoy],
+    ['Tareas pendientes', st.tareasPendientes], ['Tareas vencidas', st.tareasVencidas],
+    ['Urgentes', st.tareasUrgentes],
+  ].map(([l, n]) => `<span class="print-kpi"><b>${n}</b> ${l}</span>`).join('');
+
+  const filas = data.filas.map(({ t, pendientes, vencidas }) => {
+    const venc = _repVenc(t);
+    const cls  = !venc ? '' : venc < hoy ? 'overdue' : venc === hoy ? 'today' : '';
+    const tareas = pendientes.length
+      ? pendientes.map(s => `<div class="${s.fecha && s.fecha < hoy ? 'tarea-vencida' : ''}">${s.urgente ? '⚠ ' : ''}${escapeHtml(s.descripcion || '')}${s.fecha ? ` <i>${formatDate(s.fecha)}</i>` : ''}</div>`).join('')
+      : '—';
+    return `<tr>
+        <td><b>#${escapeHtml(String(t.numero || ''))}</b></td>
+        <td>${escapeHtml(t.modulo || '—')}</td>
+        <td>${escapeHtml(t.descripcion || '')}</td>
+        <td>${escapeHtml(esPropio(t) ? 'Yo mismo' : abogadoName(t.abogado || 'yo', t))}</td>
+        <td class="nowrap ${cls}">${venc ? formatDate(venc) : '—'}</td>
+        <td class="num">${pendientes.length}${vencidas.length ? ` (${vencidas.length}⚠)` : ''}</td>
+        <td>${tareas}</td>
+      </tr>`;
+  }).join('');
+
+  // `<colgroup>` + table-layout:fixed reparte el ancho de la hoja: sin esto el
+  // navegador ensancha la tabla según el contenido y recorta las columnas.
+  return `${_printHeader('Reporte de trámites — JuriTask',
+              `Generado el ${formatDate(hoy)} · ${repDescribeFiltros()}`)}
+    <p class="print-kpis">${kpis}</p>
+    <table class="print-table">
+      <colgroup>
+        <col style="width:12%"><col style="width:6%"><col style="width:21%">
+        <col style="width:11%"><col style="width:10%"><col style="width:5%">
+        <col style="width:35%">
+      </colgroup>
+      <thead><tr>
+        <th>N.º</th><th>Mód.</th><th>Descripción</th><th>Colaborador</th>
+        <th>Vence</th><th>Pend.</th><th>Tareas pendientes</th>
+      </tr></thead>
+      <tbody>${filas}</tbody>
+    </table>
+    <p class="print-foot">${data.filas.length} trámite(s) · ${st.tareasPendientes} tarea(s) pendiente(s).</p>`;
+}
+
+// ============================================================
+// UI — MODAL
+// ============================================================
+const _REP_CAMPOS = ['repEstado','repTipo','repAbogado','repModulo','repEtapa',
+                     'repResponsable','repVencDesde','repVencHasta','repTexto','repOrden'];
+const _REP_CHECKS = { soloPendientes:'repSoloPendientes', soloVencidas:'repSoloVencidas',
+                      soloUrgentes:'repSoloUrgentes', soloSinTareas:'repSoloSinTareas',
+                      incluirHechas:'repIncluirHechas' };
+const _REP_HOJAS  = { tramites:'repHojaTramites', tareas:'repHojaTareas',
+                      notas:'repHojaNotas', resumen:'repHojaResumen' };
+
+// Rellena los selects que dependen de la configuración (módulos y personas).
+function _repPopulateSelects() {
+  const mod = document.getElementById('repModulo');
+  if (mod) {
+    const cur = mod.value;
+    mod.innerHTML = '<option value="">Todos</option>';
+    (STATE.config.modulos || []).forEach(m => {
+      const o = document.createElement('option');
+      o.value = m.sigla; o.textContent = `${m.sigla} — ${m.nombre}`;
+      mod.appendChild(o);
+    });
+    mod.value = cur;
+  }
+
+  const items = (STATE.config.abogados || []).map(a => ({ key: a.key, nombre: a.nombre }));
+
+  ['repAbogado', 'repResponsable'].forEach(id => {
+    const sel = document.getElementById(id); if (!sel) return;
+    const cur = sel.value;
+    sel.innerHTML = '<option value="">Todos</option><option value="yo">Yo mismo</option>';
+    items.forEach(a => {
+      const o = document.createElement('option');
+      o.value = a.key; o.textContent = a.nombre;
+      sel.appendChild(o);
+    });
+    if ([...sel.options].some(o => o.value === cur)) sel.value = cur;
+  });
+}
+
+function _repUIFromFiltros() {
+  const f = _repFiltros;
+  const set = (id, v) => { const el = document.getElementById(id); if (el) el.value = v ?? ''; };
+  set('repEstado', f.estado);   set('repTipo', f.tipo);
+  set('repAbogado', f.abogado); set('repModulo', f.modulo);       set('repEtapa', f.etapa);
+  set('repResponsable', f.responsable);
+  set('repVencDesde', f.vencDesde); set('repVencHasta', f.vencHasta);
+  set('repTexto', f.texto);     set('repOrden', f.orden);
+
+  Object.entries(_REP_CHECKS).forEach(([k, id]) => {
+    const el = document.getElementById(id); if (el) el.checked = !!f[k];
+  });
+  Object.entries(_REP_HOJAS).forEach(([k, id]) => {
+    const el = document.getElementById(id); if (el) el.checked = !!f.hojas[k];
+  });
+
+  document.querySelectorAll('#repVencPresets [data-preset]').forEach(b =>
+    b.classList.toggle('active', b.dataset.preset === f.vencPreset));
+  const manual = document.getElementById('repVencManual');
+  if (manual) manual.style.display = f.vencPreset === 'todos' ? '' : 'none';
+}
+
+function _repFiltrosFromUI() {
+  const get = id => document.getElementById(id)?.value ?? '';
+  _repFiltros.estado      = get('repEstado') || 'activos';
+  _repFiltros.tipo        = get('repTipo');
+  _repFiltros.abogado     = get('repAbogado');
+  _repFiltros.modulo      = get('repModulo');
+  _repFiltros.etapa       = get('repEtapa');
+  _repFiltros.responsable = get('repResponsable');
+  _repFiltros.vencDesde   = get('repVencDesde');
+  _repFiltros.vencHasta   = get('repVencHasta');
+  _repFiltros.texto       = get('repTexto');
+  _repFiltros.orden       = get('repOrden') || 'vencimiento';
+
+  Object.entries(_REP_CHECKS).forEach(([k, id]) => {
+    _repFiltros[k] = !!document.getElementById(id)?.checked;
+  });
+  Object.entries(_REP_HOJAS).forEach(([k, id]) => {
+    _repFiltros.hojas[k] = !!document.getElementById(id)?.checked;
+  });
+  _repSaveFiltros();
+}
+
+// Vista previa: resumen de conteos + tabla (limitada para no congelar el DOM).
+const REP_PREVIEW_MAX = 100;
+
+function renderReporte() {
+  const data = repBuildData();
+  const st   = data.stats;
+
+  const resumen = document.getElementById('reporteResumen');
+  if (resumen) {
+    const kpi = (n, label, cls) =>
+      `<div class="rep-kpi ${cls || ''}"><span class="rep-kpi-num">${n}</span><span class="rep-kpi-label">${label}</span></div>`;
+    resumen.innerHTML =
+      kpi(st.tramites, 'Trámites') +
+      kpi(st.vencidos, 'Vencidos', st.vencidos ? 'danger' : '') +
+      kpi(st.venceHoy, 'Vencen hoy', st.venceHoy ? 'warning' : '') +
+      kpi(st.tareasPendientes, 'Tareas pendientes') +
+      kpi(st.tareasVencidas, 'Tareas vencidas', st.tareasVencidas ? 'danger' : '') +
+      kpi(st.tareasUrgentes, 'Urgentes', st.tareasUrgentes ? 'danger' : '');
+  }
+
+  const cont = document.getElementById('reporteTabla');
+  if (!cont) return;
+
+  if (!data.filas.length) {
+    cont.innerHTML = '<p class="rep-empty">Ningún trámite coincide con los filtros seleccionados.</p>';
+    return;
+  }
+
+  const hoy   = today();
+  const trs   = data.filas.slice(0, REP_PREVIEW_MAX).map(({ t, pendientes, vencidas }) => {
+    const venc  = _repVenc(t);
+    const cls   = !venc ? '' : venc < hoy ? 'overdue' : venc === hoy ? 'today' : '';
+    const detalle = pendientes.length
+      ? pendientes.map(s => `<div class="rep-task ${s.fecha && s.fecha < hoy ? 'overdue' : ''}">${s.urgente ? '⚠ ' : ''}${escapeHtml(s.descripcion || '')}${s.fecha ? ` <span class="rep-task-date">${formatDate(s.fecha)}</span>` : ''}</div>`).join('')
+      : '<span class="rep-muted">—</span>';
+    return `<tr>
+      <td class="rep-num">#${escapeHtml(String(t.numero || ''))}</td>
+      <td>${escapeHtml(t.modulo || '—')}</td>
+      <td class="rep-desc">${escapeHtml(t.descripcion || '')}</td>
+      <td>${escapeHtml(esPropio(t) ? 'Yo mismo' : abogadoName(t.abogado || 'yo', t))}</td>
+      <td class="rep-date ${cls}">${venc ? formatDate(venc) : '—'}</td>
+      <td class="rep-center">${pendientes.length}${vencidas.length ? ` <span class="rep-badge-danger">${vencidas.length}</span>` : ''}</td>
+      <td>${detalle}</td>
+    </tr>`;
+  }).join('');
+
+  const extra = data.filas.length > REP_PREVIEW_MAX
+    ? `<p class="rep-muted rep-more">Se muestran los primeros ${REP_PREVIEW_MAX}; la exportación incluye los ${data.filas.length}.</p>`
+    : '';
+
+  cont.innerHTML = `<div class="rep-table-wrap"><table class="rep-table">
+      <thead><tr>
+        <th>N.º</th><th>Mód.</th><th>Descripción</th><th>Colaborador</th>
+        <th>Vence</th><th>Pend.</th><th>Tareas pendientes</th>
+      </tr></thead>
+      <tbody>${trs}</tbody>
+    </table></div>${extra}`;
+}
+
+function openReporte() {
+  const ov = document.getElementById('reporteOverlay');
+  if (!ov) return;
+  _repPopulateSelects();
+  _repUIFromFiltros();
+  renderReporte();
+  ov.classList.add('open');
+  if (window.refreshIcons) window.refreshIcons();
+}
+
+function closeReporte() {
+  document.getElementById('reporteOverlay')?.classList.remove('open');
+}
+
+function repResetFiltros() {
+  _repFiltros = JSON.parse(JSON.stringify(REPORTE_DEFAULTS));
+  _repSaveFiltros();
+  _repUIFromFiltros();
+  renderReporte();
+}
+
+// Abre el reporte ya filtrado por los filtros activos de la barra lateral.
+function openReporteDesdeFiltros() {
+  const f = (typeof getFilters === 'function') ? getFilters() : {};
+  _repFiltros.tipo        = f.tipo || '';
+  _repFiltros.abogado     = f.abogado || '';
+  _repFiltros.modulo      = f.modulo || '';
+  _repFiltros.etapa       = f.etapa || '';
+  _repFiltros.responsable = f.responsable || '';
+  _repFiltros.texto       = f.search || '';
+  _repSaveFiltros();
+  openReporte();
+}
+
+// ============================================================
+// BINDINGS
+// ============================================================
+function initReportes() {
+  const ov = document.getElementById('reporteOverlay');
+  if (!ov || ov.dataset.wired) return;
+  ov.dataset.wired = '1';
+
+  _repLoadFiltros();
+
+  const onChange = () => { _repFiltrosFromUI(); renderReporte(); };
+
+  _REP_CAMPOS.forEach(id => {
+    const el = document.getElementById(id);
+    if (!el) return;
+    el.addEventListener('change', onChange);
+    if (el.tagName === 'INPUT' && el.type === 'text') {
+      let tmr = null;
+      el.addEventListener('input', () => { clearTimeout(tmr); tmr = setTimeout(onChange, 250); });
+    }
+  });
+  Object.values(_REP_CHECKS).forEach(id => document.getElementById(id)?.addEventListener('change', onChange));
+  Object.values(_REP_HOJAS).forEach(id  => document.getElementById(id)?.addEventListener('change', () => _repFiltrosFromUI()));
+
+  document.getElementById('repVencPresets')?.addEventListener('click', e => {
+    const btn = e.target.closest('[data-preset]'); if (!btn) return;
+    _repFiltros.vencPreset = btn.dataset.preset;
+    if (_repFiltros.vencPreset !== 'todos') { _repFiltros.vencDesde = ''; _repFiltros.vencHasta = ''; }
+    _repSaveFiltros();
+    _repUIFromFiltros();
+    renderReporte();
+  });
+
+  document.getElementById('reporteClose')?.addEventListener('click', closeReporte);
+  ov.addEventListener('click', e => { if (e.target === ov) closeReporte(); });
+  document.getElementById('repResetBtn')?.addEventListener('click', repResetFiltros);
+  document.getElementById('repXlsxBtn')?.addEventListener('click', repExportXLSX);
+  document.getElementById('repCsvBtn')?.addEventListener('click', repExportCSV);
+  document.getElementById('repCopyBtn')?.addEventListener('click', repCopyTexto);
+  document.getElementById('repPrintBtn')?.addEventListener('click', repPrint);
+}
+
+if (typeof document !== 'undefined') {
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initReportes);
+  else initReportes();
+}
+
+</script>

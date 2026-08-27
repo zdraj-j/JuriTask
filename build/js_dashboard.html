@@ -1,3 +1,4 @@
+<script>
 /**
  * JuriTask — dashboard.js
  * Panel de indicadores.
@@ -34,6 +35,25 @@ function renderDashboard() {
 
   renderDashMetrics(activos, vencidos);
   _renderVencidosTable(vencidos);
+  _renderSyncEstado();
+}
+
+/** Estado del JSON en Drive. Sin servidor no hay nada que contar. */
+async function _renderSyncEstado() {
+  const el = document.getElementById('dashSyncEstado');
+  if (!el) return;
+  if (typeof BACKEND === 'undefined' || !BACKEND.disponible) { el.style.display = 'none'; return; }
+  el.style.display = '';
+  el.textContent = 'Consultando Drive…';
+  try {
+    const info = await srv('estadoDelAlmacen');
+    el.textContent = info.existe
+      ? `Datos en Drive: ${(info.bytes / 1024).toFixed(1)} KB · última escritura ${formatDatetime(info.modificado)}.`
+      : 'Todavía no se ha escrito nada en Drive.';
+    if (BACKEND.ultimoError) el.textContent += ` Último error: ${BACKEND.ultimoError}`;
+  } catch (e) {
+    el.textContent = 'No se pudo consultar Drive: ' + e.message;
+  }
 }
 
 function _renderVencidosTable(vencidos) {
@@ -161,3 +181,5 @@ function initDashboard() {
 function loadDashboardData() {
   renderDashboard();
 }
+
+</script>

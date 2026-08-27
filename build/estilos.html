@@ -1,3 +1,4 @@
+<style>
 /* ====================================================
    JuriTask — Estilos v7  (refinado)
    ==================================================== */
@@ -653,6 +654,7 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
   vertical-align: middle; line-height: 0; opacity: .6; flex-shrink: 0;
   transition: color var(--transition), background var(--transition), opacity var(--transition);
 }
+/* Buscar el trámite en Gmail (reporte del día) */
 .gmail-open-btn {
   background: none; border: none; padding: 2px; margin-left: 2px;
   cursor: pointer; color: var(--text-muted); vertical-align: middle;
@@ -1538,6 +1540,16 @@ body.selection-mode .tramite-card { cursor: pointer; user-select: none; }
 .ti-atts { grid-column: 1 / -1; display: flex; gap: 4px; flex-wrap: wrap; }
 .ti-atts:empty { display: none; }
 
+/* ═══════════════════ BACKUPS ════════════════════ */
+.backup-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm); background: var(--surface-2);
+  margin-bottom: 6px;
+}
+.backup-fecha { font-size: 13px; color: var(--text-primary); flex: 1; }
+.backup-meta  { font-size: 12px; color: var(--text-muted); }
+
 /* ═══════════════════ DASHBOARD ══════════════════ */
 .dash-kpi-grid {
   display: grid;
@@ -1950,85 +1962,4 @@ body.selection-mode .tramite-card { cursor: pointer; user-select: none; }
   .rep-filters { grid-template-columns: 1fr; }
 }
 
-/* ═══════════════════ ACCESO Y SESIÓN ═══════════════════ */
-/* Solo hay un botón, así que la tarjeta no necesita pestañas ni campos: es
-   una portada con una acción. */
-
-#splashScreen {
-  position: fixed; inset: 0; z-index: 9999;
-  display: flex; flex-direction: column; align-items: center; justify-content: center;
-  gap: 18px; background: var(--bg);
-}
-#splashScreen img { height: 56px; object-fit: contain; opacity: .9; }
-
-#authScreen {
-  display: none;                      /* lo enciende auth.js */
-  position: fixed; inset: 0; z-index: 9000;
-  align-items: center; justify-content: center; padding: 24px;
-  background: linear-gradient(140deg, #0a1428 0%, #13204a 55%, #0e1835 100%);
-}
-
-.auth-card {
-  position: relative;
-  width: 100%; max-width: 380px;
-  background: var(--surface);
-  border-radius: var(--radius); padding: 40px 32px 32px;
-  box-shadow: 0 24px 60px rgba(0,0,0,.35);
-  display: flex; flex-direction: column; align-items: center;
-}
-.auth-logo   { height: 46px; max-width: 170px; object-fit: contain; margin-bottom: 14px; }
-.auth-titulo { font-size: 22px; font-weight: 800; margin: 0; letter-spacing: -.4px; }
-.auth-tagline { color: var(--text-muted); font-size: 13px; margin: 4px 0 26px; text-align: center; }
-
-.auth-message {
-  display: none;                      /* lo enciende auth.js al fallar */
-  width: 100%; padding: 10px 14px; margin-bottom: 16px;
-  border-radius: var(--radius-sm); font-size: 13px;
-  background: var(--danger-light); color: var(--danger);
-}
-
-.btn-google-login {
-  display: flex; align-items: center; justify-content: center; gap: 10px;
-  width: 100%; padding: 12px 16px;
-  background: #fff; color: #1e293b;
-  border: 1px solid var(--border); border-radius: var(--radius-sm);
-  font-size: 14px; font-weight: 600; cursor: pointer;
-  transition: border-color var(--transition), box-shadow var(--transition);
-}
-.btn-google-login:hover { border-color: var(--accent); box-shadow: 0 2px 10px rgba(61,90,241,.14); }
-
-.auth-nota { font-size: 11.5px; line-height: 1.5; color: var(--text-muted); text-align: center; margin: 18px 0 0; }
-
-#authLoading {
-  display: none;                      /* lo enciende auth.js */
-  position: absolute; inset: 0;
-  flex-direction: column; align-items: center; justify-content: center; gap: 14px;
-  background: rgba(255,255,255,.9); color: #1e293b; font-size: 13px;
-}
-
-.auth-spinner {
-  width: 32px; height: 32px;
-  border: 3px solid rgba(61,90,241,.2); border-top-color: var(--accent);
-  border-radius: 50%; animation: spin .7s linear infinite;
-}
-@keyframes spin { to { transform: rotate(360deg); } }
-
-.sidebar-footer { margin-top: auto; padding: 10px 14px 14px; border-top: 1px solid var(--border-light); }
-.sesion { display: flex; align-items: center; gap: 9px; }
-.sesion-avatar {
-  width: 28px; height: 28px; border-radius: 50%; flex-shrink: 0;
-  background: var(--accent); color: #fff; overflow: hidden;
-  display: flex; align-items: center; justify-content: center;
-  font-size: 11px; font-weight: 700;
-}
-.sesion-avatar img { width: 100%; height: 100%; object-fit: cover; }
-.sesion-nombre {
-  flex: 1; min-width: 0; font-size: 12.5px; font-weight: 600; color: var(--text-secondary);
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
-}
-.sesion-salir {
-  background: none; border: none; cursor: pointer; padding: 5px; border-radius: var(--radius-sm);
-  color: var(--text-muted); display: inline-flex; transition: color var(--transition), background var(--transition);
-}
-.sesion-salir:hover { color: var(--danger); background: var(--danger-light); }
-.sesion-salir svg { width: 15px; height: 15px; }
+</style>

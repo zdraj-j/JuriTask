@@ -9,6 +9,19 @@
  * El cliente habla con esto por `google.script.run` (ver js/backend.js). Los
  * estados viajan como **cadena JSON**, no como objeto: evita sorpresas de
  * serialización y deja el control del formato en un solo sitio.
+ *
+ * ## El scope es `drive`, no `drive.file`
+ *
+ * `DriveApp` es de grano grueso: casi todos sus métodos exigen el scope `drive`
+ * entero. Con `drive.file` —que solo alcanza lo que el script crea— fallan
+ * tanto `getFoldersByName` como el propio `createFolder`, con *"Specified
+ * permissions are not sufficient"*, en la primera autorización.
+ *
+ * Se probó la vía estrecha (API REST de Drive con `UrlFetchApp`, que sí respeta
+ * `drive.file`) y se descartó por decisión del dueño de la cuenta: `DriveApp`
+ * es un servicio nativo, no depende de habilitar APIs en la consola de Cloud y
+ * deja menos piezas que se puedan romper. El precio es que el script ve todo el
+ * Drive. Ver docs/datos-drive.md.
  */
 
 const JT_CARPETA        = 'JuriTask';

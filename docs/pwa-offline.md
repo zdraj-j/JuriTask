@@ -9,12 +9,14 @@ JuriTask es instalable y funciona offline a nivel de app-shell.
 
 ## Service Worker
 
-- `VERSION = 'juritask-v22'`; caches `*-shell` y `*-runtime`.
+- `VERSION = 'juritask-v23'`; caches `*-shell` y `*-runtime`.
 - `SHELL_ASSETS` lista los recursos propios (HTML, CSS, JS, iconos) que forman
   el esqueleto offline.
-- Los datos viven en `localStorage`, así que el shell es lo único que hace
-  falta cachear. `isDynamicApi()` deja pasar a la red las llamadas a
-  `googleapis.com` y a Apps Script.
+- El shell es lo único que se cachea. `isDynamicApi()` deja pasar a la red,
+  sin tocar, las llamadas a Firestore, a Auth y a las APIs de Google: servir
+  una respuesta vieja de cualquiera de ellas daría datos obsoletos o una sesión
+  fantasma. La persistencia offline de los datos la maneja el SDK de Firestore
+  contra IndexedDB, no este cache.
 
 ## Manifest
 

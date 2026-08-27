@@ -24,12 +24,14 @@ ver [agenda.md](agenda.md)).
 
 ## Persistencia
 
-- `saveAll()` vuelca `STATE` a `localStorage` con debounce de 400 ms y, **si hay
-  servidor**, además lo manda a Drive con debounce de 2,5 s. `saveAll(true)`
-  fuerza ambos. Los detalles del segundo destino, en
-  [datos-drive.md](datos-drive.md).
-- `sincronizarConServidor()` corre **después** del primer render: la app pinta
-  con la caché local y luego, si Drive tiene datos, los sustituye y repinta.
+- `saveAll()` vuelca `STATE` a `localStorage` con debounce de 400 ms
+  (`saveAll(true)` fuerza el volcado inmediato) y dispara además la subida a
+  Firestore, que espera 1200 ms
+  ([sincronizacion-firestore.md](sincronizacion-firestore.md)). Es el **único**
+  punto desde el que se sincroniza.
+- `pausarGuardadoLocal()` corta la escritura en local de forma definitiva. Lo
+  usa el cierre de sesión, porque el `beforeunload` de la recarga volvería a
+  volcar `STATE` sobre el almacenamiento recién vaciado.
 - `loadAll()` carga de `localStorage` aplicando migraciones (p. ej. normaliza
   `responsable` `'auxiliar'`/`'propio'` → `'yo'`, y migra `proximaAccion` →
   `seguimiento`).

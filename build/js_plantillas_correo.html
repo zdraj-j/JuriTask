@@ -1,0 +1,231 @@
+<script>
+/**
+ * JuriTask — plantillas-correo.js
+ * Conocimiento del dominio: qué familia de trámite es cada módulo, qué
+ * documento se menciona en los correos, y los cuerpos base de cada
+ * requerimiento. Estos textos son la referencia institucional: la IA los
+ * adapta al hilo del trámite, pero no debe inventar otros.
+ */
+
+// ── Familias de módulo ───────────────────────────────────────
+// contractual → requerimientos al contratista (VoBo, rep. legal, pólizas)
+// concepto    → conformidad del área solicitante y cierre
+// peticion    → respuesta firmada + constancia de envío al peticionario
+// audiencia   → conciliación prejudicial (audiencia y acta)
+// (sin familia) → sin flujo estandarizado; se redacta libremente desde el hilo
+const FAMILIA_MODULO = {
+  CNT: 'contractual',
+  OTR: 'contractual',
+  OS:  'contractual',
+  CNV: 'contractual',
+  COT: 'concepto',
+  ET:  'concepto',   // igual que los conceptos, con "el estudio de títulos"
+  MIN: 'concepto',   // igual que los conceptos, con "la minuta…"
+  ROD: 'peticion',
+  CPJ: 'audiencia',
+};
+
+// Cómo se nombra el documento en los correos de cada módulo.
+const DOC_MODULO = {
+  CNT: 'el contrato',
+  OTR: 'el documento contractual',
+  OS:  'la orden de servicio',
+  CNV: 'el convenio',
+  ET:  'el estudio de títulos',
+  MIN: 'la minuta de constitución/levantamiento de hipoteca',
+  COT: 'el concepto',
+  ROD: 'la respuesta al derecho de petición',
+  CPJ: 'la audiencia de conciliación',
+};
+
+// Módulos donde NO se piden pólizas (CNV por regla; ET y MIN por no ser
+// contractuales, siguen el flujo de conceptos).
+const SIN_POLIZAS = ['CNV', 'ET', 'MIN'];
+
+// Módulos contractuales a los que sí aplica pedir la fecha de inicio
+// (2 días después de cumplido). No aplica a OTR.
+const APLICA_FECHA_INICIO = ['CNT', 'OS', 'CNV'];
+
+function familiaDeModulo(sigla) { return FAMILIA_MODULO[String(sigla || '').toUpperCase()] || ''; }
+function docDeModulo(sigla)     { return DOC_MODULO[String(sigla || '').toUpperCase()] || 'el documento'; }
+function llevaPolizas(sigla)    { return !SIN_POLIZAS.includes(String(sigla || '').toUpperCase()); }
+
+// ── Tipos de gestión detectados desde el texto de la tarea ───
+// Devuelve una clave de plantilla o '' si la tarea no es un requerimiento.
+function tipoGestionDesdeTarea(texto) {
+  const s = String(texto || '').toLowerCase().normalize('NFD').replace(/[̀-ͯ]/g, '');
+  if (/reiterar\s*sol/.test(s))                      return 'reiterarSol';
+  if (/fecha\s*de\s*inicio/.test(s))                 return 'fechaInicio';
+  if (/\bacta\b/.test(s))                            return 'acta';
+  if (/1er\s*req|primer\s*req/.test(s))              return 'req1';
+  if (/2do\s*req|segundo\s*req/.test(s))             return 'req2';
+  if (/3er\s*req|tercer\s*req/.test(s))              return 'req3';
+  if (/ultimo\s*req|req\s*final|inactivar/.test(s))  return 'reqFinal';
+  if (/conformidad|conforme|satisfaccion/.test(s))   return 'conformidad';
+  if (/cierre|archivo|archivar/.test(s))             return 'cierre';
+  if (/\breq\b|requerir|requerimiento/.test(s))      return 'reqGenerico';
+  return '';
+}
+
+// ── Plantillas base (texto institucional) ────────────────────
+// {DOC} se sustituye por el documento del módulo.
+const PLANTILLAS_CORREO = {
+  // ── Familia contractual ──
+  req1: {
+    etiqueta: '1er requerimiento',
+    cuerpo:
+`Buen día.
+
+Amablemente le solicito por favor nos informe si presenta alguna observación respecto a {DOC}. En caso de no presentar ninguna solicitud de ajuste al documento contractual, y con el fin de gestionar las firmas de manera electrónica por medio de la herramienta Adobe Sign, por favor proceder a enviar lo siguiente:
+
+• Pólizas y comprobante de pago.
+• Correo electrónico de su representante legal, para el proceso de firma electrónica.
+• De ser necesario el visto bueno en el documento de parte de su área jurídica por favor indicar el correo electrónico del aprobador.
+
+NOTA IMPORTANTE: Se debe tener en cuenta que hasta tanto el contrato no se encuentre debidamente legalizado, sin excepción no se podrá iniciar la ejecución del mismo.
+
+Quedamos a la espera de su respuesta y agradeciendo la atención que sirvan dar a la presente.`,
+  },
+  req2: {
+    etiqueta: '2do requerimiento',
+    cuerpo:
+`Cordial saludo.
+
+Realizando seguimiento a los asuntos pendientes, encontramos que aún no se ha informado de la revisión de {DOC}, ni se han recibido las pólizas pertinentes para dar inicio al proceso de firma electrónica del trámite en referencia.
+
+Por considerar que ha transcurrido un tiempo prudencial para realizar el trámite mencionado, le solicitamos muy comedidamente se resuelva lo más pronto posible las gestiones para no tener inconvenientes en la oportunidad y perfeccionamiento de este tipo de relaciones contractuales.
+
+Agradecemos informar si presenta algún inconveniente o duda en el trámite y con gusto será atendido por esta Gerencia.
+
+NOTA IMPORTANTE: Se debe tener en cuenta que hasta tanto el contrato no se encuentre debidamente legalizado, sin excepción no se podrá iniciar la ejecución del mismo.
+
+Quedamos a la espera de su respuesta.`,
+  },
+  req3: {
+    etiqueta: '3er requerimiento',
+    cuerpo:
+`Cordial saludo.
+
+De manera atenta solicitamos nos informe en qué estado se encuentra el proceso de revisión de {DOC} de la referencia, ya que ha transcurrido un tiempo prudencial y esta gerencia no ha recibido la información necesaria para iniciar el proceso de firmas electrónicas del mismo.
+
+Por lo tanto, en caso de no recibir la información requerida en un término de tres (03) días hábiles, no volveremos a insistir y procederemos a inactivar el presente trámite; así mismo se da la claridad que quedará bajo su responsabilidad hacia el futuro lo que pueda suceder con dicha contratación sin que esté debidamente perfeccionada.
+
+No obstante lo anterior, de requerir nuevamente nuestro apoyo estamos prestos a brindárselo.
+
+NOTA IMPORTANTE: Se debe tener en cuenta que hasta tanto el contrato no se encuentre debidamente legalizado, sin excepción no se podrá iniciar la ejecución del mismo.`,
+  },
+  reqFinal: {
+    etiqueta: 'Último requerimiento (inactivación)',
+    cuerpo:
+`Buen día.
+
+Nos permitimos informarle que, ante el hecho de que esta Gerencia no recibió la documentación requerida para la legalización de {DOC} de la referencia pese a los constantes intentos para lograr su legalización, finalmente procederemos a inactivar el presente seguimiento, no sin antes recordar que no debe llevarse a cabo relaciones contractuales con proveedores o contratistas que no tengan con el documento contractual debidamente legalizado.
+
+No obstante lo anterior, en caso de requerir nuevamente nuestro apoyo, estamos prestos a brindárselo con la radicación de una nueva solicitud en nuestro aplicativo Comjurídico.`,
+  },
+  fechaInicio: {
+    etiqueta: 'Solicitud de fecha de inicio',
+    cuerpo:
+`Buen día.
+
+Amablemente me permito solicitar su colaboración informando la fecha de inicio de {DOC} de la referencia, una vez se encuentre debidamente legalizado.
+
+Lo anterior con el fin de continuar con el seguimiento del trámite y proceder con los registros correspondientes.
+
+Quedo atento a su respuesta.`,
+  },
+
+  // ── Familia concepto (COT) ──
+  conformidad: {
+    etiqueta: 'Conformidad con el concepto',
+    cuerpo:
+`Cordial saludo.
+
+Amablemente me permito solicitar su colaboración informando si presenta alguna duda u observación frente a {DOC}, o si en su defecto éste se encontró acorde y a su entera satisfacción.
+
+Quedamos atentos a su respuesta.`,
+  },
+  cierre: {
+    etiqueta: 'Cierre por falta de respuesta',
+    cuerpo:
+`Buen día.
+
+Me permito informarle que al no obtener respuesta de su parte, entendemos que {DOC} se encuentra conforme a su solicitud y quedando bajo la potestad del área el proceder frente al trámite.
+
+Por tanto, siguiendo los lineamientos del Sistema de Gestión Integral, procederemos al archivo del presente seguimiento.`,
+  },
+
+  // ── Familia petición (ROD) ──
+  peticion: {
+    etiqueta: 'Solicitud de radicado y constancia',
+    cuerpo:
+`Buen día.
+
+Amablemente me permito solicitar copia del documento radicado y constancia de entrega de la respuesta al derecho de petición instaurado por {PETICIONARIO}.
+
+Lo anterior con el fin de conocer el estado del asunto y así proceder con la culminación y archivo del trámite.
+
+Quedo atento a su respuesta.`,
+  },
+
+  // ── Familia audiencia (CPJ) ──
+  acta: {
+    etiqueta: 'Solicitud de acta de audiencia',
+    cuerpo:
+`Buen día.
+
+Amablemente me permito reiterar la solicitud de compartir el acta de la audiencia del proceso de {PROCESO}, la cual se llevó a cabo el día {FECHA_AUDIENCIA}, ya que a la fecha no se ha recibido la misma.`,
+  },
+
+  // ── Transversal ──
+  reiterarSol: {
+    etiqueta: 'Reiteración de solicitud al área',
+    cuerpo:
+`Cordial saludo.
+
+Amablemente me permito reiterar la solicitud realizada por el área Jurídica respecto a la información/documentación requerida para continuar con el trámite de la referencia, la cual a la fecha no ha sido recibida.
+
+Agradezco su colaboración remitiendo lo solicitado, con el fin de poder continuar con la gestión correspondiente.
+
+Quedo atento a su respuesta.`,
+  },
+  reqGenerico: {
+    etiqueta: 'Requerimiento',
+    cuerpo: '',   // sin texto base: la IA redacta a partir del hilo y del módulo
+  },
+};
+
+// Contrae "a el" → "al" y "de el" → "del" tras sustituir el documento, para
+// que "respecto a {DOC}" no quede como "respecto a el contrato".
+function _contraerArticulos(s) {
+  return String(s)
+    .replace(/\ba el\b/g, 'al')
+    .replace(/\bde el\b/g, 'del');
+}
+
+// Devuelve la plantilla adecuada según módulo + tipo de gestión.
+// - ROD: cualquier requerimiento usa la plantilla de petición.
+// - Conceptos (COT, ET, MIN): el 1er requerimiento pide conformidad y los
+//   siguientes informan el cierre por falta de respuesta.
+// - CPJ: los requerimientos piden el acta de la audiencia.
+function plantillaPara(modulo, tipoGestion) {
+  const fam = familiaDeModulo(modulo);
+  let clave = tipoGestion;
+
+  if (fam === 'peticion' && /^req/.test(tipoGestion)) clave = 'peticion';
+  if (fam === 'audiencia' && /^req/.test(tipoGestion)) clave = 'acta';
+  if (fam === 'concepto') {
+    if (tipoGestion === 'req1' || tipoGestion === 'reqGenerico') clave = 'conformidad';
+    else if (/^req[23]$|^reqFinal$/.test(tipoGestion))           clave = 'cierre';
+  }
+
+  const p = PLANTILLAS_CORREO[clave];
+  if (!p) return null;
+  return {
+    clave,
+    etiqueta: p.etiqueta,
+    cuerpo: _contraerArticulos(String(p.cuerpo || '').replace(/\{DOC\}/g, docDeModulo(modulo))),
+  };
+}
+
+</script>
