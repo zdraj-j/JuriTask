@@ -480,3 +480,109 @@ if (typeof document !== 'undefined') {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initBitacoraScan);
   else initBitacoraScan();
 }
+
+// ============================================================
+// BORRADORES DEL DÍA (por lotes)
+// ============================================================
+// Lo que hacía el trigger diario de Apps Script antes de que el administrador
+// bloqueara el servicio. Ahora lo lanzas tú desde Ajustes, con la app abierta.
+//
+// La diferencia con `generarBorradorTarea` —que es para una tarea suelta y solo
+// enseña el texto— es que esto recorre **todas** las tareas de requerimiento
+// vencidas y deja el borrador puesto en el hilo de Gmail.
+//
+// **Nunca envía.** Ver docs/borradores-automaticos.md.
+
+/** Tareas pendientes con fecha de hoy o anterior, en trámites no terminados. */
+function _tareasParaBorrador() {
+  const hoy = today();
+  const out = [];
+  (STATE.tramites || []).forEach(t => {
+    if (t.terminado) return;
+    (t.seguimiento || []).forEach((act, indice) => {
+      if (act.estado !== 'pendiente') return;
+      if (!act.fecha || act.fecha > hoy) return;
+      // Si la descripción no corresponde a ninguna gestión conocida, no es un
+      // requerimiento: no toda tarea pendiente merece un correo.
+      const gestion = tipoGestionDesdeTarea(act.descripcion);
+      if (!gestion) return;
+      out.push({ t, act, indice, gestion });
+    });
+  });
+  return out;
+}
+
+/**
+ * Idempotencia: sin esto, dos pulsaciones seguidas dejarían el borrador dos
+ * veces. Mismo patrón que `config.bitacoraRegistrados`.
+ */
+function _claveBorrador(t, indice) { return `${t.id}|${indice}|${today()}`; }
+
+function _yaGenerado(t, indice) {
+  return (STATE.config.borradoresGenerados || []).includes(_claveBorrador(t, indice));
+}
+
+function _marcarGenerado(t, indice) {
+  if (!STATE.config.borradoresGenerados) STATE.config.borradoresGenerados = [];
+  STATE.config.borradoresGenerados.push(_claveBorrador(t, indice));
+  // La lista crece sin límite si no se poda; con las claves de hoy basta.
+  const hoy = today();
+  STATE.config.borradoresGenerados =
+    STATE.config.borradoresGenerados.filter(k => k.endsWith('|' + hoy));
+}
+
+async function generarBorradoresDelDia(btn) {
+  const pendientes = _tareasParaBorrador();
+  if (!pendientes.length) {
+    showToast('No hay requerimientos que venzan hoy o antes.');
+    return;
+  }
+
+  const original = btn ? btn.innerHTML : '';
+  if (btn) { btn.disabled = true; btn.textContent = 'Generando…'; }
+
+  const hechos = [];
+  const sinCorreo = [];
+  const fallos = [];
+
+  await _withGmailToken(async (token) => {
+    for (const { t, act, indice, gestion } of pendientes) {
+      if (_yaGenerado(t, indice)) continue;
+      try {
+        const msg = await ultimoMensajeConAsunto(t.numero, token);
+        if (!msg) { sinCorreo.push(t.numero); continue; }
+
+        let cuerpo = plantillaPara(t.modulo, gestion);
+        if (STATE.config.borradoresConIA && geminiConfigured()) {
+          // Si Gemini falla se usa la plantilla sin adaptar: mejor un borrador
+          // genérico que ninguno.
+          try {
+            const r = await geminiGenerateJSON(_promptBorrador(t, act, cuerpo, [{
+              fecha: msg.fecha || '', de: msg.de, asunto: msg.asunto, cuerpo: msg.cuerpo,
+            }]));
+            if (r && r.cuerpo) cuerpo = r.cuerpo;
+          } catch (_) { /* plantilla tal cual */ }
+        }
+
+        await crearBorradorRespuesta(msg, cuerpo.replace(/\n/g, '<br>'), token);
+        await etiquetarHilo(msg.threadId, token);
+        _marcarGenerado(t, indice);
+        hechos.push(t.numero);
+      } catch (e) {
+        // No se marca: así mañana se reintenta en vez de perderse.
+        fallos.push(`${t.numero} (${e.code || e.message})`);
+      }
+    }
+    return true;
+  });
+
+  if (btn) { btn.disabled = false; btn.innerHTML = original; }
+  saveAll();
+
+  const partes = [];
+  if (hechos.length)    partes.push(`${hechos.length} borrador${hechos.length > 1 ? 'es' : ''} en Gmail`);
+  if (sinCorreo.length) partes.push(`${sinCorreo.length} sin correo`);
+  if (fallos.length)    partes.push(`${fallos.length} con error`);
+  showToast(partes.length ? partes.join(' · ') : 'Todo estaba ya generado hoy.');
+  if (fallos.length) console.warn('Borradores con error:', fallos);
+}

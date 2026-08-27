@@ -390,6 +390,14 @@ function init() {
   document.getElementById('bitacoraDias')?.addEventListener('change', _saveBitacoraNums);
   document.getElementById('gmailCuentaIndice')?.addEventListener('change', _saveBitacoraNums);
 
+  // ── Config: borradores del día ───────────────────────────
+  document.getElementById('borradoresIAToggle')?.addEventListener('change', e => {
+    STATE.config.borradoresConIA = e.target.checked;
+    saveAll();
+  });
+  document.getElementById('borradoresDiaBtn')?.addEventListener('click', e =>
+    generarBorradoresDelDia(e.currentTarget));
+
   document.getElementById('resetDescartadosBtn')?.addEventListener('click', async () => {
     const n = (STATE.config.gmailDescartados || []).length;
     if (!n) { showToast('No hay trámites descartados.'); return; }

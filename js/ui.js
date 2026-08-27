@@ -1746,6 +1746,7 @@ function renderConfig() {
   const bInt=document.getElementById('bitacoraIntervalo');  if(bInt) bInt.value=STATE.config.bitacoraIntervalo??10;
   const bDia=document.getElementById('bitacoraDias');       if(bDia) bDia.value=STATE.config.bitacoraDias??7;
   const gci=document.getElementById('gmailCuentaIndice');   if(gci) gci.value=STATE.config.gmailCuentaIndice ?? 0;
+  const bIA=document.getElementById('borradoresIAToggle');  if(bIA) bIA.checked=!!STATE.config.borradoresConIA;
   const drT=document.getElementById('diasRestantesToggle'); if(drT) drT.checked=!!(STATE.config.diasRestantes);
 }
 

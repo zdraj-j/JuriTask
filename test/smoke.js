@@ -245,6 +245,43 @@ const ok = (c) => c ? 'PASA' : 'FALLA';
             gm.hay ? `name="${gm.llamadas[0]?.name}" url=${(gm.llamadas[0]?.url || '').slice(0, 60)}…`
                    : 'no se pintó el botón']);
 
+  // ── Punto 8: borradores del día, ahora manual ───────────
+  // El trigger de Apps Script murió con el servidor; queda el botón.
+  const b8 = await page.evaluate(() => ({
+    boton:   !!document.getElementById('borradoresDiaBtn'),
+    ia:      !!document.getElementById('borradoresIAToggle'),
+    trigger: !!document.getElementById('triggerToggle') || !!document.getElementById('triggerHora'),
+  }));
+  out.push(['P8 botón manual, sin restos del trigger',
+            b8.boton && b8.ia && !b8.trigger,
+            `botón=${b8.boton} ia=${b8.ia} trigger=${b8.trigger}`]);
+
+  // La selección de tareas es lógica pura sobre STATE, así que se puede
+  // comprobar sin tocar Gmail. `addScriptTag` corre en el mundo principal;
+  // `page.evaluate` no vería `_tareasParaBorrador`.
+  await page.addScriptTag({ content: `
+    (function () {
+      STATE.tramites = [
+        { id:'x1', numero:'55555', modulo:'CNT', terminado:false, seguimiento:[
+            { descripcion:'1er req', fecha:'2020-01-01', estado:'pendiente' },
+            { descripcion:'1er req', fecha:'2099-01-01', estado:'pendiente' },
+            { descripcion:'1er req', fecha:'2020-01-01', estado:'completada' },
+            { descripcion:'llamar al abogado', fecha:'2020-01-01', estado:'pendiente' } ] },
+        { id:'x2', numero:'66666', modulo:'CNT', terminado:true, seguimiento:[
+            { descripcion:'1er req', fecha:'2020-01-01', estado:'pendiente' } ] },
+      ];
+      var r = _tareasParaBorrador();
+      var el = document.createElement('div');
+      el.id = '__b8';
+      el.textContent = JSON.stringify({ n: r.length, ids: r.map(function (x) { return x.t.id; }) });
+      document.body.appendChild(el);
+    })();
+  ` });
+  const sel = JSON.parse(await page.$eval('#__b8', e => e.textContent));
+  out.push(['P8 solo requerimientos vencidos y sin terminar',
+            sel.n === 1 && sel.ids[0] === 'x1',
+            `seleccionadas=${sel.n} (${sel.ids.join(',') || 'ninguna'})`]);
+
   await page.screenshot({ path: path.join(SHOT, 'reporte-dia.png') });
   await page.click('#reportClose');
   await page.waitForTimeout(300);

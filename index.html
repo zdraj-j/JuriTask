@@ -344,6 +344,18 @@
         </div>
 
         <div class="config-section">
+          <h3><i data-lucide="mail-plus"></i> Borradores del día</h3>
+          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Por cada tarea de requerimiento que venza hoy o antes, deja un borrador de respuesta en el hilo del último correo que lleve el número del trámite en el asunto, y etiqueta la conversación. <strong>Nunca envía nada.</strong> Necesita la app abierta.</p>
+          <div class="config-row"><label>Adaptar el texto con IA (Gemini)</label>
+            <label class="switch"><input type="checkbox" id="borradoresIAToggle" /><span class="slider"></span></label>
+          </div>
+          <p class="config-hint">Apagado usa las plantillas tal cual: es instantáneo, gratis y el contenido de los correos no sale del dominio.</p>
+          <div class="config-btns-row" style="margin-top:10px">
+            <button class="btn btn-primary" id="borradoresDiaBtn"><i data-lucide="play"></i> Generar borradores ahora</button>
+          </div>
+        </div>
+
+        <div class="config-section">
           <h3>Exportar / Importar</h3>
           <div class="config-btns-row">
             <button class="btn btn-primary" id="exportBtn"><i data-lucide="download"></i> Exportar JSON</button>
