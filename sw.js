@@ -3,7 +3,7 @@
  * App-shell offline. Los datos viven en localStorage, así que el shell es lo
  * único que hace falta cachear.
  */
-const VERSION = 'juritask-v23';
+const VERSION = 'juritask-v22';
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 
@@ -13,7 +13,6 @@ const SHELL_ASSETS = [
   './index.html',
   './manifest.json',
   './css/style.css',
-  './js/backend.js',
   './js/storage.js',
   './js/tramites.js',
   './js/filters.js',

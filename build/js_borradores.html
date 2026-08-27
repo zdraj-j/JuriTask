@@ -1,3 +1,4 @@
+<script>
 /**
  * JuriTask — borradores.js
  * Fase 4 y 5:
@@ -120,8 +121,11 @@ function _buildBorradorModal() {
   return el;
 }
 
+// Vía `copyTextToClipboard` (tramites.js), que cae a `execCommand` cuando la
+// Clipboard API no está: dentro del iframe de Apps Script la API lanza
+// NotAllowedError y el fallback es el que funciona.
 function _copiar(texto, msg) {
-  navigator.clipboard.writeText(texto)
+  copyTextToClipboard(texto)
     .then(() => showToast(msg || 'Copiado.'))
     .catch(() => showToast('No se pudo copiar.'));
 }
@@ -200,15 +204,15 @@ async function scanSentForBitacora(dias = 7) {
     if (r) porNumero.set(r, t);
   });
 
-  return _withGmailToken(async (token) => {
+  return _conGmail(async () => {
     const q = `in:sent newer_than:${dias}d`;
-    const data = await _gmailFetch('messages?maxResults=25&q=' + encodeURIComponent(q), token);
+    const data = await _gmailFetch('messages?maxResults=25&q=' + encodeURIComponent(q));
     const refs = data.messages || [];
     const hits = [];
     const yaRegistrados = new Set(STATE.config.bitacoraRegistrados || []);
 
     for (const ref of refs) {
-      const msg = await _getMessage(ref.id, token);
+      const msg = await _getMessage(ref.id);
       const payload = msg.payload || {};
       const asunto = _stripHtml(_headerValue(payload, 'Subject'));
       const nums = _numerosEnAsunto(asunto);
@@ -232,8 +236,8 @@ async function scanSentForBitacora(dias = 7) {
 
 // Trae el correo anterior del hilo (el del tercero al que se responde).
 async function _correoPrevioDelHilo(threadId, messageId) {
-  return _withGmailToken(async (token) => {
-    const data = await _gmailFetch('threads/' + threadId + '?format=full', token);
+  return _conGmail(async () => {
+    const data = await _gmailFetch('threads/' + threadId + '?format=full');
     const msgs = (data.messages || []).filter(m => m.id !== messageId);
     if (!msgs.length) return null;
     const prev = msgs[msgs.length - 1];
@@ -480,3 +484,5 @@ if (typeof document !== 'undefined') {
   if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', initBitacoraScan);
   else initBitacoraScan();
 }
+
+</script>

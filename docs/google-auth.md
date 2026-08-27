@@ -31,22 +31,30 @@ la decisión y un solo lugar que tocar en la Fase 4.
 
 ## Estado actual
 
-**Con servidor** (Apps Script) ya funciona: `ensureGoogleToken()` pide el token
-a `getOAuthToken()` en `Codigo.gs`, que devuelve `ScriptApp.getOAuthToken()`.
-Sin popup y sin caducidad.
+`ensureGoogleToken()` muestra un toast y devuelve `null`. Los flujos que
+dependen de él quedan inertes:
 
-**Sin servidor** (navegador normal, desarrollo, pruebas) no hay token posible:
-avisa y devuelve `null`.
+- Revisar el correo para detectar trámites nuevos (botón ✉️).
+- Borrador de correo por tarea.
+- Bitácora de envíos y su vigilancia automática.
+- Google Drive Picker.
 
-## Quién lo usa realmente
+**Lo que no se pierde es lo que importa**: el parseo de los correos de
+notificación (`parseTramiteEmail`, los regex, `MODULO_PREFIX_ALIAS`), las
+plantillas institucionales de `plantillas-correo.js` y los prompts de Gemini
+siguen intactos. Eso es justo lo que se porta al servidor.
 
-Desde la Fase 4, **Gmail y Gemini ya no pasan por aquí**: sus llamadas salen del
-servidor (`server/Correo.gs`, `server/Gemini.gs`) y el token no toca el
-navegador.
+## Qué cambia en la Fase 4
 
-Queda un consumidor de verdad: el **Google Drive Picker** (`js/drive.js`), que
-es una biblioteca de cliente y necesita el token en la página. Para eso sirve
-`getOAuthToken()` en `Codigo.gs`.
+`ensureGoogleToken()` pasa a pedir el token al servidor:
+
+```js
+GOOGLE.accessToken = await srv('getOAuthToken');   // ScriptApp.getOAuthToken()
+```
+
+Y el resto del código no se entera. Las llamadas `fetch` a
+`gmail.googleapis.com` pueden quedarse en el cliente con ese token, o migrar al
+servicio avanzado `Gmail` del lado del servidor — decisión de esa fase.
 
 ## Al modificar
 

@@ -4,16 +4,9 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
   <title>JuriTask</title>
-  <link rel="icon" type="image/png" href="assets/logo/favicon.png" />
-  <link rel="stylesheet" href="css/style.css" />
-  <!-- PWA -->
-  <link rel="manifest" href="manifest.json" />
+  <link rel="icon" type="image/png" href="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAABcAAAAYCAYAAAARfGZ1AAAFU2lUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4KPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iWE1QIENvcmUgNS41LjAiPgogPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4KICA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIgogICAgeG1sbnM6dGlmZj0iaHR0cDovL25zLmFkb2JlLmNvbS90aWZmLzEuMC8iCiAgICB4bWxuczpkYz0iaHR0cDovL3B1cmwub3JnL2RjL2VsZW1lbnRzLzEuMS8iCiAgICB4bWxuczpleGlmPSJodHRwOi8vbnMuYWRvYmUuY29tL2V4aWYvMS4wLyIKICAgIHhtbG5zOnBob3Rvc2hvcD0iaHR0cDovL25zLmFkb2JlLmNvbS9waG90b3Nob3AvMS4wLyIKICAgIHhtbG5zOnhtcD0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wLyIKICAgIHhtbG5zOnhtcE1NPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvbW0vIgogICAgeG1sbnM6c3RFdnQ9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZUV2ZW50IyIKICAgdGlmZjpJbWFnZUxlbmd0aD0iMjQiCiAgIHRpZmY6SW1hZ2VXaWR0aD0iMjMiCiAgIHRpZmY6UmVzb2x1dGlvblVuaXQ9IjIiCiAgIHRpZmY6WFJlc29sdXRpb249IjE1MC8xIgogICB0aWZmOllSZXNvbHV0aW9uPSIxNTAvMSIKICAgZXhpZjpQaXhlbFhEaW1lbnNpb249IjIzIgogICBleGlmOlBpeGVsWURpbWVuc2lvbj0iMjQiCiAgIGV4aWY6Q29sb3JTcGFjZT0iMSIKICAgcGhvdG9zaG9wOkNvbG9yTW9kZT0iMyIKICAgcGhvdG9zaG9wOklDQ1Byb2ZpbGU9InNSR0IgSUVDNjE5NjYtMi4xIgogICB4bXA6TW9kaWZ5RGF0ZT0iMjAyNi0wMy0wMlQyMjowMTo0Ny0wNTowMCIKICAgeG1wOk1ldGFkYXRhRGF0ZT0iMjAyNi0wMy0wMlQyMjowMTo0Ny0wNTowMCI+CiAgIDxkYzp0aXRsZT4KICAgIDxyZGY6QWx0PgogICAgIDxyZGY6bGkgeG1sOmxhbmc9IngtZGVmYXVsdCI+ZmF2aWNvbjwvcmRmOmxpPgogICAgPC9yZGY6QWx0PgogICA8L2RjOnRpdGxlPgogICA8eG1wTU06SGlzdG9yeT4KICAgIDxyZGY6U2VxPgogICAgIDxyZGY6bGkKICAgICAgc3RFdnQ6YWN0aW9uPSJwcm9kdWNlZCIKICAgICAgc3RFdnQ6c29mdHdhcmVBZ2VudD0iQWZmaW5pdHkgRGVzaWduZXIgMiAyLjYuNSIKICAgICAgc3RFdnQ6d2hlbj0iMjAyNi0wMy0wMlQyMjowMTo0Ny0wNTowMCIvPgogICAgPC9yZGY6U2VxPgogICA8L3htcE1NOkhpc3Rvcnk+CiAgPC9yZGY6RGVzY3JpcHRpb24+CiA8L3JkZjpSREY+CjwveDp4bXBtZXRhPgo8P3hwYWNrZXQgZW5kPSJyIj8+e8cQ7wAAAYFpQ0NQc1JHQiBJRUM2MTk2Ni0yLjEAACiRdZHPK0RRFMc/M4MRo1EkC4tJw8poUBMbixFDYTEzyq/NzJtfan683ptJslW2U5TY+LXgL2CrrJUiUrKWJbFhes6bUSOZe7v3fO73nnM691ywhtNKRq/zQiab14IBv2t+YdFlf8Em00oHDRFFV2dCE2Fqjo87LKa98Zi5avv9O5pjcV0BS6PwqKJqeeFJ4enVvGrytnC7korEhE+F+zQpUPjW1KMVfjY5WeEvk7VwcAysrcKu5C+O/mIlpWWE5eW4M+mC8lOP+RJHPDsXEtstqwudIAH8uJhinDF8DDAiuw8Pg/TLiRrx3nL8LDmJVWRXWUNjhSQp8vSJWpDscbEJ0eMy06yZ/f/bVz0xNFjJ7vBD/ZNhvPWAfQtKRcP4PDSM0hHYHuEiW43PHcDwu+jFqubeB+cGnF1WtegOnG9C54Ma0SJlySbLmkjA6wm0LEDbNTQtVXr2c8/xPYTX5auuYHcPesXfufwN6/pnrsRk7tYAAAAJcEhZcwAAFxIAABcSAWef0lIAAAIESURBVEiJ7ZRNaBNBGIaf3a5LSGrTZi21WApuTFSCtUXIYb3ZS1wRg148GISKl/5A68Gfg6AgeBP0IvUmi4K39WA8NIJijKgnc4j4wwrGthS7UBAFW9t4MLtsYjbVelL6wsAw3zvPvB/DDKzrv5LgTBRVE4CTPr68bRVKGVOPAvu8++pUAR4Y6axVDxeBZZ9Nw/qV9p3A2G8ErgBXjXR2Qqwr3PGMe85iqFMMrQbe3tHH8MBZglKrAIxnTL1Dcoq2VVgBjno6UYEDAIF2YWMzsCRuYKh/hO62HjpDXVzMTwBsqk++Jh2OZehu6wEgZ7kN89fw3tYoqfghAEpzRZ7M5NYGbxEkjidGiYUTAAgIDPWPIYkSS8uL3Cxer/H/EfxU8gKD2/YzkjxDWI6Q2noEVYkBcP/NXWa/fqjxS40gfnpafsSuzQNEggrjyfNsCfcCMPd5FvPdrV/8zZKHXFML3wDyM1NMvf15YVElTkAKAGAUJ/m+suQPV1QtrqjaDUXV5OpSyqkFFdHt9/arSV5/KrmAZ+U8xfkXDdMJVbAMvAR2APPANLC76vm450RQ60rI7gFhOcK5vZeRRIlLj0+zsGg3Yke8z/8gYABhj2EaOGZbhYcZU78GjOL/rzhyn3+NUVG1ANBX7aAMPLetwhennjF1FRhsckAFyBnp7PtVAqzrX9QPYjaBCUzfFbMAAAAASUVORK5CYII=" />
+<?!= include('estilos') ?>
   <meta name="theme-color" content="#3d5af1" />
-  <meta name="mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-capable" content="yes" />
-  <meta name="apple-mobile-web-app-status-bar-style" content="default" />
-  <meta name="apple-mobile-web-app-title" content="JuriTask" />
-  <link rel="apple-touch-icon" href="assets/logo/icon-192.png" />
   <link rel="preconnect" href="https://fonts.googleapis.com" />
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
   <link href="https://fonts.googleapis.com/css2?family=DM+Sans:wght@300;400;500;600&family=DM+Mono:wght@400;500&display=swap" rel="stylesheet" />
@@ -28,7 +21,7 @@
 <aside class="sidebar" id="sidebar">
   <div class="sidebar-header">
     <div class="logo">
-      <img src="assets/logo/logo.png" alt="JuriTask" class="logo-img" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />
+      <img src="data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAQIAAAA7CAYAAACQTYSBAAAFUmlUWHRYTUw6Y29tLmFkb2JlLnhtcAAAAAAAPD94cGFja2V0IGJlZ2luPSLvu78iIGlkPSJXNU0wTXBDZWhpSHpyZVN6TlRjemtjOWQiPz4KPHg6eG1wbWV0YSB4bWxuczp4PSJhZG9iZTpuczptZXRhLyIgeDp4bXB0az0iWE1QIENvcmUgNS41LjAiPgogPHJkZjpSREYgeG1sbnM6cmRmPSJodHRwOi8vd3d3LnczLm9yZy8xOTk5LzAyLzIyLXJkZi1zeW50YXgtbnMjIj4KICA8cmRmOkRlc2NyaXB0aW9uIHJkZjphYm91dD0iIgogICAgeG1sbnM6dGlmZj0iaHR0cDovL25zLmFkb2JlLmNvbS90aWZmLzEuMC8iCiAgICB4bWxuczpkYz0iaHR0cDovL3B1cmwub3JnL2RjL2VsZW1lbnRzLzEuMS8iCiAgICB4bWxuczpleGlmPSJodHRwOi8vbnMuYWRvYmUuY29tL2V4aWYvMS4wLyIKICAgIHhtbG5zOnBob3Rvc2hvcD0iaHR0cDovL25zLmFkb2JlLmNvbS9waG90b3Nob3AvMS4wLyIKICAgIHhtbG5zOnhtcD0iaHR0cDovL25zLmFkb2JlLmNvbS94YXAvMS4wLyIKICAgIHhtbG5zOnhtcE1NPSJodHRwOi8vbnMuYWRvYmUuY29tL3hhcC8xLjAvbW0vIgogICAgeG1sbnM6c3RFdnQ9Imh0dHA6Ly9ucy5hZG9iZS5jb20veGFwLzEuMC9zVHlwZS9SZXNvdXJjZUV2ZW50IyIKICAgdGlmZjpJbWFnZUxlbmd0aD0iNTkiCiAgIHRpZmY6SW1hZ2VXaWR0aD0iMjU4IgogICB0aWZmOlJlc29sdXRpb25Vbml0PSIyIgogICB0aWZmOlhSZXNvbHV0aW9uPSIxNTAvMSIKICAgdGlmZjpZUmVzb2x1dGlvbj0iMTUwLzEiCiAgIGV4aWY6UGl4ZWxYRGltZW5zaW9uPSIyNTgiCiAgIGV4aWY6UGl4ZWxZRGltZW5zaW9uPSI1OSIKICAgZXhpZjpDb2xvclNwYWNlPSIxIgogICBwaG90b3Nob3A6Q29sb3JNb2RlPSIzIgogICBwaG90b3Nob3A6SUNDUHJv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" alt="JuriTask" class="logo-img" onerror="this.style.display='none';this.nextElementSibling.style.display='flex'" />
       <span class="logo-fallback"><i data-lucide="scale"></i> JuriTask</span>
     </div>
     <button class="sidebar-toggle" id="sidebarToggle" title="Cerrar menú"><i data-lucide="x"></i></button>
@@ -161,6 +154,9 @@
         </div>
       </div>
 
+      <!-- Estado del almacén (solo con servidor) -->
+      <p class="config-hint" id="dashSyncEstado" style="display:none;margin:-8px 0 18px"></p>
+
       <!-- Métricas visuales -->
       <div id="dashMetricsRow" class="dash-metrics-row"></div>
 
@@ -275,11 +271,12 @@
 
         <div class="config-section">
           <h3><i data-lucide="sparkles"></i> Correo e IA (Gemini)</h3>
-          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Pega tu clave de la API de Gemini (Google AI Studio) para generar la bitácora y el resumen de cada trámite a partir del correo. La clave se guarda solo en tu cuenta (Firestore privado), nunca en el código.</p>
-          <div class="form-group full" style="margin-bottom:10px">
+          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Pega tu clave de la API de Gemini (Google AI Studio) para redactar los borradores y la bitácora a partir del correo. Se guarda en el <strong>servidor</strong> (Script Properties): no viaja al navegador ni queda en el JSON de Drive.</p>
+          <div class="form-group full" style="margin-bottom:4px">
             <label>API key de Gemini</label>
             <input type="password" id="geminiApiKey" placeholder="AIza… / clave de Google AI Studio" autocomplete="off" />
           </div>
+          <p class="config-hint" id="geminiEstado" style="margin-bottom:10px">—</p>
           <div class="config-row"><label>Vigilar correos enviados y avisar qué registrar</label>
             <label class="switch"><input type="checkbox" id="bitacoraAutoToggle" /><span class="slider"></span></label>
           </div>
@@ -303,8 +300,35 @@
           </div>
         </div>
 
+        <!-- Solo con servidor: el trigger vive en Apps Script. -->
+        <div class="config-section" id="triggerSection" style="display:none">
+          <h3><i data-lucide="alarm-clock"></i> Borradores automáticos</h3>
+          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Cada mañana, por cada tarea de requerimiento que venza, deja un borrador de respuesta en el hilo del último correo que lleve el número del trámite en el asunto. <strong>Nunca envía nada.</strong> Funciona con la app cerrada.</p>
+          <div class="config-row"><label>Generar borradores cada día</label>
+            <label class="switch"><input type="checkbox" id="triggerToggle" /><span class="slider"></span></label>
+          </div>
+          <div class="form-grid" style="margin:8px 0 12px">
+            <div class="form-group"><label>Hora</label><input type="number" id="triggerHora" min="0" max="23" /></div>
+          </div>
+          <div class="config-row"><label>Adaptar el texto con IA (Gemini)</label>
+            <label class="switch"><input type="checkbox" id="borradoresIAToggle" /><span class="slider"></span></label>
+          </div>
+          <p class="config-hint" id="triggerEstado">—</p>
+          <div class="config-btns-row" style="margin-top:10px">
+            <button class="btn-small" id="triggerProbarBtn"><i data-lucide="play"></i> Ejecutar ahora</button>
+          </div>
+        </div>
 
-
+        <!-- Solo con servidor: los backups viven en Drive. -->
+        <div class="config-section" id="backupSection" style="display:none">
+          <h3><i data-lucide="save"></i> Backups en Drive</h3>
+          <p class="config-hint" id="backupEstado">Comprobando…</p>
+          <div class="config-btns-row" style="margin-bottom:14px">
+            <button class="btn btn-primary" id="backupNowBtn"><i data-lucide="upload"></i> Crear backup ahora</button>
+            <a class="btn-small" id="backupCarpetaLink" target="_blank" rel="noopener" style="display:none"><i data-lucide="folder-open"></i> Abrir carpeta</a>
+          </div>
+          <div id="backupList"></div>
+        </div>
 
 
         <div class="config-section config-danger-zone">
@@ -593,58 +617,43 @@
 
 <!-- 0.b Iconos (Lucide) + auto-refresh para HTML dinámico -->
 <script src="https://unpkg.com/lucide@0.460.0/dist/umd/lucide.min.js"></script>
-<script src="js/icons.js"></script>
+<?!= include('js_icons') ?>
 <!-- 0.c Accesibilidad: aria-labels + focus-trap en modales -->
-<script src="js/a11y.js"></script>
+<?!= include('js_a11y') ?>
 
 <!-- 1. Base de la app -->
-<script src="js/storage.js"></script>
-<script src="js/tramites.js"></script>
-<script src="js/filters.js"></script>
-<script src="js/ui.js"></script>
+<?!= include('js_backend') ?>
+<?!= include('js_storage') ?>
+<?!= include('js_tramites') ?>
+<?!= include('js_filters') ?>
+<?!= include('js_ui') ?>
 
 <!-- 2. Panel de indicadores -->
-<script src="js/dashboard.js"></script>
+<?!= include('js_dashboard') ?>
 
 <!-- 3. Token OAuth de Google (seam hacia Apps Script) + Drive -->
-<script src="js/google-auth.js"></script>
-<script src="js/drive.js"></script>
+<?!= include('js_google_auth') ?>
+<?!= include('js_drive') ?>
 
 <!-- 3.b Detección de trámites nuevos + bitácora desde el correo (Gmail / Workspace) -->
-<script src="js/gemini.js"></script>
-<script src="js/plantillas-correo.js"></script>
-<script src="js/gmail.js"></script>
-<script src="js/borradores.js"></script>
+<?!= include('js_gemini') ?>
+<?!= include('js_plantillas_correo') ?>
+<?!= include('js_gmail') ?>
+<?!= include('js_borradores') ?>
 
 <!-- 3.c Reporte de trámites + exportación a Excel (escritor .xlsx propio) -->
-<script src="js/xlsx.js"></script>
-<script src="js/reportes.js"></script>
+<?!= include('js_xlsx') ?>
+<?!= include('js_reportes') ?>
 
 <!-- 4. Selección múltiple / acciones en lote -->
-<script src="js/selection.js"></script>
+<?!= include('js_selection') ?>
 
 <!-- 4.b Paleta de comandos + atajos -->
-<script src="js/commandpalette.js"></script>
+<?!= include('js_commandpalette') ?>
 
 <!-- 5. Orquestador general (debe ir de último) -->
-<script src="js/config.js"></script>
+<?!= include('js_config') ?>
 
-<!-- 6. PWA: registrar service worker -->
-<script>
-  if ('serviceWorker' in navigator) {
-    window.addEventListener('load', () => {
-      navigator.serviceWorker.register('sw.js').catch(err => console.warn('SW no registrado:', err));
-    });
-    // Cuando un SW nuevo toma control, recargar una sola vez para correr el JS
-    // recién desplegado (evita quedarse con handlers viejos ya cacheados).
-    let _swReloaded = false;
-    navigator.serviceWorker.addEventListener('controllerchange', () => {
-      if (_swReloaded) return;
-      _swReloaded = true;
-      window.location.reload();
-    });
-  }
-</script>
 
 </body>
 </html>

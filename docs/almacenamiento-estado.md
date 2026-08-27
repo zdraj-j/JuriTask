@@ -24,12 +24,9 @@ ver [agenda.md](agenda.md)).
 
 ## Persistencia
 
-- `saveAll()` vuelca `STATE` a `localStorage` con debounce de 400 ms y, **si hay
-  servidor**, además lo manda a Drive con debounce de 2,5 s. `saveAll(true)`
-  fuerza ambos. Los detalles del segundo destino, en
-  [datos-drive.md](datos-drive.md).
-- `sincronizarConServidor()` corre **después** del primer render: la app pinta
-  con la caché local y luego, si Drive tiene datos, los sustituye y repinta.
+- `saveAll()` vuelca `STATE` a `localStorage`, con debounce de 400 ms
+  (`saveAll(true)` fuerza el volcado inmediato). Es el **único** destino: no hay
+  backend. En la Fase 3 de la migración se le añadirá un envío a Drive.
 - `loadAll()` carga de `localStorage` aplicando migraciones (p. ej. normaliza
   `responsable` `'auxiliar'`/`'propio'` → `'yo'`, y migra `proximaAccion` →
   `seguimiento`).

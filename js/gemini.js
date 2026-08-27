@@ -1,61 +1,66 @@
 /**
  * JuriTask — gemini.js
- * Fachada del cliente sobre `server/Gemini.gs`.
+ * Cliente mínimo de la API de Gemini (Google AI Studio).
  *
- * La llamada a la API y —lo importante— **la clave** viven en el servidor. Una
- * app sin backend no puede ocultar un secreto: antes la key viajaba al
- * navegador y se guardaba junto a los datos. Ahora está en Script Properties y
- * no sale de ahí.
+ * La API key NO vive en el repositorio: se lee de STATE.config.geminiApiKey,
+ * que el usuario pega en Ajustes y se guarda en su Firestore privado.
+ *
+ * IMPORTANTE (seguridad): al ser una app sin backend, la key viaja al
+ * navegador. Restríngela en Google Cloud por referrer (tu dominio) y por API
+ * ("Generative Language API"). Ver docs/gmail-integracion.md.
  */
 
-// Se consulta al servidor una vez y se cachea: `geminiConfigured()` la usan
-// varios flujos y no conviene un viaje de ida y vuelta en cada uno.
-let _geminiConfigurada = null;
+const GEMINI_MODEL = 'gemini-2.0-flash';
 
 function geminiConfigured() {
-  return _geminiConfigurada === true;
+  return !!(STATE && STATE.config && STATE.config.geminiApiKey);
 }
 
-/** Refresca el cache de "¿hay clave?". Se llama al abrir Ajustes. */
-async function refrescarEstadoGemini() {
-  if (typeof BACKEND === 'undefined' || !BACKEND.disponible) { _geminiConfigurada = false; return false; }
-  try {
-    _geminiConfigurada = await srv('hayGeminiKey');
-  } catch (_) {
-    _geminiConfigurada = false;
-  }
-  return _geminiConfigurada;
-}
-
-async function guardarGeminiKey(key) {
-  const res = await srv('guardarGeminiKey', key);
-  _geminiConfigurada = !!(res && res.configurada);
-  return _geminiConfigurada;
-}
-
-/** Devuelve el texto generado, o null si algo falla (ya avisado por toast). */
+// Llama a Gemini y devuelve el texto generado (o null si falla).
 async function geminiGenerate(promptText, { json = false } = {}) {
-  if (typeof BACKEND === 'undefined' || !BACKEND.disponible) {
-    showToast('La IA requiere el servidor (Apps Script).');
-    return null;
-  }
+  const key = STATE.config && STATE.config.geminiApiKey;
+  if (!key) { showToast('Configura tu API key de Gemini en Ajustes.'); return null; }
+
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent?key=${encodeURIComponent(key)}`;
+  const body = {
+    contents: [{ parts: [{ text: promptText }] }],
+    generationConfig: json ? { responseMimeType: 'application/json', temperature: 0.2 } : { temperature: 0.3 },
+  };
+
   try {
-    return await srv('geminiGenerar', promptText, json);
+    const res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(body),
+    });
+    if (!res.ok) {
+      const txt = await res.text().catch(() => '');
+      console.warn('Gemini error', res.status, txt);
+      if (res.status === 400 && /API_?KEY|invalid/i.test(txt)) showToast('La API key de Gemini no es válida o está mal configurada.');
+      else if (res.status === 403)  showToast('Gemini rechazó la clave (revisa las restricciones de referrer/API).');
+      else if (res.status === 429)  showToast('Límite de uso de Gemini alcanzado. Intenta más tarde.');
+      else showToast('Error de Gemini: ' + res.status);
+      return null;
+    }
+    const data = await res.json();
+    const parts = data && data.candidates && data.candidates[0] &&
+                  data.candidates[0].content && data.candidates[0].content.parts;
+    return Array.isArray(parts) ? parts.map(p => p.text || '').join('') : '';
   } catch (e) {
-    showToast(String(e && e.message || e));
+    console.warn('Gemini fetch fail', e);
+    showToast('No se pudo conectar con Gemini.');
     return null;
   }
 }
 
-/** Igual que `geminiGenerate` pero parsea la respuesta como JSON. */
+// Igual que geminiGenerate pero parsea la respuesta como JSON.
 async function geminiGenerateJSON(promptText) {
   const txt = await geminiGenerate(promptText, { json: true });
   if (!txt) return null;
   try {
     return JSON.parse(txt);
   } catch (_) {
-    // Rescate: extraer el primer objeto {...} del texto. Gemini a veces
-    // envuelve el JSON en explicaciones pese a pedirle responseMimeType.
+    // Rescate: extraer el primer objeto {...} del texto.
     const m = txt.match(/\{[\s\S]*\}/);
     if (m) { try { return JSON.parse(m[0]); } catch (__) {} }
     console.warn('Gemini: respuesta no es JSON válido:', txt.slice(0, 300));

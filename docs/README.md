@@ -3,14 +3,12 @@
 JuriTask es una PWA (sin framework, JS modular cargado por `<script>`) para la
 gestión de trámites jurídicos: vencimientos, tareas de seguimiento, reportes y
 agenda diaria. Es de **un solo usuario**: no hay login, ni cuentas, ni equipos.
+Los datos viven en `localStorage`.
 
-> **Migración en curso.** El destino es una *web app de Apps Script*. Con
-> servidor, los datos van a un **JSON de Drive**
-> ([datos-drive.md](datos-drive.md)) y el correo y Gemini salen del servidor
-> ([gmail-integracion.md](gmail-integracion.md)), con un trigger diario que
-> deja los borradores puestos ([borradores-automaticos.md](borradores-automaticos.md)).
-> En un navegador normal la app sigue funcionando con `localStorage`, pero sin
-> correo ni IA.
+> **Migración en curso.** El destino es una *web app de Apps Script*, con los
+> datos en un JSON de Drive y el correo gestionado desde el servidor. Por eso
+> ya no hay Firebase, y el acceso a Gmail/Drive está en pausa: ver
+> [google-auth.md](google-auth.md).
 
 Cada archivo de esta carpeta documenta **un proceso** de la app: para qué
 sirve, qué archivos lo implementan, su modelo de datos y los puntos delicados a
@@ -21,8 +19,6 @@ tener en cuenta al modificarlo.
 | Proceso | Documento | Archivo(s) principal(es) |
 |---|---|---|
 | Estado, almacenamiento e historial | [almacenamiento-estado.md](almacenamiento-estado.md) | `js/storage.js` |
-| Datos en Drive y backups | [datos-drive.md](datos-drive.md) | `server/Datos.gs`, `js/backend.js` |
-| Borradores automáticos | [borradores-automaticos.md](borradores-automaticos.md) | `server/Triggers.gs` |
 | Trámites (CRUD y dominio) | [tramites.md](tramites.md) | `js/tramites.js`, `js/ui.js` |
 | Filtros y búsqueda | [filtros-busqueda.md](filtros-busqueda.md) | `js/filters.js` |
 | Agenda accionable | [agenda.md](agenda.md) | `js/ui.js` |
@@ -36,7 +32,6 @@ tener en cuenta al modificarlo.
 | Navegación entre vistas y config | [navegacion-config.md](navegacion-config.md) | `js/config.js` |
 | PWA / offline | [pwa-offline.md](pwa-offline.md) | `sw.js`, `manifest.json` |
 | Prueba de humo en navegador | [pruebas.md](pruebas.md) | `test/smoke.js` |
-| Build y despliegue en Apps Script | [appsscript.md](appsscript.md) | `tools/build.js`, `test/sandbox.js` |
 | Accesibilidad e iconos | [accesibilidad-iconos.md](accesibilidad-iconos.md) | `js/a11y.js`, `js/icons.js` |
 
 ## Convenciones del dominio

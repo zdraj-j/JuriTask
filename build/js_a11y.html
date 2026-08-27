@@ -1,0 +1,92 @@
+<script>
+/**
+ * JuriTask — a11y.js
+ * Accesibilidad transversal sin tocar cada flujo:
+ *  1. Espejo title → aria-label en botones solo-icono (lectores de pantalla
+ *     no anuncian `title` de forma fiable).
+ *  2. Focus-trap dentro del modal abierto + restauración del foco al cerrar.
+ *
+ * Se apoya en que los modales se muestran/ocultan con la clase `open`.
+ */
+(function () {
+  const OPEN_MODAL_SEL = '.overlay.open, .confirm-overlay.open, .profile-popover.open, .notif-panel.open, #mobSheet.open';
+  const WATCH_SEL = '.overlay, .confirm-overlay, .profile-popover, .notif-panel, #mobSheet';
+  let lastFocused = null;
+
+  // ── 1. title → aria-label en botones solo-icono ──────────────
+  function mirrorTitles(root = document) {
+    root.querySelectorAll('button[title]:not([aria-label])').forEach(btn => {
+      if (btn.textContent.trim() === '') btn.setAttribute('aria-label', btn.getAttribute('title'));
+    });
+  }
+  window.refreshA11yLabels = mirrorTitles;
+
+  // ── 2. Focus management ──────────────────────────────────────
+  function topOpenModal() {
+    const list = [...document.querySelectorAll(OPEN_MODAL_SEL)];
+    return list[list.length - 1] || null;
+  }
+  function focusable(container) {
+    return [...container.querySelectorAll(
+      'a[href], button:not([disabled]), input:not([disabled]), select:not([disabled]), textarea:not([disabled]), [tabindex]:not([tabindex="-1"])'
+    )].filter(el => el.offsetParent !== null);
+  }
+
+  document.addEventListener('keydown', e => {
+    if (e.key !== 'Tab') return;
+    const modal = topOpenModal();
+    if (!modal) return;
+    const f = focusable(modal);
+    if (!f.length) return;
+    const first = f[0], last = f[f.length - 1];
+    if (!modal.contains(document.activeElement)) { e.preventDefault(); first.focus(); }
+    else if (e.shiftKey && document.activeElement === first) { e.preventDefault(); last.focus(); }
+    else if (!e.shiftKey && document.activeElement === last) { e.preventDefault(); first.focus(); }
+  });
+
+  const classObserver = new MutationObserver(muts => {
+    for (const m of muts) {
+      if (m.attributeName !== 'class') continue;
+      const el = m.target;
+      const isOpen  = el.classList.contains('open');
+      const wasOpen = m.oldValue ? /\bopen\b/.test(m.oldValue) : false;
+      if (isOpen && !wasOpen) {
+        lastFocused = document.activeElement;
+        // Si el flujo no movió ya el foco dentro, enfocar el primer elemento útil.
+        setTimeout(() => {
+          if (!el.contains(document.activeElement)) {
+            const f = focusable(el);
+            (f[0] || el).focus?.();
+          }
+        }, 80);
+      } else if (!isOpen && wasOpen) {
+        if (lastFocused && typeof lastFocused.focus === 'function') {
+          try { lastFocused.focus(); } catch (_) {}
+        }
+        lastFocused = null;
+      }
+    }
+  });
+
+  function start() {
+    mirrorTitles();
+    document.querySelectorAll(WATCH_SEL).forEach(el =>
+      classObserver.observe(el, { attributes: true, attributeOldValue: true, attributeFilter: ['class'] })
+    );
+    // Re-aplicar el espejo de labels cuando se inserta HTML dinámico (con debounce).
+    if ('MutationObserver' in window) {
+      let scheduled = false;
+      const addObs = new MutationObserver(() => {
+        if (scheduled) return;
+        scheduled = true;
+        (window.requestAnimationFrame || window.setTimeout)(() => { scheduled = false; mirrorTitles(); });
+      });
+      addObs.observe(document.body, { childList: true, subtree: true });
+    }
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', start);
+  else start();
+})();
+
+</script>

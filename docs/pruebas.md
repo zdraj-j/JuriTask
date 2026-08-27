@@ -8,14 +8,9 @@ renombrada a medias, un botón que desapareció de más, un listener huérfano.
 ```bash
 node test/smoke.js                    # sale 0 si pasa todo, 1 si algo falla
 JT_SHOTS=/tmp node test/smoke.js      # dónde dejar las capturas
-JT_CHROME=/ruta/al/chrome node test/smoke.js   # usar otro binario
 ```
 
-Requiere **Playwright con Chromium** instalado. `JT_CHROME` existe para las
-máquinas que ya traen un Chromium: Playwright exige la build exacta que
-corresponde a su versión y falla con *"Executable doesn't exist"* si no
-coincide; con esa variable se le pasa el binario que haya y deja de importar.
-Vale para las dos pruebas.
+Requiere **Playwright con Chromium** instalado.
 
 ## Cómo arranca la app en la prueba
 
@@ -62,25 +57,6 @@ activo con una tarea pendiente y uno terminado.
 
 Al final imprime un resumen y **falla si hubo cualquier `pageerror` o error de
 consola** que no sea de red.
-
-## La otra prueba: `test/sandbox.js`
-
-Complementaria y con otro objetivo. `smoke.js` comprueba que la app **funciona**;
-`sandbox.js` comprueba que **sobrevive al iframe de Apps Script**. Necesita
-`build/` hecho. Corre tres escenarios:
-
-1. Sandbox **con** `allow-same-origin` — descargas, impresión, popups,
-   portapapeles y `localStorage`.
-2. Sandbox **sin** él — informativo, para ver qué se pierde.
-3. **Con servidor simulado**: inyecta un `google.script.run` de mentira,
-   respaldado en `sessionStorage`, y ejercita todo lo que solo existe con
-   servidor — sembrado inicial, subida tras el debounce, Drive ganando a la
-   caché al recargar, backups, token OAuth, la clave de Gemini quedándose en el
-   servidor, Gmail por el proxy, y el trigger de borradores—. Es la única forma
-   de probar ese camino sin desplegar.
-
-Ver [appsscript.md](appsscript.md#los-riesgos-del-sandbox-medidos) y
-[datos-drive.md](datos-drive.md).
 
 ## Al modificar
 

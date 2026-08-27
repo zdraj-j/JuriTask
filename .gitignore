@@ -1,6 +1,1 @@
-# Generado por tools/build.js
-build/
 node_modules/
-
-# clasp: apunta al proyecto de Apps Script de cada despliegue
-.clasp.json

@@ -1,3 +1,4 @@
+<style>
 /* ====================================================
    JuriTask — Estilos v7  (refinado)
    ==================================================== */
@@ -653,6 +654,7 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
   vertical-align: middle; line-height: 0; opacity: .6; flex-shrink: 0;
   transition: color var(--transition), background var(--transition), opacity var(--transition);
 }
+/* Buscar el trámite en Gmail (reporte del día) */
 .gmail-open-btn {
   background: none; border: none; padding: 2px; margin-left: 2px;
   cursor: pointer; color: var(--text-muted); vertical-align: middle;
@@ -1538,6 +1540,16 @@ body.selection-mode .tramite-card { cursor: pointer; user-select: none; }
 .ti-atts { grid-column: 1 / -1; display: flex; gap: 4px; flex-wrap: wrap; }
 .ti-atts:empty { display: none; }
 
+/* ═══════════════════ BACKUPS ════════════════════ */
+.backup-row {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px; border: 1px solid var(--border-light);
+  border-radius: var(--radius-sm); background: var(--surface-2);
+  margin-bottom: 6px;
+}
+.backup-fecha { font-size: 13px; color: var(--text-primary); flex: 1; }
+.backup-meta  { font-size: 12px; color: var(--text-muted); }
+
 /* ═══════════════════ DASHBOARD ══════════════════ */
 .dash-kpi-grid {
   display: grid;
@@ -1949,3 +1961,5 @@ body.selection-mode .tramite-card { cursor: pointer; user-select: none; }
 @media (max-width: 420px) {
   .rep-filters { grid-template-columns: 1fr; }
 }
+
+</style>

@@ -1,3 +1,4 @@
+<script>
 /**
  * JuriTask — config.js
  * Inicialización, navegación entre vistas, y binding de todos
@@ -109,6 +110,10 @@ function init() {
   setDetailMode(STATE.config.detailMode || 'expand');
   if (isMobile()) closeSidebar();
   renderAll();
+
+  // Con servidor, traer lo de Drive **después** del primer render: la app ya
+  // está pintada con la caché local y no se queda en blanco esperando.
+  if (typeof sincronizarConServidor === 'function') sincronizarConServidor();
 
   setupContainerDrop(document.getElementById('tramiteList'));
 
@@ -355,12 +360,36 @@ function init() {
     showToast(`"${nombre}" añadido.`);
   });
 
-  // ── Config: clave de Gemini ─────────────────────────────
-  document.getElementById('saveGeminiKeyBtn')?.addEventListener('click', () => {
-    const key = document.getElementById('geminiApiKey')?.value.trim() || '';
-    STATE.config.geminiApiKey = key;
+  // Índice de la sesión de Google al abrir Gmail: con varias cuentas abiertas,
+  // /u/0 no es necesariamente la del trabajo.
+  document.getElementById('gmailCuentaIndice')?.addEventListener('change', e => {
+    const n = parseInt(e.target.value, 10);
+    STATE.config.gmailCuentaIndice = Number.isFinite(n) && n >= 0 ? n : 0;
     saveAll();
-    showToast(key ? 'Clave de Gemini guardada.' : 'Clave de Gemini eliminada.');
+  });
+
+  // ── Config: clave de Gemini ─────────────────────────────
+  // La clave va a Script Properties, no a `STATE.config`: así no viaja al
+  // navegador ni acaba dentro del JSON de Drive.
+  document.getElementById('saveGeminiKeyBtn')?.addEventListener('click', async e => {
+    const input = document.getElementById('geminiApiKey');
+    const key = input?.value.trim() || '';
+    if (typeof BACKEND === 'undefined' || !BACKEND.disponible) {
+      showToast('Guardar la clave requiere el servidor (Apps Script).');
+      return;
+    }
+    const btn = e.currentTarget;
+    btn.disabled = true;
+    try {
+      const configurada = await guardarGeminiKey(key);
+      if (input) input.value = '';          // no dejarla a la vista
+      _syncGeminiEstado(configurada);
+      showToast(configurada ? 'Clave de Gemini guardada en el servidor.' : 'Clave de Gemini eliminada.');
+    } catch (err) {
+      showToast('No se pudo guardar la clave: ' + err.message);
+    } finally {
+      btn.disabled = false;
+    }
   });
   // Vigilancia de correos enviados (bitácora)
   document.getElementById('bitacoraAutoToggle')?.addEventListener('change', e => {
@@ -373,18 +402,13 @@ function init() {
   const _saveBitacoraNums = () => {
     const min  = parseInt(document.getElementById('bitacoraIntervalo')?.value);
     const dias = parseInt(document.getElementById('bitacoraDias')?.value);
-    const cta  = parseInt(document.getElementById('gmailCuentaIndice')?.value);
     if (!isNaN(min)  && min  >= 3 && min  <= 120) STATE.config.bitacoraIntervalo = min;
     if (!isNaN(dias) && dias >= 1 && dias <= 30)  STATE.config.bitacoraDias      = dias;
-    // Índice de sesión de Google: /mail/u/N. Con varias cuentas abiertas, u/0 no
-    // es necesariamente la del trabajo.
-    if (!isNaN(cta)  && cta  >= 0 && cta  <= 9)   STATE.config.gmailCuentaIndice = cta;
     saveAll();
     if (STATE.config.bitacoraAuto !== false) startBitacoraWatcher();
   };
   document.getElementById('bitacoraIntervalo')?.addEventListener('change', _saveBitacoraNums);
   document.getElementById('bitacoraDias')?.addEventListener('change', _saveBitacoraNums);
-  document.getElementById('gmailCuentaIndice')?.addEventListener('change', _saveBitacoraNums);
 
   document.getElementById('resetDescartadosBtn')?.addEventListener('click', async () => {
     const n = (STATE.config.gmailDescartados || []).length;
@@ -446,12 +470,35 @@ function init() {
   document.getElementById('clearAllBtn').addEventListener('click', () => {
     if (!confirm('¿Borrar TODOS los datos? Esta acción no se puede deshacer.')) return;
     if (!confirm('¿Estás seguro? Se perderán todos los trámites.')) return;
-    Object.values(KEYS).forEach(k => localStorage.removeItem(k));
+    try { Object.values(KEYS).forEach(k => localStorage.removeItem(k)); } catch (_) {}
     STATE.tramites = []; STATE.order = [];
     STATE.config = { ...DEFAULT_CONFIG, abogados: DEFAULT_CONFIG.abogados.map(a=>({...a})), modulos: [...DEFAULT_CONFIG.modulos] };
     applyCssColors(); applyTheme('claro'); populateModuloSelects(); updateAbogadoSelects();
     document.getElementById('sortSelect').value = 'vencimiento';
     renderConfig(); renderAll(); showToast('Datos borrados.');
+  });
+
+  // ── Borradores automáticos ───────────────────────────────
+  document.getElementById('triggerToggle')?.addEventListener('change', aplicarTrigger);
+  document.getElementById('triggerHora')?.addEventListener('change', () => {
+    if (document.getElementById('triggerToggle')?.checked) aplicarTrigger();
+  });
+  document.getElementById('borradoresIAToggle')?.addEventListener('change', e => {
+    STATE.config.borradoresConIA = e.target.checked;
+    saveAll(true);   // el servidor lo lee de Drive: hay que subirlo ya
+    showToast(e.target.checked
+      ? 'La IA adaptará los borradores. El contenido del correo saldrá hacia Gemini.'
+      : 'Los borradores usarán las plantillas tal cual.');
+  });
+  document.getElementById('triggerProbarBtn')?.addEventListener('click', e => probarTriggerAhora(e.currentTarget));
+
+  // ── Backups en Drive ─────────────────────────────────────
+  document.getElementById('backupNowBtn')?.addEventListener('click', e => crearBackupAhora(e.currentTarget));
+  document.getElementById('backupList')?.addEventListener('click', e => {
+    const r = e.target.closest('[data-restaurar]');
+    if (r) { restaurarBackup(r.dataset.restaurar); return; }
+    const b = e.target.closest('[data-borrar]');
+    if (b) borrarBackupPorId(b.dataset.borrar);
   });
 
   // ── Panel ────────────────────────────────────────────────
@@ -589,3 +636,5 @@ document.addEventListener('click', e => {
   if (fn && typeof window[fn] === 'function') window[fn]();
   else overlay.classList.remove('open');
 });
+
+</script>
