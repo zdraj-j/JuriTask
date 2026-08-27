@@ -109,7 +109,7 @@ function undo() {
 }
 
 // ============================================================
-// PERSISTENCIA — localStorage
+// PERSISTENCIA — localStorage (caché) + Firestore (fuente de verdad)
 // ============================================================
 const KEYS = {
   tramites: 'juritask_tramites',
@@ -118,11 +118,18 @@ const KEYS = {
 };
 
 /**
- * saveAll con debounce de 400ms para evitar re-escrituras excesivas.
+ * saveAll con debounce de 400 ms para evitar re-escrituras excesivas.
  * Las escrituras inline (blur, checkboxes) pasan por aquí.
+ *
+ * Las dos capas van a ritmos distintos a propósito: localStorage es inmediato y
+ * barato, así que absorbe las ráfagas de tecleo; Firestore espera más
+ * (`sincronizarConFirestore`, 1,2 s) porque cada subida es una operación de red
+ * que se cobra. Este es **el único punto** desde el que se sincroniza: mientras
+ * cualquier cambio en STATE acabe llamando a saveAll, acaba en la nube.
  */
 let _saveTimer = null;
 function saveAll(immediate = false) {
+  if (typeof sincronizarConFirestore === 'function') sincronizarConFirestore();
   if (immediate) {
     _flushSave();
   } else {
@@ -134,7 +141,17 @@ function saveAll(immediate = false) {
 // Asegurar guardado en localStorage antes de que la página se descargue
 window.addEventListener('beforeunload', () => _flushSave());
 
+/**
+ * Corta la escritura en local de forma definitiva. Lo usa el cierre de sesión:
+ * sin esto, vaciar `localStorage` no sirve de nada, porque el `beforeunload` de
+ * la recarga vuelve a volcar STATE encima —incluida la clave de Gemini, que
+ * vive en `config`— y los datos se quedan en el equipo.
+ */
+let _guardadoPausado = false;
+function pausarGuardadoLocal() { _guardadoPausado = true; }
+
 function _flushSave() {
+  if (_guardadoPausado) return;
   try {
     localStorage.setItem(KEYS.tramites, JSON.stringify(STATE.tramites));
     localStorage.setItem(KEYS.order,    JSON.stringify(STATE.order));

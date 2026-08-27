@@ -17,19 +17,35 @@ const SHOT = process.env.JT_SHOTS || require('os').tmpdir();
 const MIME = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css',
                '.json':'application/json', '.png':'image/png', '.svg':'image/svg+xml' };
 
-// Ya no hay módulos que exijan un backend: la app entera arranca en local.
-const DROP = [];
+// Módulos que exigen red y sesión: sin el SDK de Firebase no hacen nada útil,
+// y la prueba no va a autenticarse contra Google de verdad.
+const DROP = ['js/firebase.js', 'js/auth.js'];
+
+// Con esos módulos fuera, nadie llama a `init()` —el arranque cuelga de la
+// sesión— así que la prueba entra por donde entraría `mostrarApp()`.
+const ARRANQUE = `<script>
+window.addEventListener('DOMContentLoaded', () => {
+  document.getElementById('splashScreen')?.remove();
+  document.getElementById('authScreen')?.remove();
+  document.getElementById('appContainer').style.display = '';
+  loadAll();
+  init();
+});
+</script>`;
 
 function localIndex() {
   let html = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
   html = html.replace(/<script src="https:\/\/[^"]*"><\/script>\s*/g, '');
   for (const f of DROP) html = html.replace(new RegExp(`<script src="${f}"></script>\\s*`), '');
-  // El service worker se registra y dispara location.reload() en
+  // El service worker se registra y dispara `location.reload()` en
   // `controllerchange`, recargando a mitad de prueba. Fuera.
-  html = html.replace(/<!-- 10\. PWA: registrar service worker -->[\s\S]*?<\/script>/, '');
+  // El regex no mira el número del comentario: al renumerar las secciones
+  // dejaba de coincidir en silencio y el SW volvía sin que nadie se enterara.
+  html = html.replace(/<!--[^>]*PWA: registrar service worker[^>]*-->[\s\S]*?<\/script>/, '');
   // Sin CDN, `icons.js` necesita un lucide de mentira.
-  return html.replace('<script src="js/storage.js"></script>',
+  html = html.replace('<script src="js/storage.js"></script>',
     '<script>window.lucide={createIcons(){}};</script>\n<script src="js/storage.js"></script>');
+  return html.replace('</body>', `${ARRANQUE}\n</body>`);
 }
 
 const server = http.createServer((req, res) => {
@@ -95,17 +111,24 @@ const ok = (c) => c ? 'PASA' : 'FALLA';
   const cards = await page.$$eval('#tramiteList .tramite-card', e => e.length);
   out.push(['P1 la app renderiza tarjetas', cards === 1, `activas=${cards}`]);
 
-  // ── Amputación: no queda rastro de sesión ni de equipos ─
-  const authLeftovers = await page.evaluate(() => [
-    'authScreen','waitScreen','splashScreen','notifPanel','notifBtn','userAvatarBtn',
-    'profileOverlay','editProfileOverlay','logoutBtn','backupList','filterScope','repScope',
+  // ── Amputación: vuelve la sesión, no vuelven los equipos ─
+  // El login está de vuelta, pero solo el propio: nada de perfiles ajenos,
+  // notificaciones, ámbitos compartidos ni pantallas de aprobación.
+  const multiusuario = await page.evaluate(() => [
+    'waitScreen','notifPanel','notifBtn','userAvatarBtn','profileOverlay',
+    'editProfileOverlay','filterScope','repScope','backupList','inviteOverlay',
   ].filter(id => document.getElementById(id)));
-  out.push(['AMP sin UI de sesión ni backups', authLeftovers.length === 0,
-            authLeftovers.length ? authLeftovers.join(', ') : 'ninguno']);
-  const globals = await page.evaluate(() =>
-    ['firebase','AUTH','db','auth'].filter(g => g in window));
-  out.push(['AMP sin globals de Firebase', globals.length === 0,
-            globals.length ? globals.join(', ') : 'ninguno']);
+  out.push(['AMP sin UI multiusuario', multiusuario.length === 0,
+            multiusuario.length ? multiusuario.join(', ') : 'ninguno']);
+
+  // La sesión se comprueba sobre el index.html real: en la prueba los módulos
+  // de Firebase se retiran (necesitan red), así que mirar `window` no diría nada.
+  const indexReal = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
+  const piezas = ['id="authScreen"', 'id="btnGoogleLogin"', 'id="btnLogout"',
+                  'firebase-app-compat', 'js/firebase.js', 'js/auth.js'];
+  const faltan = piezas.filter(p => !indexReal.includes(p));
+  out.push(['SESIÓN acceso con Google declarado', faltan.length === 0,
+            faltan.length ? `faltan: ${faltan.join(', ')}` : `${piezas.length} piezas`]);
 
   // ── Crear un trámite (saveTramite cambió bastante) ──────
   await page.click('#newTramiteBtn');

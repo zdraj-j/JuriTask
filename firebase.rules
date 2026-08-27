@@ -1,0 +1,27 @@
+rules_version = '2';
+
+// JuriTask — reglas de Firestore
+//
+// La app es de un solo usuario: cada cuenta solo ve y escribe lo suyo, y no
+// existe ninguna ruta que permita leer los datos de otra. La versión anterior
+// tenía además un índice de usuarios, invitaciones y trámites compartidos entre
+// cuentas; nada de eso queda, así que las reglas se reducen a una condición.
+//
+// Se despliegan con `firebase deploy --only firestore:rules`, o pegándolas en
+// la consola: Firestore Database → Reglas.
+
+service cloud.firestore {
+  match /databases/{database}/documents {
+
+    // users/{uid}/tramites/{id}, users/{uid}/meta/{doc}
+    match /users/{uid}/{documento=**} {
+      allow read, write: if request.auth != null && request.auth.uid == uid;
+    }
+
+    // Todo lo demás queda cerrado. Sin esto, cualquier colección nueva creada
+    // por error nacería sin protección.
+    match /{documento=**} {
+      allow read, write: if false;
+    }
+  }
+}

@@ -89,8 +89,12 @@ function switchView(view) {
 // ============================================================
 // INIT
 // ============================================================
+/**
+ * Arranca la app. **No lo llama `DOMContentLoaded`**: lo llama `mostrarApp()`
+ * cuando hay sesión (ver auth.js). Para entonces STATE ya viene cargado desde
+ * Firestore, así que aquí no se vuelve a leer nada.
+ */
 function init() {
-  loadAll();
   purgeExpiredFinished();
 
   applyCssColors();
@@ -477,7 +481,8 @@ function init() {
   });
 }
 
-document.addEventListener('DOMContentLoaded', init);
+// El arranque lo dispara la sesión, no la carga del documento: hasta que
+// Firebase no diga quién eres no hay datos que pintar. Ver js/auth.js.
 
 // ────────────────────────────────────────────────────────────
 // REPORTE — acciones compartidas por el modal y el panel lateral (dock)
