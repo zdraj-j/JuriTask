@@ -67,6 +67,27 @@ la siguiente pasada reenviara todo, compitiendo con el reintento del SDK.
 Si es la **lectura** inicial la que falla, la app arranca igual con la caché
 local y avisa. Mejor datos de hace un rato que una pantalla en blanco.
 
+## Las reglas
+
+`firebase.rules` cubre exactamente las tres rutas de arriba y cierra todo lo
+demás, incluido el propio documento `users/{uid}` —que guardaba el perfil de la
+etapa multiusuario— y las colecciones `teams`, `invitations`, `meta/userIndex`,
+`notifications` y `backups`.
+
+Dos decisiones que conviene no deshacer sin pensarlo:
+
+- **Rutas explícitas, no `{doc=**}`.** El comodín recursivo tiene matices de
+  coincidencia entre versiones de reglas, y una regla de seguridad no es sitio
+  para depender de ellos.
+- **`duenos()`, la lista de UID autorizados.** Vacía deja entrar a cualquier
+  cuenta de Google. Eso *no* expone datos —cada cuenta solo alcanza su propio
+  árbol— pero permite que un desconocido que dé con la dirección se registre y
+  gaste tu cuota. Rellenarla es la única defensa contra eso, ahora que no hay
+  un administrador que apruebe cuentas.
+
+Cambiar las reglas **no borra nada**. Los datos de la etapa multiusuario siguen
+en Firestore, simplemente inalcanzables.
+
 ## Al modificar
 
 - Cualquier código que toque `STATE` debe llamar a `saveAll()`. Es la única

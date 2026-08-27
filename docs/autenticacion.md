@@ -46,6 +46,30 @@ arranque en una cuenta nueva).
 llame de forma síncrona rompe ese orden y falla donde la app real no falla; hay
 un comentario al respecto en `test/firestore.js`.
 
+## Solo Google, y por qué eso puede cambiarte el UID
+
+La versión anterior admitía **correo y contraseña** además de Google. Ahora solo
+Google, y eso tiene una consecuencia que no se ve venir.
+
+Firebase, por omisión, no deja dos cuentas con el mismo correo. Si la cuenta
+original se creó con contraseña, entrar con Google **sería otra cuenta**, así
+que Firebase corta con `auth/account-exists-with-different-credential`.
+`auth.js` lo traduce a un mensaje concreto, porque el error genérico es
+indistinguible de un fallo de red.
+
+Y si en vez de cortar hubiera dejado entrar, el problema sería peor: **UID
+distinto ⇒ árbol de datos distinto**. La app arrancaría vacía y parecería que
+se perdió todo, cuando en realidad los trámites siguen en
+`users/{uidViejo}/tramites`.
+
+Salidas, por orden de preferencia:
+
+1. Consola de Firebase → Authentication → la cuenta → vincular el proveedor
+   Google. Conserva el UID y los datos.
+2. Exportar el JSON desde la app vieja e importarlo en la nueva.
+
+Si siempre entraste con Google, nada de esto aplica: mismo UID de siempre.
+
 ## Cerrar sesión
 
 Vacía `localStorage` antes de recargar, porque en un equipo compartido los
