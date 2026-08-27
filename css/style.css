@@ -849,9 +849,13 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
    eliminar) comparten la misma caja. Sin esta regla `.act-attach-btn` no
    tenía estilo propio y se quedaba con el aspecto nativo del <button>
    —fondo gris y borde biselado—, así que la fila se veía como botones
-   sueltos de distinto tamaño junto a la X, que sí iba sin caja. */
+   sueltos de distinto tamaño junto a la X, que sí iba sin caja.
+   Los mismos iconos salen en dos sitios: el detalle del trámite (.act-*) y
+   las tareas iniciales del modal de nuevo trámite (.ti-*). Comparten estilo
+   para que se lean igual en ambos. */
 .act-attach-btn,
-.actividad-delete {
+.actividad-delete,
+.ti-urg, .ti-drive, .ti-link, .ti-del {
   display: inline-flex; align-items: center; justify-content: center;
   width: 24px; height: 24px; padding: 0; flex-shrink: 0;
   background: none; border: 1px solid transparent; border-radius: var(--radius-xs);
@@ -859,9 +863,12 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
   transition: color var(--transition), background var(--transition), border-color var(--transition);
 }
 .act-attach-btn:hover,
-.actividad-delete:hover { background: var(--surface-3); color: var(--text-secondary); }
+.actividad-delete:hover,
+.ti-urg:hover, .ti-drive:hover, .ti-link:hover, .ti-del:hover { background: var(--surface-3); color: var(--text-secondary); }
 .act-attach-btn:focus-visible,
-.actividad-delete:focus-visible { outline: none; border-color: var(--accent); color: var(--accent); }
+.actividad-delete:focus-visible,
+.ti-urg:focus-visible, .ti-drive:focus-visible,
+.ti-link:focus-visible, .ti-del:focus-visible { outline: none; border-color: var(--accent); color: var(--accent); }
 .act-attach-btn:disabled { opacity: .35; cursor: not-allowed; }
 .act-attach-btn:disabled:hover { background: none; color: var(--text-muted); }
 /* El icono (svg de Lucide, solo trazos) no captura clics: así todo el botón es
@@ -869,16 +876,36 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
    mousedown y mouseup sobre distintos trazos (síntoma: el botón de eliminar
    tarea "no funcionaba" en escritorio, pero sí en móvil con toque). */
 .actividad-delete > *,
-.act-attach-btn > * { pointer-events: none; }
+.act-attach-btn > *,
+.ti-urg > *, .ti-drive > *, .ti-link > *, .ti-del > * { pointer-events: none; }
 /* Cada acción toma en hover el color de su significado. */
 .act-borrador-btn:hover,
 .act-drive-btn:not(:disabled):hover,
-.act-link-btn:not(:disabled):hover { background: var(--accent-light); color: var(--accent); }
-.act-urg-btn:hover { background: var(--warning-light); color: var(--warning); }
-.act-urg-btn.active { background: var(--warning-light); color: var(--warning); }
-.actividad-delete { margin-left: 2px; }
-.actividad-delete:hover { background: var(--danger-light); color: var(--danger); }
+.act-link-btn:not(:disabled):hover,
+.ti-drive:hover, .ti-link:hover { background: var(--accent-light); color: var(--accent); }
+.act-urg-btn:hover, .ti-urg:hover { background: var(--warning-light); color: var(--warning); }
+.act-urg-btn.active, .ti-urg.active { background: var(--warning-light); color: var(--warning); }
+.actividad-delete, .ti-del { margin-left: 2px; }
+.actividad-delete:hover, .ti-del:hover { background: var(--danger-light); color: var(--danger); }
 .actividad-item.act-urgente { background: var(--danger-light); border-radius: var(--radius-sm); margin: 0 -4px; padding: 8px 4px; }
+
+/* Adjuntos de una tarea o del trámite: chips de solo icono. Tampoco tenían
+   estilo, así que salían como enlaces sueltos pegados unos a otros. */
+.act-attachments-row, .modal-attachments-list {
+  display: flex; flex-wrap: wrap; gap: 6px;
+}
+.act-attachments-row:empty, .modal-attachments-list:empty { display: none; }
+.act-attachments-row { margin-top: 6px; }
+.modal-attachments-list { margin-top: 12px; }
+.task-att-btn {
+  display: inline-flex; align-items: center; justify-content: center;
+  width: 26px; height: 26px; flex-shrink: 0;
+  border: 1px solid var(--border); border-radius: var(--radius-xs);
+  background: var(--surface-2); color: var(--text-secondary);
+  text-decoration: none; transition: all var(--transition);
+}
+.task-att-btn:hover { border-color: var(--accent); background: var(--accent-light); }
+.task-att-btn svg { width: 15px; height: 15px; display: block; }
 
 .nueva-tarea-toggle { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; }
 .btn-nueva-tarea {
@@ -1066,6 +1093,43 @@ svg.lucide { width: 1em; height: 1em; vertical-align: -0.125em; flex-shrink: 0; 
 .modal-footer .btn,
 .modal-footer .btn-primary {
   padding: 8px 18px; font-size: 13px; border-radius: 20px;
+}
+
+/* Fila de acciones del modal de trámite: Adjuntar / Tarea / Nota / Enlace /
+   Plantilla. Sin estas reglas los <button> se quedaban con el chrome nativo
+   del navegador —fondo gris, borde biselado y la tipografía del sistema— con
+   el icono pegado a la etiqueta. */
+.modal-action-row {
+  display: flex; flex-wrap: wrap; gap: 8px;
+  margin-top: 18px; padding-top: 14px;
+  border-top: 1px solid var(--border-light);
+}
+.modal-action-btn {
+  display: inline-flex; align-items: center; gap: 6px;
+  padding: 7px 13px; border: 1px solid var(--border); border-radius: 20px;
+  background: var(--surface-2); font-family: var(--font);
+  font-size: 12px; font-weight: 500; color: var(--text-secondary);
+  cursor: pointer; white-space: nowrap; transition: all var(--transition);
+}
+.modal-action-btn:hover { background: var(--accent-light); border-color: var(--accent); color: var(--accent); }
+.modal-action-btn:focus-visible { outline: none; border-color: var(--accent); box-shadow: 0 0 0 3px var(--accent-light); }
+/* El icono no captura clics (mismo motivo que en .actividad-delete). */
+.modal-action-btn > * { pointer-events: none; }
+.modal-action-btn svg { width: 15px; height: 15px; flex-shrink: 0; }
+
+/* La nota inicial vive fuera de un .form-group, así que necesita su propio
+   estilo: sin él era un <textarea> nativo, monoespaciado y estrecho. */
+.modal-nota-field { margin-top: 12px; }
+.modal-nota-field textarea {
+  width: 100%; padding: 9px 12px; border: 1px solid var(--border);
+  border-radius: var(--radius-sm); background: var(--surface-2);
+  font-family: var(--font); font-size: 13px; color: var(--text-primary);
+  outline: none; resize: vertical; min-height: 62px;
+  transition: border-color var(--transition), box-shadow var(--transition);
+}
+.modal-nota-field textarea:focus {
+  border-color: var(--accent); background: var(--surface);
+  box-shadow: 0 0 0 3px var(--accent-light);
 }
 
 /* ═══════════════════ TOGGLE GROUP ══════════════ */
@@ -1510,6 +1574,7 @@ body.selection-mode .tramite-card { cursor: pointer; user-select: none; }
 .modal-subsection-header { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .modal-subsection-header h4 { font-size: 11px; font-weight: 700; color: var(--text-muted); text-transform: uppercase; letter-spacing: .6px; }
 .tareas-iniciales-list { display: flex; flex-direction: column; gap: 8px; }
+.tareas-iniciales-list:not(:empty) { margin-top: 12px; }
 .tareas-empty-hint { font-size: 13px; color: var(--text-muted); font-style: italic; }
 .tarea-inicial-row {
   display: grid; grid-template-columns: 1fr 110px auto auto;
@@ -1518,19 +1583,19 @@ body.selection-mode .tramite-card { cursor: pointer; user-select: none; }
   padding: 8px 10px; border: 1px solid var(--border-light);
   margin-bottom: 4px;
 }
-.tarea-inicial-row input { border: none; background: none; font-size: 12px; color: var(--text-primary); padding: 2px 4px; }
-.tarea-inicial-row input:focus { outline: none; }
-.ti-actions-right {
-  display: inline-flex; align-items: center; gap: 2px;
+.tarea-inicial-row input {
+  border: none; background: none; font-family: var(--font);
+  font-size: 12px; color: var(--text-primary); padding: 2px 4px; min-width: 0;
 }
-.ti-drive, .ti-link { background: none; border: none; cursor: pointer; opacity: .4; transition: opacity var(--transition); display: inline-flex; padding: 2px; }
-.ti-drive:hover, .ti-link:hover { opacity: 1; }
-.ti-urg { background: none; border: none; cursor: pointer; opacity: .3; display: inline-flex; padding: 2px; transition: all var(--transition); }
-.ti-urg:hover { opacity: .7; }
-.ti-urg.active { opacity: 1; color: var(--warning); }
-.ti-del { background: none; border: none; cursor: pointer; color: var(--danger); font-size: 12px; opacity: .5; transition: opacity var(--transition); }
-.ti-del:hover { opacity: 1; }
-.ti-del > * { pointer-events: none; }
+.tarea-inicial-row input:focus { outline: none; }
+/* La fecha, en monoespaciada y apagada, igual que en el detalle del trámite. */
+.tarea-inicial-row input[type="date"] { font-family: var(--mono); font-size: 11px; color: var(--text-muted); cursor: pointer; }
+.tarea-inicial-row input[type="date"]:hover { color: var(--accent); }
+.ti-actions-right {
+  display: inline-flex; align-items: center; gap: 1px;
+}
+/* La caja y los colores de .ti-urg / .ti-drive / .ti-link / .ti-del salen de
+   la sección SEGUIMIENTO, compartidos con los botones del detalle. */
 
 /* Multi-select dropdown */
 .multi-select-wrap, .ti-resp-wrap { position: relative; }
@@ -1557,7 +1622,7 @@ body.selection-mode .tramite-card { cursor: pointer; user-select: none; }
 .ms-opt:hover { background: var(--surface-2); }
 .ms-opt input { width: 14px; height: 14px; margin: 0; accent-color: var(--accent); }
 .ms-opt span { white-space: nowrap; }
-.ti-atts { grid-column: 1 / -1; display: flex; gap: 4px; flex-wrap: wrap; }
+.ti-atts { grid-column: 1 / -1; display: flex; gap: 6px; flex-wrap: wrap; margin-top: 2px; }
 .ti-atts:empty { display: none; }
 
 /* ═══════════════════ DASHBOARD ══════════════════ */
@@ -1653,7 +1718,8 @@ body.selection-mode .tramite-card { cursor: pointer; user-select: none; }
   .card-body { padding: 10px 12px; }
   .check-label-text { display: none; }
   /* Zona de toque mayor para las acciones de cada tarea. */
-  .act-attach-btn, .actividad-delete { width: 30px; height: 30px; }
+  .act-attach-btn, .actividad-delete,
+  .ti-urg, .ti-drive, .ti-link, .ti-del { width: 30px; height: 30px; }
   .config-card { padding: 16px; }
   .theme-grid { grid-template-columns: repeat(2, 1fr); }
   .tipo-toggle-row { flex-direction: column; }
