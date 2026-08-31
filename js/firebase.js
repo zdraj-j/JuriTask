@@ -98,6 +98,16 @@ function _guardarToken(result) {
 function _userRef()     { return db.collection('users').doc(AUTH.uid); }
 function _tramitesRef() { return _userRef().collection('tramites'); }
 
+/**
+ * El documento de un trámite. **Nunca** `doc(t.id)` a pelo: con `t.id` vacío o
+ * indefinido el SDK genera un id nuevo en cada llamada, y cada guardado
+ * dejaría otra copia del mismo trámite en la nube (ver `js/storage.js`).
+ */
+function _docTramite(t) {
+  if (!tieneIdTramite(t)) t.id = genId();
+  return _tramitesRef().doc(t.id);
+}
+
 // ============================================================
 // CARGA INICIAL
 // ============================================================
@@ -114,8 +124,13 @@ async function cargarDeFirestore() {
     _userRef().collection('meta').doc('order').get(),
   ]);
 
-  const tramites = [];
-  snapT.forEach(d => tramites.push(d.data()));
+  const documentos = [];
+  snapT.forEach(d => {
+    const data = d.data();
+    if (data && typeof data === 'object') documentos.push({ docId: d.id, data });
+  });
+
+  const { tramites, sobrantes, recolocados } = _reconciliarTramites(documentos);
 
   // Primer arranque con datos solo en local: se sube lo que haya en vez de
   // borrarlo. Pasa al estrenar equipo o tras limpiar el proyecto.
@@ -127,7 +142,7 @@ async function cargarDeFirestore() {
   STATE.tramites = tramites;
   STATE.tramites.forEach(migrateTramite);
 
-  if (docOrd.exists) STATE.order = docOrd.data().order || [];
+  if (docOrd.exists) STATE.order = dedupeOrder(docOrd.data().order);
   if (docCfg.exists) {
     STATE.config = Object.assign(
       { ...DEFAULT_CONFIG,
@@ -138,7 +153,93 @@ async function cargarDeFirestore() {
   }
 
   _sellarEstado();
+  // Los trámites que hay que reubicar no se sellan: así el comparador los ve
+  // como cambiados y los escribe en el documento que les toca.
+  recolocados.forEach(id => _sello.delete(id));
   _flushSave();          // deja la caché local al día
+
+  if (sobrantes.length) {
+    _borrarDocumentosSobrantes(sobrantes);
+    showToast(`Se limpiaron ${sobrantes.length} copia(s) duplicada(s) de la nube.`);
+  }
+  if (recolocados.length) sincronizarConFirestore();
+}
+
+/**
+ * Un trámite, un documento: `users/{uid}/tramites/{id}`. Si la nube trae varios
+ * documentos del mismo trámite, la lista sale con el trámite repetido —el fallo
+ * que aparecía al abrir la app por la mañana—.
+ *
+ * Aquí se decide cuál es el bueno y qué documentos sobran:
+ *
+ * - Gana el documento **canónico**, el que se llama como el trámite que
+ *   contiene. Entre copias sueltas gana la más completa, que es la más
+ *   reciente (ver `pesoTramite`).
+ * - Un documento **sin `id`** adopta el del propio documento, que sí es único,
+ *   y se marca para reescribirlo con el campo puesto.
+ * - Un documento cuyo `id` **no coincide** con su nombre se reescribe en el
+ *   suyo y el viejo se borra.
+ *
+ * Devuelve los trámites que se quedan, los documentos a borrar y los ids que
+ * hay que volver a subir.
+ */
+function _reconciliarTramites(documentos) {
+  // Ante una copia siempre gana el original: los canónicos se miran primero, y
+  // entre los sueltos manda el que más contenido acumula.
+  const ordenados = [...documentos].sort((a, b) => {
+    const ca = a.data.id === a.docId ? 1 : 0;
+    const cb = b.data.id === b.docId ? 1 : 0;
+    if (ca !== cb) return cb - ca;
+    if (ca) return 0;                                   // orden de llegada
+    return pesoTramite(b.data) - pesoTramite(a.data);
+  });
+
+  const tramites    = [];
+  const sobrantes   = [];
+  const recolocados = [];
+  const vistosId    = new Set();
+  const vistosNum   = new Set();
+
+  for (const { docId, data } of ordenados) {
+    const id  = tieneIdTramite(data) ? data.id : '';
+    const num = String(data.numero ?? '');
+
+    if (id && vistosId.has(id))           { sobrantes.push(docId); continue; }
+    if (!id && num && vistosNum.has(num)) { sobrantes.push(docId); continue; }
+
+    if (!id) {
+      data.id = docId;
+      recolocados.push(data.id);        // le falta el campo `id`: hay que grabarlo
+    } else if (id !== docId) {
+      recolocados.push(id);
+      sobrantes.push(docId);
+    }
+
+    vistosId.add(data.id);
+    if (num) vistosNum.add(num);
+    tramites.push(data);
+  }
+
+  // Un documento que sobra puede ser, a la vez, la casa que le toca a otro
+  // trámite (cadenas de ids cruzados). Esos no se borran: se reescriben.
+  return { tramites, recolocados, sobrantes: sobrantes.filter(docId => !vistosId.has(docId)) };
+}
+
+/**
+ * Borra los documentos que sobran. Sin `await` desde la carga: es limpieza, no
+ * puede retrasar el arranque de la app ni tumbarlo si falla.
+ */
+async function _borrarDocumentosSobrantes(docIds) {
+  try {
+    for (let i = 0; i < docIds.length; i += 400) {   // el tope del lote es 500
+      const lote = db.batch();
+      docIds.slice(i, i + 400).forEach(id => lote.delete(_tramitesRef().doc(id)));
+      await lote.commit();
+    }
+    console.info(`Limpieza: ${docIds.length} documento(s) duplicado(s) borrados de Firestore.`);
+  } catch (e) {
+    console.warn('No se pudieron borrar los documentos duplicados:', e);
+  }
 }
 
 /** Sube el estado entero. Solo en el primer arranque y al importar un JSON. */
@@ -150,7 +251,7 @@ async function subirTodoAFirestore() {
 
   for (const trozo of trozos) {
     const lote = db.batch();
-    trozo.forEach(t => lote.set(_tramitesRef().doc(t.id), t));
+    trozo.forEach(t => lote.set(_docTramite(t), t));
     await lote.commit();
   }
   await _userRef().collection('meta').doc('order').set({ order: STATE.order || [] });
@@ -195,10 +296,11 @@ async function _subirCambios() {
 
     const vivos = new Set();
     for (const t of STATE.tramites) {
+      const ref = _docTramite(t);   // asigna id si falta: nunca un documento suelto
       vivos.add(t.id);
       const json = JSON.stringify(t);
       if (_sello.get(t.id) === json) continue;
-      lote.set(_tramitesRef().doc(t.id), t);
+      lote.set(ref, t);
       _sello.set(t.id, json);
       n++;
     }

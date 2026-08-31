@@ -376,8 +376,10 @@ function importData(file) {
   reader.onload = e => {
     try {
       const data = JSON.parse(e.target.result);
-      if (data.tramites) STATE.tramites = data.tramites;
-      if (data.order)    STATE.order    = data.order;
+      // El JSON puede venir de una exportación hecha con la lista duplicada, o
+      // de trámites antiguos sin `id`: se limpia antes de que entre a STATE.
+      if (data.tramites) STATE.tramites = dedupeTramites(data.tramites);
+      if (data.order)    STATE.order    = dedupeOrder(data.order);
       if (data.config) {
         STATE.config = Object.assign(
           { ...DEFAULT_CONFIG, abogados: DEFAULT_CONFIG.abogados.map(a=>({...a})), modulos: [...DEFAULT_CONFIG.modulos] },

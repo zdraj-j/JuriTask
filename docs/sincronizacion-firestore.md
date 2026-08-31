@@ -21,6 +21,11 @@ users/{uid}/meta/order        { order: [...] }
 Un documento por trámite, y no uno solo con todo, por el tope de **1 MB por
 documento** de Firestore: con suficientes trámites y adjuntos se alcanza.
 
+El documento **se llama como el trámite**: `doc(t.id)`. Esa correspondencia es
+la que garantiza que un trámite no pueda estar dos veces en la nube, y por eso
+`js/firebase.js` nunca escribe con `doc(t.id)` a pelo, sino con `_docTramite(t)`
+—ver [El `id` no es opcional](#el-id-no-es-opcional)—.
+
 `localStorage` sigue escribiéndose, pero ya no es la fuente de verdad: es una
 **caché**. Al arrancar se lee primero para que la app pinte algo de inmediato,
 y acto seguido la nube la reemplaza.
@@ -57,6 +62,40 @@ desapareció se borra, porque eso es exactamente lo que ve el comparador—.
 Un cierre de pestaña no espera al debounce: hay un `beforeunload` que fuerza la
 subida pendiente.
 
+## El `id` no es opcional
+
+Un trámite sin `id` hacía que la lista amaneciera con **el mismo trámite
+repetido cientos de veces**. Merece la pena entender la cadena, porque el fallo
+era silencioso de principio a fin:
+
+1. `_tramitesRef().doc(t.id)` con `t.id` indefinido **no da error**: el SDK
+   entiende que no le has dicho dónde guardar y **genera un id nuevo**. Cada
+   guardado dejaba otra copia del trámite en la nube.
+2. `db.settings({ ignoreUndefinedProperties: true })` descarta `id: undefined`
+   al escribir, así que la copia nacía otra vez sin `id`.
+3. Al recargar, la carga traía todas las copias y todas volvían a subirse sin
+   `id`: se multiplicaban solas, un poco más cada día.
+
+Y el detalle que despistaba al depurarlo: borrar **una** copia las quitaba
+todas de golpe, porque el borrado filtra por `id` y todas compartían el mismo
+—ninguno—. Parecía cosa del render, y estaba en los datos.
+
+Las tres defensas, y por qué hacen falta las tres:
+
+- **`migrateTramite()`** (`js/storage.js`) asigna un `id` a todo trámite que
+  entre a `STATE`, venga de donde venga.
+- **`_docTramite(t)`** es el único sitio desde el que se nombra un documento de
+  trámite. Si falta el `id`, lo pone antes de escribir.
+- **`_reconciliarTramites()`** limpia lo que ya quedó suelto en la nube: se
+  queda el documento canónico —el que se llama como el trámite—, adopta el id
+  del documento cuando el campo falta, reescribe en su sitio los que están
+  descolocados y borra las copias sobrantes. Es lo que hace que el arreglo
+  también cure las cuentas que ya tenían el problema, en la primera carga.
+
+Las copias sin `id` se agrupan por `numero`, que es la clave de negocio —lo que
+el usuario llama "el trámite", y lo que ya usa la detección de correo para no
+crear duplicados—. De cada grupo se conserva la copia más completa.
+
 ## Si falla la subida
 
 Se registra un aviso y **el sello no se revierte**. Es deliberado: el SDK de
@@ -92,6 +131,8 @@ en Firestore, simplemente inalcanzables.
 
 - Cualquier código que toque `STATE` debe llamar a `saveAll()`. Es la única
   obligación, y ya lo era antes.
+- Para escribir un trámite, `_docTramite(t)`. Nunca `_tramitesRef().doc(t.id)`:
+  esa es exactamente la línea que duplicaba trámites.
 - No añadas `onSnapshot`. La carga es una foto al entrar, no un flujo en vivo:
   con un solo usuario, dos pestañas abiertas a la vez son el único caso de
   conflicto, y la última en escribir gana. Un listener en vivo obligaría a

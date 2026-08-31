@@ -36,6 +36,24 @@ ver [agenda.md](agenda.md)).
   `responsable` `'auxiliar'`/`'propio'` → `'yo'`, y migra `proximaAccion` →
   `seguimiento`).
 
+## La identidad de un trámite
+
+`t.id` es la clave con la que `getById`, el borrado y el orden manual lo
+encuentran, y además **el nombre de su documento en Firestore**. Un trámite sin
+`id` acababa guardándose en un documento nuevo en cada subida, y la lista
+amanecía con el mismo trámite repetido cientos de veces
+([sincronizacion-firestore.md](sincronizacion-firestore.md#el-id-no-es-opcional)).
+
+Por eso:
+
+- `migrateTramite()` asigna un `id` a todo trámite que no lo traiga. Es la
+  primera línea de la función a propósito.
+- `dedupeTramites(lista)` quita copias antes de que entren a `STATE`: mismo
+  `id`, o —para las que perdieron el suyo— mismo `numero`, conservando la copia
+  más completa. Lo usan `loadAll()` y la importación de JSON.
+- `dedupeOrder(order)` hace lo propio con el orden manual, que es un conjunto
+  de ids: repetirlos no significa nada.
+
 ## Historial / Deshacer
 
 `pushHistory(etiqueta)` toma un snapshot antes de una mutación; `undo()` lo

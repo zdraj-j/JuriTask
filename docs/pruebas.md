@@ -74,6 +74,20 @@ activo con una tarea pendiente y uno terminado.
 Al final imprime un resumen y **falla si hubo cualquier `pageerror` o error de
 consola** que no sea de red.
 
+## Qué cubre `test/firestore.js`
+
+El ciclo entero de sincronización contra un SDK de mentira: quién gana al
+cargar, qué sube, qué no se reescribe, qué se borra, y que cerrar sesión vacía
+la caché local.
+
+Las comprobaciones 11-14 vigilan los **trámites duplicados**
+([sincronizacion-firestore.md](sincronizacion-firestore.md#el-id-no-es-opcional)):
+que las copias de la nube no se pinten repetidas, que las sobrantes se borren,
+que un documento sin `id` adopte el suyo, y que guardar dos veces un trámite no
+deje dos documentos. Para esto último el SDK falso imita al de verdad en el
+detalle que causaba el fallo: **`doc()` sin id genera uno nuevo en cada
+llamada**. Si se simplifica esa línea, la prueba 14 deja de probar nada.
+
 ## Al modificar
 
 - Si algún día un módulo exige red o sesión para arrancar, agrégalo a `DROP`.

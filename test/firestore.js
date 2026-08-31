@@ -25,7 +25,7 @@ const TIPOS = { '.html':'text/html', '.js':'application/javascript', '.css':'tex
 // El SDK de Google, sustituido por lo mínimo que usa js/firebase.js.
 const FAKE_SDK = `<script>
 (function () {
-  const store = { docs: {}, commits: 0, escrituras: [], borrados: [] };
+  const store = { docs: {}, commits: 0, escrituras: [], borrados: [], autoId: 0 };
   window.__fs = store;
 
   const clona = v => JSON.parse(JSON.stringify(v));
@@ -46,7 +46,10 @@ const FAKE_SDK = `<script>
   function colRef(ruta) {
     return {
       _ruta: ruta,
-      doc: id => docRef(ruta + '/' + id),
+      // Igual que el SDK de verdad: sin id, **genera uno nuevo en cada
+      // llamada**. Es lo que convertía un trámite sin \`id\` en una copia nueva
+      // por guardado, y lo que la prueba 14 vigila.
+      doc: id => docRef(ruta + '/' + (id === undefined ? 'auto' + (++store.autoId) : id)),
       get: async () => {
         const hijos = Object.keys(store.docs)
           .filter(k => k.startsWith(ruta + '/') && k.slice(ruta.length + 1).indexOf('/') === -1);
@@ -275,6 +278,76 @@ const TRAMITE = (id, numero) => ({
   await page.waitForTimeout(700);
   const cache = await enPagina(page, `return localStorage.getItem('juritask_tramites');`);
   comprobar('10. cerrar sesión vacía la caché local', !cache, `caché=${cache ? 'sigue' : 'vacía'}`);
+
+  // ── 11-14. Documentos duplicados en la nube ─────────────
+  // El fallo que motivó esta parte: un trámite sin `id` se guardaba con
+  // `doc(undefined)`, y el SDK genera un id nuevo en cada llamada. Cada
+  // guardado dejaba otra copia en la nube, así que la lista amanecía con el
+  // mismo trámite repetido decenas de veces.
+  await page.goto(`http://localhost:${PORT}/`);
+  await enPagina(page, `
+    localStorage.clear();
+    var base = ${JSON.stringify(TRAMITE('a', '11111'))};
+    window.__fs.docs['users/u1/tramites/a'] = JSON.parse(JSON.stringify(base));
+
+    // Tres copias sueltas del mismo trámite, sin \`id\`, bajo ids automáticos.
+    // La segunda es la más completa: es la que debería sobrevivir si faltara
+    // el canónico.
+    ['suelto1', 'suelto2', 'suelto3'].forEach(function (k, i) {
+      var c = JSON.parse(JSON.stringify(base));
+      delete c.id;
+      c.notas = new Array(i).fill({ texto: 'x' });
+      window.__fs.docs['users/u1/tramites/' + k] = c;
+    });
+
+    // Un trámite distinto que perdió su \`id\` y no tiene canónico: se queda,
+    // adoptando el id de su documento.
+    var solo = ${JSON.stringify(TRAMITE('x', '77777'))};
+    delete solo.id;
+    window.__fs.docs['users/u1/tramites/suelto9'] = solo;
+  `);
+
+  await page.click('#btnGoogleLogin');
+  await page.waitForTimeout(2200);   // carga + limpieza + debounce de subida
+
+  const dup = await enPagina(page, `
+    return {
+      tarjetas: document.querySelectorAll('#tramiteList .tramite-card').length,
+      enEstado: STATE.tramites.length,
+      docs: Object.keys(window.__fs.docs)
+              .filter(function (k) { return k.indexOf('users/u1/tramites/') === 0; })
+              .map(function (k) { return k.split('/').pop(); }).sort(),
+      idSuelto9: (window.__fs.docs['users/u1/tramites/suelto9'] || {}).id || null,
+    };
+  `);
+
+  comprobar('11. las copias de la nube no se pintan repetidas',
+            dup.tarjetas === 2 && dup.enEstado === 2,
+            `tarjetas=${dup.tarjetas} en STATE=${dup.enEstado}`);
+  comprobar('12. las copias sobrantes se borran de la nube',
+            dup.docs.join(',') === 'a,suelto9',
+            `documentos=${dup.docs.join(',') || 'ninguno'}`);
+  comprobar('13. el trámite sin id adopta el de su documento',
+            dup.idSuelto9 === 'suelto9', `id grabado=${dup.idSuelto9}`);
+
+  // ── 14. Guardar un trámite sin id no crea documentos nuevos ──
+  await enPagina(page, `
+    window.__fs.escrituras = [];
+    STATE.tramites.push({ numero: '88888', descripcion: 'sin id', tipo: 'propio', modulo: 'ACT',
+                          terminado: false, seguimiento: [], notas: [], attachments: [],
+                          gestion: { analisis: false, cumplimiento: false } });
+    saveAll();
+  `);
+  await page.waitForTimeout(1800);
+  await enPagina(page, `STATE.tramites[STATE.tramites.length - 1].descripcion = 'otra vez'; saveAll();`);
+  await page.waitForTimeout(1800);
+  const sinId = await enPagina(page, `
+    var rutas = Object.keys(window.__fs.docs).filter(function (k) { return k.indexOf('users/u1/tramites/') === 0; });
+    return { total: rutas.length, id: STATE.tramites[STATE.tramites.length - 1].id };
+  `);
+  comprobar('14. dos guardados del mismo trámite no dejan dos documentos',
+            sinId.total === 3 && !!sinId.id,
+            `documentos=${sinId.total} id asignado=${sinId.id}`);
 
   console.log('\n=== SINCRONIZACIÓN CON FIRESTORE ===');
   let fallos = 0;
