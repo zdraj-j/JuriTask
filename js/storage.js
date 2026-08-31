@@ -162,9 +162,94 @@ function _flushSave() {
 }
 
 // ============================================================
+// IDENTIDAD DE LOS TRÁMITES
+// ============================================================
+// El `id` no es un adorno: es el nombre del documento en Firestore
+// (`users/{uid}/tramites/{id}`) y la clave con la que `getById`, el borrado y
+// el orden manual encuentran el trámite.
+//
+// Un trámite **sin** id era la causa de que la lista amaneciera con el mismo
+// trámite repetido cientos de veces. El camino era éste:
+//
+//  1. Al subir se hace `_tramitesRef().doc(t.id)`. Con `t.id` indefinido, el
+//     SDK de Firestore no protesta: **genera un id nuevo**. Cada guardado
+//     dejaba, por tanto, otra copia del trámite en la nube.
+//  2. `db.settings({ ignoreUndefinedProperties: true })` descarta el campo
+//     `id: undefined` al escribir, así que la copia nacía otra vez sin id.
+//  3. Al recargar, la carga traía todas esas copias y todas volvían a subirse
+//     sin id: las copias se multiplicaban solas.
+//
+// De ahí también el detalle que despistaba: borrar **una** copia las quitaba
+// todas de golpe, porque el borrado filtra por `id` y todas compartían el
+// mismo (ninguno).
+//
+// La defensa es doble: aquí se garantiza que todo trámite tenga id, y en
+// `js/firebase.js` se reconcilian los documentos que ya quedaron sueltos.
+
+function tieneIdTramite(t) {
+  return !!t && typeof t.id === 'string' && t.id !== '' && !t.id.includes('/');
+}
+
+/** Cuánto contenido acumula un trámite. Sirve para elegir entre dos copias. */
+function pesoTramite(t) {
+  if (!t) return -1;
+  return (t.seguimiento?.length || 0) + (t.notas?.length || 0) + (t.attachments?.length || 0);
+}
+
+/**
+ * Quita trámites repetidos de una lista, conservando el orden.
+ *
+ * - Dos entradas con el **mismo `id`** son el mismo trámite: se queda la
+ *   primera.
+ * - Las entradas **sin `id`** perdieron su identidad, así que se agrupan por
+ *   `numero` —la clave de negocio: es lo que el usuario considera "el trámite",
+ *   y lo que ya usa la detección de correo para no crear duplicados—. De cada
+ *   grupo se conserva la copia más completa, que es la guardada más tarde.
+ * - A lo que sobrevive sin id se le asigna uno, para que no vuelva a pasar.
+ */
+function dedupeTramites(lista) {
+  const entradas = (Array.isArray(lista) ? lista : []).filter(t => t && typeof t === 'object');
+
+  // Primera pasada: de cada grupo de copias sin id, cuál se queda.
+  const elegidoSinId = new Map();   // numero → índice de la copia que se conserva
+  entradas.forEach((t, i) => {
+    if (tieneIdTramite(t)) return;
+    const num = String(t.numero ?? '');
+    if (!num) return;               // sin número no hay con qué agrupar: se conservan todas
+    const prev = elegidoSinId.get(num);
+    if (prev === undefined || pesoTramite(t) > pesoTramite(entradas[prev])) elegidoSinId.set(num, i);
+  });
+
+  const vistos = new Set();
+  const out    = [];
+  entradas.forEach((t, i) => {
+    if (tieneIdTramite(t)) {
+      if (vistos.has(t.id)) return;
+      vistos.add(t.id);
+      out.push(t);
+      return;
+    }
+    const num = String(t.numero ?? '');
+    if (num && elegidoSinId.get(num) !== i) return;   // copia descartada
+    t.id = genId();
+    vistos.add(t.id);
+    out.push(t);
+  });
+  return out;
+}
+
+/** El orden manual es un conjunto de ids: repetirlos no significa nada. */
+function dedupeOrder(order) {
+  return [...new Set((Array.isArray(order) ? order : []).filter(id => typeof id === 'string' && id))];
+}
+
+// ============================================================
 // MIGRACIÓN
 // ============================================================
 function migrateTramite(t) {
+  // Última línea de defensa: un trámite sin id se guardaría en un documento
+  // nuevo en cada subida. Ver el bloque de arriba.
+  if (!tieneIdTramite(t)) t.id = genId();
   if (!t.tipo)        t.tipo        = 'abogado';
   if (!t.seguimiento) t.seguimiento = [];
   if (!t.notas)       t.notas       = [];
@@ -196,10 +281,12 @@ function loadAll() {
   const OLD = { tramites:'lexgestion_tramites', order:'lexgestion_order', config:'lexgestion_config' };
   try {
     const t = localStorage.getItem(KEYS.tramites) || localStorage.getItem(OLD.tramites);
-    if (t) STATE.tramites = JSON.parse(t);
+    // La caché puede traer copias del mismo trámite si se guardó mientras la
+    // lista estaba duplicada; se limpian antes de que lleguen a la pantalla.
+    if (t) STATE.tramites = dedupeTramites(JSON.parse(t));
 
     const o = localStorage.getItem(KEYS.order) || localStorage.getItem(OLD.order);
-    if (o) STATE.order = JSON.parse(o);
+    if (o) STATE.order = dedupeOrder(JSON.parse(o));
 
     const c = localStorage.getItem(KEYS.config) || localStorage.getItem(OLD.config);
     if (c) {
