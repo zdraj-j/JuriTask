@@ -4,21 +4,31 @@ JuriTask es una PWA (sin framework, JS modular cargado por `<script>`) para la
 gestión de trámites jurídicos: vencimientos, tareas de seguimiento, reportes y
 agenda diaria.
 
-Es de **un solo usuario**: hay un acceso con Google, pero no cuentas que
-gestionar, ni equipos, ni nada compartido. El login existe porque Firestore
-necesita saber de quién son los datos y porque de ahí sale el token de Gmail y
-Drive ([autenticacion.md](autenticacion.md)).
+Es de **un solo usuario**: no hay cuentas que gestionar, ni equipos, ni nada
+compartido.
 
-Los datos viven en **Firestore**, con `localStorage` como caché
-([sincronizacion-firestore.md](sincronizacion-firestore.md)).
+Los datos viven en **un JSON del disco del usuario**, `juritask.json`, al que se
+llega por la File System Access API, con `localStorage` como caché
+([archivo-datos.md](archivo-datos.md)). No hay servidor ni base de datos
+remota: la app no sube los trámites a ninguna parte.
 
-> **Nota histórica.** Hubo un intento de trasladar la app a una *web app de
-> Apps Script*, con los datos en un JSON de Drive y el correo desde el
-> servidor. Se abandonó porque el administrador de Workspace bloqueó Apps
-> Script. Lo único que no sobrevivió es el trigger diario de borradores, que
-> pasó a ser un botón manual
-> ([borradores-automaticos.md](borradores-automaticos.md)). El trabajo queda en
-> el historial de git por si algún día se levanta el bloqueo.
+Sigue habiendo un acceso con Google, pero es **opcional** y solo habilita el
+correo y los adjuntos: de ahí sale el token de Gmail y Drive
+([autenticacion.md](autenticacion.md)).
+
+> **Lo que cuesta esta arquitectura, dicho de frente.** `showDirectoryPicker`
+> solo existe en Chrome, Edge y Opera **de escritorio**: la app no guarda datos
+> en Firefox, en Safari ni en el teléfono. Y el archivo vive en un solo disco,
+> así que la carpeta debería estar en algo que se sincronice o se respalde
+> fuera del equipo.
+
+> **Nota histórica.** Antes los datos estuvieron en Firestore, y antes de eso
+> hubo un intento de trasladar la app a una *web app de Apps Script* con los
+> datos en un JSON de Drive, abandonado porque el administrador de Workspace
+> bloqueó Apps Script. Con Firestore se fueron también los **borradores del
+> día**; la bitácora de enviados, que vivía en el mismo archivo, se quedó
+> ([bitacora-envios.md](bitacora-envios.md)). Todo queda en el historial de
+> git.
 
 Cada archivo de esta carpeta documenta **un proceso** de la app: para qué
 sirve, qué archivos lo implementan, su modelo de datos y los puntos delicados a
@@ -29,10 +39,9 @@ tener en cuenta al modificarlo.
 | Proceso | Documento | Archivo(s) principal(es) |
 |---|---|---|
 | Estado, almacenamiento e historial | [almacenamiento-estado.md](almacenamiento-estado.md) | `js/storage.js` |
-| Acceso con Google | [autenticacion.md](autenticacion.md) | `js/auth.js`, `js/firebase.js` |
-| Sincronización con Firestore | [sincronizacion-firestore.md](sincronizacion-firestore.md) | `js/firebase.js` |
+| Conectar con Google | [autenticacion.md](autenticacion.md) | `js/auth.js`, `js/firebase.js` |
+| El archivo de datos | [archivo-datos.md](archivo-datos.md) | `js/archivo.js` |
 | Copias de seguridad | [copias-seguridad.md](copias-seguridad.md) | `js/copias.js` |
-| Borradores del día | [borradores-automaticos.md](borradores-automaticos.md) | `js/borradores.js` |
 | Trámites (CRUD y dominio) | [tramites.md](tramites.md) | `js/tramites.js`, `js/ui.js` |
 | Filtros y búsqueda | [filtros-busqueda.md](filtros-busqueda.md) | `js/filters.js` |
 | Agenda accionable | [agenda.md](agenda.md) | `js/ui.js` |
@@ -45,7 +54,8 @@ tener en cuenta al modificarlo.
 | Paleta de comandos y atajos | [paleta-comandos.md](paleta-comandos.md) | `js/commandpalette.js` |
 | Navegación entre vistas y config | [navegacion-config.md](navegacion-config.md) | `js/config.js` |
 | PWA / offline | [pwa-offline.md](pwa-offline.md) | `sw.js`, `manifest.json` |
-| Prueba de humo en navegador | [pruebas.md](pruebas.md) | `test/smoke.js` |
+| Bitácora de enviados | [bitacora-envios.md](bitacora-envios.md) | `js/bitacora.js` |
+| Pruebas en navegador | [pruebas.md](pruebas.md) | `test/smoke.js`, `test/archivo.js` |
 | Accesibilidad e iconos | [accesibilidad-iconos.md](accesibilidad-iconos.md) | `js/a11y.js`, `js/icons.js` |
 
 ## Convenciones del dominio

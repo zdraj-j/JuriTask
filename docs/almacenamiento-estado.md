@@ -25,13 +25,13 @@ ver [agenda.md](agenda.md)).
 ## Persistencia
 
 - `saveAll()` vuelca `STATE` a `localStorage` con debounce de 400 ms
-  (`saveAll(true)` fuerza el volcado inmediato) y dispara además la subida a
-  Firestore, que espera 1200 ms
-  ([sincronizacion-firestore.md](sincronizacion-firestore.md)). Es el **único**
-  punto desde el que se sincroniza.
-- `pausarGuardadoLocal()` corta la escritura en local de forma definitiva. Lo
-  usa el cierre de sesión, porque el `beforeunload` de la recarga volvería a
-  volcar `STATE` sobre el almacenamiento recién vaciado.
+  (`saveAll(true)` fuerza el volcado inmediato) y dispara además la escritura de
+  `juritask.json`, que espera 600 ms
+  ([archivo-datos.md](archivo-datos.md)). Es el **único** punto desde el que se
+  guarda.
+- El orden importa y es siempre el mismo: `localStorage` primero, el archivo
+  después. Por eso la caché nunca va por detrás del archivo, que es lo que hace
+  correcta la fusión al cargar.
 - `loadAll()` carga de `localStorage` aplicando migraciones (p. ej. normaliza
   `responsable` `'auxiliar'`/`'propio'` → `'yo'`, y migra `proximaAccion` →
   `seguimiento`).
@@ -43,24 +43,25 @@ ver [agenda.md](agenda.md)).
 | `juritask_tramites` | `STATE.tramites` |
 | `juritask_order` | `STATE.order` |
 | `juritask_config` | `STATE.config` |
-| `juritask_pendiente` | `{ desde }` — hay cambios que la nube todavía no tiene |
+| `juritask_pendiente` | `{ desde }` — hay cambios que el archivo todavía no tiene |
 
 `juritask_pendiente` la pone `saveAll()` en cuanto algo cambia y **solo** la
-quita un `commit()` confirmado por el servidor. Es lo que impide que la carga
-del día siguiente pise trabajo que no llegó a subir; el mecanismo completo está
-en
-[sincronizacion-firestore.md](sincronizacion-firestore.md#la-marca-de-cambios-sin-subir).
-
-El cierre de sesión borra las cuatro: dejar la marca sin la caché a la que se
-refiere haría que la próxima sesión defendiera datos que ya no están.
+quita una escritura del archivo terminada. Es lo que impide que la carga del día
+siguiente pise trabajo que no llegó al disco; el mecanismo completo está en
+[archivo-datos.md](archivo-datos.md#la-marca-de-cambios-sin-guardar).
 
 ## La identidad de un trámite
 
 `t.id` es la clave con la que `getById`, el borrado y el orden manual lo
-encuentran, y además **el nombre de su documento en Firestore**. Un trámite sin
-`id` acababa guardándose en un documento nuevo en cada subida, y la lista
-amanecía con el mismo trámite repetido cientos de veces
-([sincronizacion-firestore.md](sincronizacion-firestore.md#el-id-no-es-opcional)).
+encuentran, y la que decide si dos entradas son el mismo trámite.
+
+Con Firestore era además el nombre del documento, y un trámite sin `id` acababa
+guardándose en un documento nuevo en cada subida: la lista amanecía con el mismo
+trámite repetido cientos de veces. Esa causa concreta se fue con Firestore, pero
+`dedupeTramites()` y la asignación de `id` en `migrateTramite()` se quedan,
+porque las entradas sin `id` siguen llegando por dos puertas abiertas: los JSON
+importados o antiguos, y `juritask.json` editado a mano —que es justamente la
+gracia de esta arquitectura—.
 
 Por eso:
 

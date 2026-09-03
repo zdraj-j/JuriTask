@@ -9,7 +9,7 @@ Punto **único** por donde la app obtiene el token de acceso a Gmail y Drive.
 - `js/firebase.js` → de donde sale el token: `AUTH.loginGoogle()` y
   `AUTH.refrescarTokenGoogle()`.
 - Lo consumen `js/gmail.js` (`_ensureGmailToken`), `js/drive.js`
-  (`_ensureDriveToken`) y `js/borradores.js` (la vigilancia de enviados).
+  (`_ensureDriveToken`) y `js/bitacora.js` (la vigilancia de enviados).
 
 ## De dónde sale el token
 

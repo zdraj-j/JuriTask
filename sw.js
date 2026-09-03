@@ -1,10 +1,14 @@
 /**
  * JuriTask — Service Worker
- * App-shell offline. NO cachea datos de Firestore ni de Auth: esos van siempre
- * a la red, y la persistencia offline de los datos la maneja el SDK de
- * Firestore contra IndexedDB.
+ * App-shell offline. NO cachea nada de Google: Auth, Gmail, Drive y Gemini van
+ * siempre a la red.
+ *
+ * Los **datos** ya no pasan por aquí en absoluto: viven en un JSON del disco
+ * del usuario (js/archivo.js), al que se llega por la File System Access API y
+ * no por `fetch`. Eso hace que la app funcione sin conexión por construcción,
+ * sin que el service worker tenga que hacer nada al respecto.
  */
-const VERSION = 'juritask-v24';
+const VERSION = 'juritask-v25';
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 
@@ -22,12 +26,13 @@ const SHELL_ASSETS = [
   './js/google-auth.js',
   './js/firebase.js',
   './js/auth.js',
+  './js/archivo.js',
   './js/copias.js',
   './js/drive.js',
   './js/gemini.js',
   './js/plantillas-correo.js',
   './js/gmail.js',
-  './js/borradores.js',
+  './js/bitacora.js',
   './js/xlsx.js',
   './js/reportes.js',
   './js/config.js',
@@ -63,11 +68,11 @@ self.addEventListener('activate', event => {
   })());
 });
 
-// Endpoints de datos e identidad que NUNCA deben cachearse: Firestore y Auth
-// además de Gmail, Drive y Gemini. Servir una respuesta vieja de cualquiera de
-// ellos daría datos obsoletos o una sesión fantasma.
+// Endpoints de identidad y de las APIs de Google que NUNCA deben cachearse:
+// Auth, Gmail, Drive y Gemini. Servir una respuesta vieja de cualquiera de
+// ellos daría una sesión fantasma o correo que ya no está.
 function isDynamicApi(url) {
-  return /firestore\.googleapis\.com|identitytoolkit|securetoken|firebaseio\.com|firebaseinstallations|googleapis\.com/i.test(url);
+  return /identitytoolkit|securetoken|firebaseinstallations|googleapis\.com/i.test(url);
 }
 
 self.addEventListener('fetch', event => {

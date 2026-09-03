@@ -1,14 +1,17 @@
 # Proceso: Integración con el correo (Gmail / Google Workspace)
 
 Permite que JuriTask lea el correo del usuario (con su permiso) para **detectar
-trámites nuevos** y **redactar los borradores de requerimiento**. Todo ocurre en
-el navegador; no hay backend.
+trámites nuevos** y **redactar la bitácora de lo enviado**. Todo ocurre en el
+navegador; no hay backend.
+
+Necesita una sesión de Google, que hoy es **opcional**: la app funciona sin
+ella, solo que sin correo ([autenticacion.md](autenticacion.md)).
 
 ## Archivos
 
 - `js/gmail.js` → acceso a la Gmail API (token, búsqueda, parseo) y panel de
   detección de trámites nuevos. `fetchEmailsForTramite()` y `_extractRadicado()`
-  son la puerta de entrada al hilo de un trámite, y las consume `borradores.js`.
+  son la puerta de entrada al hilo de un trámite, y las consume `bitacora.js`.
 - `js/gemini.js` → cliente mínimo de la API de Gemini.
 - `js/config.js` + `index.html` → campo en Ajustes para la API key de Gemini y
   botón "Revisar correo" en la barra superior.
@@ -49,7 +52,12 @@ La caché es **de sesión**: al recargar la app se pierde y la siguiente revisi�
 vuelve a consultar Gmail. Lo descartado sí es permanente
 (`config.gmailDescartados`).
 
-## Borradores de correo y bitácora de envíos
+## Bitácora de envíos
+
+Los **borradores de requerimiento** —el icono ✉️ por tarea y el lote de
+"borradores del día"— se retiraron junto con Firestore. Lo que sigue de esta
+sección describe lo que queda: las plantillas, que siguen usándose, y la
+bitácora, que es independiente. Ver [bitacora-envios.md](bitacora-envios.md).
 
 - `js/plantillas-correo.js` guarda el conocimiento del dominio:
   - `FAMILIA_MODULO`: contractual (CNT, OTR, OS, CNV), concepto (COT, ET, MIN),
@@ -65,12 +73,7 @@ vuelve a consultar Gmail. Lo descartado sí es permanente
     audiencia, reiteración de solicitud, fecha de inicio).
   - `tipoGestionDesdeTarea(texto)`: deduce la gestión del texto de la tarea
     ("1er req", "reiterar sol", "acta", "req"…).
-- `js/borradores.js`:
-  - **Borrador por tarea** (icono ✉️ en cada tarea que sea un requerimiento):
-    lee el hilo del trámite, y Gemini adapta la plantilla al último estado del
-    hilo (no vuelve a pedir lo ya recibido). Modal con Para/Asunto/Cuerpo,
-    copiar y "Abrir en Gmail". Nunca envía por su cuenta.
-    En "reiterar sol", si el área ya respondió, avisa y no genera el borrador.
+- `js/bitacora.js`:
   - **Bitácora de envíos** (botón 📄 en la barra): busca `in:sent`, empareja el
     número de trámite del asunto con trámites activos y genera la anotación en
     lenguaje neutro para pegar en el aplicativo de la empresa. Si el correo

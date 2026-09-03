@@ -109,7 +109,7 @@ function undo() {
 }
 
 // ============================================================
-// PERSISTENCIA — localStorage (caché) + Firestore (fuente de verdad)
+// PERSISTENCIA — localStorage (caché) + juritask.json (fuente de verdad)
 // ============================================================
 const KEYS = {
   tramites:  'juritask_tramites',
@@ -122,18 +122,20 @@ const KEYS = {
 // CAMBIOS SIN SUBIR
 // ============================================================
 // El orden de escritura de la app es siempre el mismo: primero `localStorage`,
-// después Firestore. La caché local, por tanto, **nunca va por detrás** de la
-// nube: o van iguales, o la local va por delante.
+// después el archivo del disco. La caché local, por tanto, **nunca va por
+// detrás** del archivo: o van iguales, o la local va por delante.
 //
-// Eso importa porque `cargarDeFirestore()` reemplaza STATE con lo que traiga la
-// nube. Si la subida del día anterior no llegó a completarse, esa carga borra
-// trabajo real y además lo pisa en la caché local, que era la última copia que
-// quedaba. Es exactamente el camino por el que una jornada entera puede
+// Eso importa porque `cargarDeArchivo()` reemplaza STATE con lo que traiga el
+// disco. Si el guardado del día anterior no llegó a completarse —la carpeta
+// perdió el permiso, el archivo estaba en un disco desconectado—, esa carga
+// borra trabajo real y además lo pisa en la caché local, que era la última
+// copia que quedaba. Es el camino por el que una jornada entera puede
 // desaparecer sin dejar rastro ni error a la vista.
 //
 // La marca cierra ese agujero: se pone en cuanto algo cambia y **solo** se
-// quita cuando Firestore confirma la escritura. Mientras esté puesta, la carga
-// sabe que la copia local manda (ver `_fusionarConLocal` en js/firebase.js).
+// quita cuando la escritura del archivo termina bien. Mientras esté puesta, la
+// carga sabe que la copia local manda (ver `_fusionarConLocal` en
+// js/archivo.js).
 
 function marcarCambiosPendientes() {
   try {
@@ -161,40 +163,36 @@ function cambiosPendientesDesde() {
  * Las escrituras inline (blur, checkboxes) pasan por aquí.
  *
  * Las dos capas van a ritmos distintos a propósito: localStorage es inmediato y
- * barato, así que absorbe las ráfagas de tecleo; Firestore espera más
- * (`sincronizarConFirestore`, 1,2 s) porque cada subida es una operación de red
- * que se cobra. Este es **el único punto** desde el que se sincroniza: mientras
- * cualquier cambio en STATE acabe llamando a saveAll, acaba en la nube.
+ * barato, así que absorbe las ráfagas de tecleo; el archivo espera un poco más
+ * (`guardarArchivo`, 600 ms) porque cada escritura reemplaza el JSON entero.
+ * Este es **el único punto** desde el que se guarda: mientras cualquier cambio
+ * en STATE acabe llamando a saveAll, acaba en el disco.
  */
 let _saveTimer = null;
 function saveAll(immediate = false) {
-  // Antes de tocar nada: queda constancia de que hay trabajo que la nube aún no
-  // conoce. Se marca aquí y no en `_flushSave` porque la carga inicial también
+  // Antes de tocar nada: queda constancia de que hay trabajo que el archivo aún
+  // no tiene. Se marca aquí y no en `_flushSave` porque la carga inicial también
   // usa `_flushSave` para refrescar la caché, y eso no es un cambio del usuario.
   marcarCambiosPendientes();
-  if (typeof sincronizarConFirestore === 'function') sincronizarConFirestore();
   if (immediate) {
     _flushSave();
+    if (typeof guardarArchivoAhora === 'function') guardarArchivoAhora();
   } else {
     clearTimeout(_saveTimer);
     _saveTimer = setTimeout(_flushSave, 400);
+    if (typeof guardarArchivo === 'function') guardarArchivo();
   }
 }
 
 // Asegurar guardado en localStorage antes de que la página se descargue
 window.addEventListener('beforeunload', () => _flushSave());
 
-/**
- * Corta la escritura en local de forma definitiva. Lo usa el cierre de sesión:
- * sin esto, vaciar `localStorage` no sirve de nada, porque el `beforeunload` de
- * la recarga vuelve a volcar STATE encima —incluida la clave de Gemini, que
- * vive en `config`— y los datos se quedan en el equipo.
- */
-let _guardadoPausado = false;
-function pausarGuardadoLocal() { _guardadoPausado = true; }
+// `pausarGuardadoLocal()` vivía aquí para el cierre de sesión, que vaciaba
+// `localStorage` y necesitaba cortar el `beforeunload` para que no lo volviera
+// a llenar. Desconectar Google ya no toca los datos —viven en el archivo del
+// disco, no en la nube—, así que la función se quedó sin llamadas y se fue.
 
 function _flushSave() {
-  if (_guardadoPausado) return;
   try {
     localStorage.setItem(KEYS.tramites, JSON.stringify(STATE.tramites));
     localStorage.setItem(KEYS.order,    JSON.stringify(STATE.order));
@@ -207,27 +205,23 @@ function _flushSave() {
 // ============================================================
 // IDENTIDAD DE LOS TRÁMITES
 // ============================================================
-// El `id` no es un adorno: es el nombre del documento en Firestore
-// (`users/{uid}/tramites/{id}`) y la clave con la que `getById`, el borrado y
-// el orden manual encuentran el trámite.
+// El `id` es la clave con la que `getById`, el borrado y el orden manual
+// encuentran el trámite, y la que decide si dos entradas son el mismo.
 //
-// Un trámite **sin** id era la causa de que la lista amaneciera con el mismo
-// trámite repetido cientos de veces. El camino era éste:
+// Con Firestore era además el nombre del documento, y un trámite sin `id`
+// hacía que `doc(undefined)` generara uno nuevo en cada guardado: la lista
+// amanecía con el mismo trámite repetido cientos de veces. Esa causa concreta
+// se fue con Firestore, pero la defensa se queda, porque las entradas sin `id`
+// siguen llegando por dos puertas que siguen abiertas:
 //
-//  1. Al subir se hace `_tramitesRef().doc(t.id)`. Con `t.id` indefinido, el
-//     SDK de Firestore no protesta: **genera un id nuevo**. Cada guardado
-//     dejaba, por tanto, otra copia del trámite en la nube.
-//  2. `db.settings({ ignoreUndefinedProperties: true })` descarta el campo
-//     `id: undefined` al escribir, así que la copia nacía otra vez sin id.
-//  3. Al recargar, la carga traía todas esas copias y todas volvían a subirse
-//     sin id: las copias se multiplicaban solas.
+//  - **JSON importados o antiguos**: el formato de exportación es el mismo de
+//    siempre y hay archivos guardados de antes de que el `id` fuera
+//    obligatorio.
+//  - **`juritask.json` editado a mano**: es un archivo del usuario, y eso es
+//    justamente la gracia de esta arquitectura.
 //
-// De ahí también el detalle que despistaba: borrar **una** copia las quitaba
-// todas de golpe, porque el borrado filtra por `id` y todas compartían el
-// mismo (ninguno).
-//
-// La defensa es doble: aquí se garantiza que todo trámite tenga id, y en
-// `js/firebase.js` se reconcilian los documentos que ya quedaron sueltos.
+// Aquí se garantiza que todo trámite acabe con un `id`, y `dedupeTramites()`
+// resuelve las copias que ya venían sin él.
 
 function tieneIdTramite(t) {
   return !!t && typeof t.id === 'string' && t.id !== '' && !t.id.includes('/');

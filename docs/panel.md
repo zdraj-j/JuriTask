@@ -12,12 +12,11 @@ de métricas y la tabla de vencidos.
 
 ## Todo sale de `STATE.tramites`
 
-El panel **no consulta Firestore** y no sabe nada de usuarios. Se calcula
+El panel **no lee el archivo de datos** y no sabe nada de usuarios. Se calcula
 entero sobre los trámites que ya están en memoria, de forma síncrona.
 
-Antes era un dashboard de administración: leía perfiles uno a uno desde el
-índice `/meta/userIndex` porque las reglas de Firestore no permiten `list`
-sobre `/users/`, y gestionaba usuarios, roles, equipos y cuentas pendientes.
+Antes era un dashboard de administración: leía perfiles uno a uno desde un
+índice en Firestore y gestionaba usuarios, roles, equipos y cuentas pendientes.
 Sin usuarios esa gimnasia sobra, y con ella se fueron unas 780 líneas.
 
 | KPI | Cómo se calcula |
@@ -45,11 +44,10 @@ seguridad** (`js/copias.js`, ver
 [copias-seguridad.md](copias-seguridad.md)).
 
 > Lo que decía antes esta sección —que Firestore «ya guarda el histórico del
-> lado de Google»— **era falso**. Firestore no guarda ningún histórico por su
-> cuenta: sobrescribe el documento y lo anterior desaparece. Recuperar un estado
-> pasado exige *point-in-time recovery*, que es del plan de pago y hay que
-> activarlo a mano. Mientras esa frase estuvo ahí, la app no tenía ninguna copia
-> de seguridad y nadie lo sabía.
+> lado de Google»— **era falso**, y mientras esa frase estuvo ahí la app no
+> tenía ninguna copia de seguridad y nadie lo sabía. Hoy los datos ni siquiera
+> están en Firestore: viven en un archivo del disco
+> ([archivo-datos.md](archivo-datos.md)).
 
 ## Al modificar
 

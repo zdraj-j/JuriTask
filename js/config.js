@@ -9,6 +9,65 @@
  */
 
 // ============================================================
+// ARRANQUE
+// ============================================================
+// Antes arrancaba `onAuthStateChanged`: sin sesión de Google no había datos.
+// Ahora la puerta es **la carpeta de datos**, y la sesión es opcional (solo
+// habilita el correo). Ver js/auth.js y docs/archivo-datos.md.
+
+async function arrancarApp() {
+  // La caché local primero: si el archivo tarda o el permiso se cayó, la app
+  // arranca igual, y `cargarDeArchivo()` necesita saber si había algo en local
+  // para decidir si fusiona o reemplaza.
+  loadAll();
+
+  const estado = await reconectarCarpeta();
+  if (estado !== 'listo') { mostrarPuerta(estado); return; }
+
+  await _cargarYMostrar();
+}
+
+/** Vuelca el archivo en STATE y entra a la app. Compartido por los tres caminos. */
+async function _cargarYMostrar() {
+  try {
+    await cargarDeArchivo();
+  } catch (e) {
+    console.error('Error leyendo el archivo de datos:', e);
+    // Se sigue con lo que haya en la caché: mejor datos de hace un rato que una
+    // pantalla en blanco. La marca de pendientes se queda puesta para que el
+    // próximo arranque no pise este trabajo con un archivo que no se pudo leer.
+    if (STATE.tramites.length) marcarCambiosPendientes();
+    showToast('No se pudo leer el archivo de datos. Trabajando con la copia local.');
+  }
+  mostrarApp();
+  _avisarPendientes();
+  if (typeof crearCopiaDiaria === 'function') crearCopiaDiaria();
+}
+
+document.addEventListener('DOMContentLoaded', () => {
+  // La puerta se cablea aquí y no en `init()`: `init()` corre cuando la app ya
+  // está dentro, y estos botones son justo los que hacen falta para entrar.
+  document.getElementById('gateElegir')?.addEventListener('click', async () => {
+    if (await elegirCarpeta()) await _cargarYMostrar();
+  });
+  document.getElementById('gateReconectar')?.addEventListener('click', async () => {
+    const estado = await reconectarCarpeta({ gesto: true });
+    if (estado === 'listo') { await _cargarYMostrar(); return; }
+    // La carpeta recordada ya no sirve: se olvida y se pide una nueva.
+    await desconectarCarpeta();
+    mostrarPuerta('ninguna');
+    showToast('La carpeta guardada ya no está disponible. Elige otra.');
+  });
+  document.getElementById('gateSinArchivo')?.addEventListener('click', () => {
+    showToast('Trabajando solo en este navegador: los cambios no se guardan en ningún archivo.');
+    mostrarApp();
+    _avisarPendientes();
+  });
+
+  arrancarApp();
+});
+
+// ============================================================
 // VISTAS
 // ============================================================
 let currentView = 'all';
@@ -82,7 +141,13 @@ function switchView(view) {
 
   // Las copias se listan al entrar en Configuración, no en el arranque: es una
   // lectura de red que solo interesa cuando se va a mirar la sección.
-  if      (isConfig) { renderConfig(); if (typeof renderCopias === 'function') renderCopias(); }
+  // El archivo y las copias se pintan al entrar en Configuración, no en el
+  // arranque: son lecturas de disco que solo interesan al mirar la sección.
+  if      (isConfig) {
+    renderConfig();
+    if (typeof renderArchivo === 'function') renderArchivo();
+    if (typeof renderCopias  === 'function') renderCopias();
+  }
   else if (isAgenda) { renderAgenda(); }
   else if (isDash && typeof loadDashboardData === 'function') { loadDashboardData(); }
   else               { renderAll(); }
@@ -317,6 +382,26 @@ function init() {
   // ── Export / Import ──────────────────────────────────────
   if (typeof initCopias === 'function') initCopias();
 
+  // ── Config: archivo de datos ─────────────────────────────
+  document.getElementById('archivoElegirBtn')?.addEventListener('click', async () => {
+    if (!(await elegirCarpeta())) return;
+    // Carpeta nueva: si trae un juritask.json con datos, manda ese archivo; si
+    // está vacía, se vuelca lo que hay en memoria. De las dos se encarga
+    // `cargarDeArchivo()`.
+    try { await cargarDeArchivo(); }
+    catch (e) { console.error(e); showToast('No se pudo leer el archivo de la carpeta elegida.'); }
+    renderArchivo(); renderCopias(); renderAll();
+    _avisarPendientes();
+  });
+
+  document.getElementById('archivoGuardarBtn')?.addEventListener('click', async e => {
+    const btn = e.currentTarget;
+    if (!ARCHIVO.conectado) { showToast('No hay carpeta conectada.'); return; }
+    btn.disabled = true;
+    try { showToast(await guardarArchivoAhora() ? 'Guardado.' : 'No se pudo guardar.'); }
+    finally { btn.disabled = false; }
+  });
+
   document.getElementById('exportBtn').addEventListener('click', exportData);
   document.getElementById('importBtn').addEventListener('click', () => document.getElementById('importFile').click());
   document.getElementById('importFile').addEventListener('change', e => {
@@ -394,14 +479,6 @@ function init() {
   document.getElementById('bitacoraDias')?.addEventListener('change', _saveBitacoraNums);
   document.getElementById('gmailCuentaIndice')?.addEventListener('change', _saveBitacoraNums);
 
-  // ── Config: borradores del día ───────────────────────────
-  document.getElementById('borradoresIAToggle')?.addEventListener('change', e => {
-    STATE.config.borradoresConIA = e.target.checked;
-    saveAll();
-  });
-  document.getElementById('borradoresDiaBtn')?.addEventListener('click', e =>
-    generarBorradoresDelDia(e.currentTarget));
-
   document.getElementById('resetDescartadosBtn')?.addEventListener('click', async () => {
     const n = (STATE.config.gmailDescartados || []).length;
     if (!n) { showToast('No hay trámites descartados.'); return; }
@@ -460,13 +537,21 @@ function init() {
 
   // ── Config: borrar todos los datos ───────────────────────
   document.getElementById('clearAllBtn').addEventListener('click', () => {
-    if (!confirm('¿Borrar TODOS los datos? Esta acción no se puede deshacer.')) return;
+    const dondeVa = ARCHIVO.conectado
+      ? `Se vaciará también ${ARCHIVO.nombreCarpeta}/${ARCHIVO_NOMBRE}.`
+      : 'Se borrará la copia de este navegador.';
+    if (!confirm(`¿Borrar TODOS los datos? Esta acción no se puede deshacer. ${dondeVa}`)) return;
     if (!confirm('¿Estás seguro? Se perderán todos los trámites.')) return;
     Object.values(KEYS).forEach(k => localStorage.removeItem(k));
     STATE.tramites = []; STATE.order = [];
     STATE.config = { ...DEFAULT_CONFIG, abogados: DEFAULT_CONFIG.abogados.map(a=>({...a})), modulos: [...DEFAULT_CONFIG.modulos] };
+    // Sin esto la escritura se cancelaría sola: `_esBorradoSospechoso()` corta
+    // cualquier intento de dejar el archivo vacío teniendo trámites dentro.
+    // Vaciar a propósito es la única excepción, y pasa por aquí.
+    autorizarVaciado();
     applyCssColors(); applyTheme('claro'); populateModuloSelects(); updateAbogadoSelects();
     document.getElementById('sortSelect').value = 'vencimiento';
+    saveAll(true);
     renderConfig(); renderAll(); showToast('Datos borrados.');
   });
 
