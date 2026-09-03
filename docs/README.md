@@ -31,6 +31,7 @@ tener en cuenta al modificarlo.
 | Estado, almacenamiento e historial | [almacenamiento-estado.md](almacenamiento-estado.md) | `js/storage.js` |
 | Acceso con Google | [autenticacion.md](autenticacion.md) | `js/auth.js`, `js/firebase.js` |
 | Sincronización con Firestore | [sincronizacion-firestore.md](sincronizacion-firestore.md) | `js/firebase.js` |
+| Copias de seguridad | [copias-seguridad.md](copias-seguridad.md) | `js/copias.js` |
 | Borradores del día | [borradores-automaticos.md](borradores-automaticos.md) | `js/borradores.js` |
 | Trámites (CRUD y dominio) | [tramites.md](tramites.md) | `js/tramites.js`, `js/ui.js` |
 | Filtros y búsqueda | [filtros-busqueda.md](filtros-busqueda.md) | `js/filters.js` |

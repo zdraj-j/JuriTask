@@ -2122,3 +2122,25 @@ body.selection-mode .tramite-card { cursor: pointer; user-select: none; }
 }
 .sesion-salir:hover { color: var(--danger); background: var(--danger-light); }
 .sesion-salir svg { width: 15px; height: 15px; }
+
+/* Aviso de cambios que la nube todavía no tiene. Está en el pie de la barra
+   lateral, siempre a la vista, porque un fallo de subida que no se nota es el
+   que acaba costando una jornada de trabajo. Oculto cuando todo está al día. */
+.sync-estado {
+  margin: 8px 0 0; padding: 5px 8px; border-radius: var(--radius-sm);
+  font-size: 11.5px; line-height: 1.35; font-weight: 600;
+  color: var(--danger); background: var(--danger-light);
+  border: 1px solid var(--danger);
+}
+
+/* ── Ajustes › Copias de seguridad ─────────────────────────── */
+.copias-list { display: flex; flex-direction: column; gap: 6px; }
+.copias-vacio { font-size: 13px; color: var(--text-muted); margin: 0; }
+.copia-fila {
+  display: flex; align-items: center; gap: 8px; flex-wrap: wrap;
+  padding: 7px 10px; border: 1px solid var(--border-light); border-radius: var(--radius-sm);
+  background: var(--surface);
+}
+.copia-fecha { font-size: 13px; font-weight: 600; color: var(--text-primary); }
+/* Empuja los botones al extremo derecho de la fila. */
+.copia-total { font-size: 12px; color: var(--text-muted); margin-right: auto; }

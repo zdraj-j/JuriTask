@@ -80,7 +80,9 @@ function switchView(view) {
   const _bitBtn = document.getElementById('bitacoraScanBtn');
   if (_bitBtn) _bitBtn.style.display = hide ? 'none' : '';
 
-  if      (isConfig) { renderConfig(); }
+  // Las copias se listan al entrar en Configuración, no en el arranque: es una
+  // lectura de red que solo interesa cuando se va a mirar la sección.
+  if      (isConfig) { renderConfig(); if (typeof renderCopias === 'function') renderCopias(); }
   else if (isAgenda) { renderAgenda(); }
   else if (isDash && typeof loadDashboardData === 'function') { loadDashboardData(); }
   else               { renderAll(); }
@@ -313,6 +315,8 @@ function init() {
   if (typeof restoreReportDock === 'function') restoreReportDock();
 
   // ── Export / Import ──────────────────────────────────────
+  if (typeof initCopias === 'function') initCopias();
+
   document.getElementById('exportBtn').addEventListener('click', exportData);
   document.getElementById('importBtn').addEventListener('click', () => document.getElementById('importFile').click());
   document.getElementById('importFile').addEventListener('change', e => {

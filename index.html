@@ -105,6 +105,7 @@
       <span class="sesion-nombre" id="sesionNombre"></span>
       <button class="sesion-salir" type="button" id="btnLogout" title="Cerrar sesión" aria-label="Cerrar sesión"><i data-lucide="log-out"></i></button>
     </div>
+    <p class="sync-estado" id="syncEstado" role="status" hidden></p>
   </div>
 </aside>
 
@@ -361,6 +362,15 @@
             <button class="btn btn-primary" id="exportBtn"><i data-lucide="download"></i> Exportar JSON</button>
             <button class="btn-small" id="importBtn"><i data-lucide="upload"></i> Importar JSON</button>
             <input type="file" id="importFile" accept=".json" style="display:none" />
+          </div>
+        </div>
+
+        <div class="config-section">
+          <h3><i data-lucide="history"></i> Copias de seguridad</h3>
+          <p style="font-size:13px;color:var(--text-secondary);margin-bottom:12px">Al abrir la app se guarda <strong>una copia al día</strong> de los trámites en la nube, y se conservan las últimas 7. Restaurar reemplaza los trámites actuales, guardando antes una copia de lo que haya.</p>
+          <div id="copiasList" class="copias-list"></div>
+          <div class="config-btns-row" style="margin-top:10px">
+            <button class="btn-small" id="copiaAhoraBtn"><i data-lucide="save"></i> Crear copia ahora</button>
           </div>
         </div>
 
@@ -698,6 +708,10 @@
      config.js se cargue después. -->
 <script src="js/firebase.js"></script>
 <script src="js/auth.js"></script>
+
+<!-- 5.b Copias de seguridad diarias. Va después de firebase.js: usa `_userRef`,
+     `db` y `AUTH`. -->
+<script src="js/copias.js"></script>
 
 <!-- 6. Orquestador general (debe ir de último) -->
 <script src="js/config.js"></script>

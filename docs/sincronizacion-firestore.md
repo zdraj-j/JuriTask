@@ -104,7 +104,53 @@ mientras tanto los datos siguen en `localStorage`. Revertir el sello haría que
 la siguiente pasada reenviara todo, compitiendo con el reintento del SDK.
 
 Si es la **lectura** inicial la que falla, la app arranca igual con la caché
-local y avisa. Mejor datos de hace un rato que una pantalla en blanco.
+local y avisa. Mejor datos de hace un rato que una pantalla en blanco. Además el
+sello se vacía: sin haber leído la nube no hay nada con qué comparar, así que la
+siguiente pasada sube todo lo local.
+
+## La marca de cambios sin subir
+
+Es la defensa contra el fallo que costó días de trabajo. Conviene entender el
+camino completo, porque cada paso parecía inofensivo por separado:
+
+1. `_subirCambios()` toma el candado `_syncEnCurso` y hace `await commit()`.
+2. **Sin red, `commit()` no rechaza: se queda pendiente para siempre.** El
+   `finally` nunca corre y el candado no se suelta.
+3. Todo lo que el usuario escribiera después de ese momento se guardaba en
+   `localStorage` y salía de `_subirCambios()` por la primera línea. En
+   silencio: ni un aviso, ni un error en consola.
+4. A la mañana siguiente, `cargarDeFirestore()` traía la nube —sin ese
+   trabajo—, hacía `STATE.tramites = tramites` y `_flushSave()` lo escribía
+   encima de la caché, que era la última copia que quedaba.
+
+El resultado: la app amanecía con datos de días atrás y no había de dónde
+recuperarlos.
+
+Tres cambios lo cierran:
+
+- **`SYNC_TIMEOUT_MS` (20 s).** `_commitConTope()` da la subida por no
+  confirmada pasado ese tiempo, suelta el candado y deja que el SDK siga
+  reintentando por su cuenta. Una subida sin red ya no mata la sesión entera.
+- **La marca `juritask_pendiente`.** La pone `saveAll()` en cuanto algo cambia y
+  **solo** la quita un `commit()` confirmado por el servidor. Mientras esté
+  puesta, `cargarDeFirestore()` sabe que la caché local va por delante de la
+  nube y **fusiona en vez de reemplazar** (`_fusionarConLocal`), conservando lo
+  local y añadiendo de la nube solo lo que la copia local no conoce.
+- **El aviso `#syncEstado`** en el pie de la barra lateral, visible mientras
+  haya cambios sin subir, con los días que llevan esperando.
+
+El razonamiento que hace correcta la fusión: la app escribe **siempre**
+`localStorage` primero y Firestore después, así que la caché local nunca va por
+detrás de la nube. Ante el mismo trámite en las dos, la copia local es la misma
+o es más nueva.
+
+El precio, explícito: un trámite borrado en **otro** equipo puede reaparecer.
+Frente a perder una jornada de trabajo, un trámite de vuelta se borra en un
+clic.
+
+La misma regla se aplica cuando la lectura inicial sale de la caché de IndexedDB
+(`snapT.metadata.fromCache`): esa foto no prueba nada sobre el estado real de la
+nube, así que tampoco puede pisar lo local.
 
 ## Las reglas
 

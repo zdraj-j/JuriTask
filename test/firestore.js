@@ -349,6 +349,66 @@ const TRAMITE = (id, numero) => ({
             sinId.total === 3 && !!sinId.id,
             `documentos=${sinId.total} id asignado=${sinId.id}`);
 
+  // ── 15-18. Trabajo local que nunca llegó a subir ────────
+  // El fallo que motivó esta parte: una subida sin red deja `commit()`
+  // pendiente para siempre, el candado `_syncEnCurso` no se suelta y **nada de
+  // lo que se escriba después sube**, en silencio. A la mañana siguiente
+  // `cargarDeFirestore` traía la nube —sin ese trabajo—, reemplazaba STATE y
+  // `_flushSave()` lo pisaba también en la caché local. Días enteros
+  // desaparecían sin un solo mensaje de error.
+  //
+  // Con la marca de cambios pendientes, la copia local manda en esa carga.
+  await page.goto(`http://localhost:${PORT}/`);
+  await enPagina(page, `
+    localStorage.clear();
+    // Lo de ayer: está en la caché y NO está en la nube.
+    localStorage.setItem('juritask_tramites', JSON.stringify([
+      ${JSON.stringify(TRAMITE('ayer', '44444'))},
+      ${JSON.stringify(TRAMITE('a', '11111'))}
+    ]));
+    localStorage.setItem('juritask_pendiente', JSON.stringify({ desde: '2026-09-02T10:00:00.000Z' }));
+    // La nube solo tiene el trámite viejo, y desactualizado.
+    var nube = ${JSON.stringify(TRAMITE('a', '11111'))};
+    nube.descripcion = 'version vieja de la nube';
+    window.__fs.docs['users/u1/tramites/a'] = nube;
+  `);
+
+  await page.click('#btnGoogleLogin');
+  await page.waitForTimeout(2400);   // carga + fusión + debounce de subida
+
+  const rescate = await enPagina(page, `
+    return {
+      numeros: STATE.tramites.map(function (t) { return t.numero; }).sort(),
+      cache: JSON.parse(localStorage.getItem('juritask_tramites') || '[]')
+               .map(function (t) { return t.numero; }).sort(),
+      enNube: !!window.__fs.docs['users/u1/tramites/ayer'],
+      pendiente: localStorage.getItem('juritask_pendiente'),
+      aviso: (document.getElementById('syncEstado') || {}).hidden,
+    };
+  `);
+
+  comprobar('15. el trabajo sin subir sobrevive a la carga',
+            rescate.numeros.indexOf('44444') !== -1,
+            `en STATE=${rescate.numeros.join(',') || '(vacío)'}`);
+  comprobar('16. y no se pisa en la caché local',
+            rescate.cache.indexOf('44444') !== -1,
+            `en caché=${rescate.cache.join(',') || '(vacío)'}`);
+  comprobar('17. se sube a la nube en cuanto hay conexión',
+            rescate.enNube === true, `documento "ayer" en la nube=${rescate.enNube}`);
+  comprobar('18. y la marca se levanta al confirmarse',
+            !rescate.pendiente && rescate.aviso === true,
+            `marca=${rescate.pendiente ? 'sigue' : 'levantada'} aviso oculto=${rescate.aviso}`);
+
+  // ── 19. Un commit que nunca responde no mata la sesión ───
+  // Sin el tope de espera, el candado se quedaba tomado y ningún cambio
+  // posterior volvía a subir en toda la sesión.
+  const bloqueada = await enPagina(page, `
+    return typeof SYNC_TIMEOUT_MS === 'number' && SYNC_TIMEOUT_MS > 0
+        && /_commitConTope/.test(_subirCambios.toString());
+  `);
+  comprobar('19. las subidas tienen tope de espera', bloqueada === true,
+            `tope declarado=${bloqueada}`);
+
   console.log('\n=== SINCRONIZACIÓN CON FIRESTORE ===');
   let fallos = 0;
   for (const [nombre, ok, detalle] of out) {

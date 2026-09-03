@@ -36,6 +36,24 @@ ver [agenda.md](agenda.md)).
   `responsable` `'auxiliar'`/`'propio'` → `'yo'`, y migra `proximaAccion` →
   `seguimiento`).
 
+### Las claves
+
+| Clave | Qué guarda |
+|---|---|
+| `juritask_tramites` | `STATE.tramites` |
+| `juritask_order` | `STATE.order` |
+| `juritask_config` | `STATE.config` |
+| `juritask_pendiente` | `{ desde }` — hay cambios que la nube todavía no tiene |
+
+`juritask_pendiente` la pone `saveAll()` en cuanto algo cambia y **solo** la
+quita un `commit()` confirmado por el servidor. Es lo que impide que la carga
+del día siguiente pise trabajo que no llegó a subir; el mecanismo completo está
+en
+[sincronizacion-firestore.md](sincronizacion-firestore.md#la-marca-de-cambios-sin-subir).
+
+El cierre de sesión borra las cuatro: dejar la marca sin la caché a la que se
+refiere haría que la próxima sesión defendiera datos que ya no están.
+
 ## La identidad de un trámite
 
 `t.id` es la clave con la que `getById`, el borrado y el orden manual lo
