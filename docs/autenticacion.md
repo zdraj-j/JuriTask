@@ -1,89 +1,85 @@
-# Proceso: Acceso con Google
+# Proceso: Conectar con Google
 
-Una pantalla, un botón. La app es de **un solo usuario**.
+Un botón en el pie de la barra lateral. **Opcional.**
 
 ## Archivos
 
-- `js/firebase.js` → `AUTH`, `auth.onAuthStateChanged`, el arranque.
-- `js/auth.js` → `mostrarPantallaAcceso()`, `mostrarApp()`, `renderSesion()`.
-- `index.html` → `#splashScreen`, `#authScreen`, el pie `.sidebar-footer`.
-- `firebase.rules` → cada cuenta solo alcanza lo suyo.
+- `js/firebase.js` → `AUTH`, `auth.onAuthStateChanged`. Solo Auth: Firestore ya
+  no se inicializa.
+- `js/auth.js` → `mostrarPuerta()`, `mostrarApp()`, `renderSesion()`,
+  `conectarGoogle()`.
+- `index.html` → `#splashScreen`, `#gateScreen`, el pie `.sidebar-footer`.
+- `firebase.rules` → todo cerrado; la app no lee ni escribe en Firestore.
 
-## Por qué hay login si solo hay un usuario
+## Qué cambió, y por qué importa
 
-Es la pregunta obvia, y tiene dos respuestas concretas:
+Antes la sesión **era la puerta**: sin login no había datos, porque los datos
+estaban en Firestore y Firestore necesita un `uid` para saber de quién son.
 
-1. **Firestore necesita saber de quién son los datos.** Sin un `uid` no hay
-   forma de escribir una regla que impida que un tercero lea la base. Los datos
-   viven en `users/{uid}/…` justamente para eso.
-2. **De ahí sale el token de Google** que usan Gmail, el selector de Drive y la
-   lectura de correos para Gemini ([google-auth.md](google-auth.md)). Sin
-   sesión no hay token, y sin token la mitad de la app queda inerte.
+Los datos se movieron a un JSON del disco
+([archivo-datos.md](archivo-datos.md)), así que esa razón desapareció. Queda una
+sola:
 
-Lo que **no** hay es gestión de usuarios: ni registro por correo, ni
-verificación, ni recuperación de contraseña, ni aprobación de un
-administrador, ni invitaciones, ni perfiles ajenos. Todo eso existió y se
-retiró; los colaboradores son **etiquetas** de `config.abogados`, no cuentas.
+> **De aquí sale el token de Google** que usan Gmail, el selector de Drive y la
+> lectura de correos para Gemini ([google-auth.md](google-auth.md)). Sin sesión
+> no hay token, y sin token no hay correo ni adjuntos.
+
+Consecuencia práctica: **se puede abrir JuriTask y trabajar sin cuenta y sin
+conexión.** El correo simplemente no está disponible hasta conectarse. Lo que
+gatea la app ahora es la carpeta de datos, no la identidad.
+
+Lo que **no** hay, y no ha vuelto: registro por correo, verificación,
+recuperación de contraseña, aprobación de administrador, invitaciones ni
+perfiles ajenos. Los colaboradores son **etiquetas** de `config.abogados`, no
+cuentas.
 
 ## El arranque
 
-`init()` **no** cuelga de `DOMContentLoaded`. Cuelga de la sesión:
+`init()` ya no cuelga de la sesión, sino del archivo:
 
 ```
-onAuthStateChanged
-  ├─ sin usuario → mostrarPantallaAcceso()
-  └─ con usuario → loadAll()            (caché local, por si la red falla)
-                   cargarDeFirestore()  (la nube manda)
-                   mostrarApp() → renderSesion() + init()
+DOMContentLoaded → arrancarApp()          (js/config.js)
+  ├─ loadAll()                            caché local, por si el disco falla
+  ├─ reconectarCarpeta()
+  │    ├─ 'listo'    → cargarDeArchivo() → mostrarApp() → init()
+  │    ├─ 'permiso'  → mostrarPuerta('permiso')   "Abrir mi carpeta"
+  │    └─ 'ninguna'  → mostrarPuerta('ninguna')   "Elegir carpeta de datos"
+  └─ (en paralelo) onAuthStateChanged → renderSesion()
 ```
 
-El orden importa: `loadAll()` va **antes** que `cargarDeFirestore()`, porque
-esta última mira si había algo en local para decidir si baja o si sube (primer
-arranque en una cuenta nueva).
+`onAuthStateChanged` ya **no arranca nada**. Solo refleja quién está dentro para
+que el pie de la barra lateral y los módulos de correo sepan a qué atenerse. Si
+la sesión tarda o no hay, la app funciona igual.
 
-`onAuthStateChanged` es **asíncrono**, así que puede llamar a `init()` aunque
-`config.js` se cargue después que `firebase.js`. Un doble de pruebas que lo
-llame de forma síncrona rompe ese orden y falla donde la app real no falla; hay
-un comentario al respecto en `test/firestore.js`.
+## Solo Google, y por qué eso ya no puede perder datos
 
-## Solo Google, y por qué eso puede cambiarte el UID
+La versión anterior admitía correo y contraseña. Ahora solo Google, y Firebase
+corta con `auth/account-exists-with-different-credential` cuando el correo ya
+tiene una cuenta creada con contraseña.
 
-La versión anterior admitía **correo y contraseña** además de Google. Ahora solo
-Google, y eso tiene una consecuencia que no se ve venir.
+Antes eso era grave: **UID distinto ⇒ árbol de Firestore distinto**, la app
+arrancaba vacía y parecía que se había perdido todo. Ahora el UID no toca los
+datos —están en el archivo del disco—, así que en el peor caso te quedas sin
+correo hasta resolverlo en la consola de Firebase.
 
-Firebase, por omisión, no deja dos cuentas con el mismo correo. Si la cuenta
-original se creó con contraseña, entrar con Google **sería otra cuenta**, así
-que Firebase corta con `auth/account-exists-with-different-credential`.
-`auth.js` lo traduce a un mensaje concreto, porque el error genérico es
-indistinguible de un fallo de red.
+## Desconectar Google
 
-Y si en vez de cortar hubiera dejado entrar, el problema sería peor: **UID
-distinto ⇒ árbol de datos distinto**. La app arrancaría vacía y parecería que
-se perdió todo, cuando en realidad los trámites siguen en
-`users/{uidViejo}/tramites`.
+Ya **no** vacía `localStorage`. Antes tenía que hacerlo porque la caché era el
+espejo de una base de datos en la nube, y en un equipo compartido no debía
+quedarse esperando al siguiente. Hoy la caché es el espejo de un archivo que el
+usuario controla, y borrarla por una acción que no tiene nada que ver sería
+tirar trabajo.
 
-Salidas, por orden de preferencia:
-
-1. Consola de Firebase → Authentication → la cuenta → vincular el proveedor
-   Google. Conserva el UID y los datos.
-2. Exportar el JSON desde la app vieja e importarlo en la nueva.
-
-Si siempre entraste con Google, nada de esto aplica: mismo UID de siempre.
-
-## Cerrar sesión
-
-Vacía `localStorage` antes de recargar, porque en un equipo compartido los
-datos no deben quedarse esperando al siguiente.
-
-Y hay una trampa: `storage.js` escribe en `beforeunload`, así que la recarga
-volvía a volcar `STATE` sobre el almacenamiento recién vaciado —incluida
-`config.geminiApiKey`—. Por eso se llama antes a `pausarGuardadoLocal()`, que
-corta la escritura de forma definitiva. Lo pilló `test/firestore.js`.
+Con eso se fue también `pausarGuardadoLocal()`, que existía solo para que el
+`beforeunload` no volviera a llenar el `localStorage` recién vaciado.
 
 ## Al modificar
 
-- Si añades un scope de Google, va en `_proveedorGoogle()` (firebase.js). Los
-  usuarios que ya iniciaron sesión **no** lo tendrán hasta que vuelvan a
-  autorizar: el token viejo se emitió con los scopes viejos.
+- Si añades un scope de Google, va en `_proveedorGoogle()` (firebase.js). Quien
+  ya inició sesión **no** lo tendrá hasta volver a autorizar: el token viejo se
+  emitió con los scopes viejos.
 - No metas lógica de la app en `auth.js`. Su trabajo es enseñar u ocultar dos
-  pantallas.
+  pantallas y pintar el pie.
+- **No devuelvas Firestore por la puerta de atrás.** Si algún día hace falta
+  sincronizar entre equipos, el sitio es una capa nueva sobre `js/archivo.js`,
+  no `firebase.js`.

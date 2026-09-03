@@ -1,130 +1,132 @@
 /**
  * JuriTask — copias.js
- * Copias de seguridad automáticas de los trámites.
+ * Copias de seguridad automáticas, en la carpeta de datos.
  *
- * ── Por qué existe este archivo ─────────────────────────────
+ * ── Dónde ───────────────────────────────────────────────────
  *
- * La app **tuvo** copias automáticas: se guardaban a diario en
- * `users/{uid}/backups`, se conservaban siete días y el panel de administración
- * las listaba con botones de restaurar y borrar. Se retiraron al dejar de ser
- * multiusuario, con la idea de rehacerlas sobre Drive en una "fase 3" que
- * después se revirtió. El resultado, hasta ahora, era que **no había ninguna
- * copia**: ni automática ni antigua alcanzable, porque `firebase.rules` cierra
- * la colección `backups`. Lo único que quedaba era pulsar "Exportar JSON" a
- * mano y acordarse de hacerlo.
+ *   <carpeta>/copias/juritask-AAAA-MM-DD.json
  *
- * ── Dónde se guardan ────────────────────────────────────────
+ * Una por día, siete en retención. El id es la fecha, así que la operación es
+ * idempotente: abrir la app cinco veces en un día deja una sola copia.
  *
- * En `users/{uid}/meta/copia-AAAA-MM-DD`, un documento por día. Esa ruta se
- * elige a propósito: es una de las tres que las reglas ya permiten, así que
- * las copias funcionan **sin tocar `firebase.rules`** y sin reabrir nada de la
- * etapa multiusuario.
- *
- * El precio de meterlo todo en un documento es el tope de 1 MiB de Firestore.
- * Se comprueba antes de escribir y, si no cabe, se avisa en vez de fallar en
- * silencio (ver `TOPE_DOC`).
+ * Antes vivían en Firestore (`users/{uid}/meta/copia-…`). Al pasar la base de
+ * datos a un archivo del disco, las copias se van con ella: no tendría sentido
+ * dejar el respaldo en la nube que la app ya no usa, y así son archivos que el
+ * usuario ve, copia a un USB y respalda con sus propias herramientas.
  *
  * ── Qué NO es ───────────────────────────────────────────────
  *
- * Una copia diaria no protege de un fallo de sincronización del mismo día: para
- * eso está la marca de cambios sin subir (`js/storage.js`). Son dos defensas
- * distintas y hacen falta las dos.
+ * Una copia diaria no protege de un guardado fallido del mismo día: para eso
+ * está la marca de cambios pendientes (`js/storage.js`). Tampoco protege de que
+ * el disco muera: **están en el mismo disco que el original.** Esa es la
+ * limitación real de esta arquitectura y conviene tenerla presente — la carpeta
+ * debería estar en algo que se sincronice o se respalde fuera del equipo.
  */
 
-const COPIAS_PREFIJO   = 'copia-';
+const COPIAS_PREFIJO   = 'juritask-';
 const COPIAS_A_GUARDAR = 7;
 
-// Tope real del documento: 1 MiB. Se deja margen para los metadatos del propio
-// documento y para el sobrecoste de la codificación de Firestore.
-const TOPE_DOC = 900 * 1024;
-
-function _metaRef() { return _userRef().collection('meta'); }
-
-/** El contenido de una copia: los trámites y su orden, nada más. */
-function _cuerpoCopia() {
-  return {
-    creadoEn: new Date().toISOString(),
-    tramites: JSON.stringify(STATE.tramites),   // en texto: Firestore no anida arrays de objetos sin límite
-    order:    JSON.stringify(STATE.order || []),
-    total:    STATE.tramites.length,
-  };
+/** El directorio `copias/`, creándolo si hace falta. */
+async function _dirCopias(crear = true) {
+  if (!ARCHIVO.conectado) return null;
+  return ARCHIVO.carpeta.getDirectoryHandle(CARPETA_COPIAS, { create: crear });
 }
 
 /**
  * Guarda la copia de hoy si no existe ya, y retira las que sobran.
- *
- * Idempotente por diseño: el id es la fecha, así que abrir la app cinco veces
- * en un día deja una sola copia. Se llama al terminar la carga inicial.
+ * Se llama al terminar la carga inicial.
  */
 async function crearCopiaDiaria({ forzar = false } = {}) {
-  if (!AUTH.activa) return null;
-  // Una copia de un estado vacío no protege de nada y sí puede desplazar a una
-  // copia buena cuando se retiran las viejas.
+  if (!ARCHIVO.conectado) return null;
+  // Una copia de un estado vacío no protege de nada y sí podría desplazar a una
+  // copia buena al aplicar la retención.
   if (!STATE.tramites.length) return null;
-  // Con cambios sin subir, lo local va por delante de la nube: la copia es
-  // válida igualmente (sale de STATE, no de Firestore).
 
-  const id = COPIAS_PREFIJO + today();
+  const nombre = `${COPIAS_PREFIJO}${today()}.json`;
   try {
-    if (!forzar) {
-      const ya = await _metaRef().doc(id).get();
-      if (ya.exists) return id;
-    }
+    const dir = await _dirCopias();
 
-    const cuerpo = _cuerpoCopia();
-    const peso   = new Blob([JSON.stringify(cuerpo)]).size;
-    if (peso > TOPE_DOC) {
-      console.warn(`Copia diaria omitida: ${Math.round(peso / 1024)} KB supera el tope del documento.`);
-      showToast('Los datos ya no caben en una copia automática. Exporta el JSON desde Ajustes.');
-      return null;
-    }
+    if (!forzar && await _existe(dir, nombre)) return nombre;
 
-    await _metaRef().doc(id).set(cuerpo);
+    const cuerpo = {
+      version:   ARCHIVO_VERSION,
+      creadoEn:  new Date().toISOString(),
+      total:     STATE.tramites.length,
+      tramites:  STATE.tramites,
+      order:     STATE.order || [],
+      config:    STATE.config,
+    };
+
+    const h = await dir.getFileHandle(nombre, { create: true });
+    const w = await h.createWritable();
+    await w.write(JSON.stringify(cuerpo, null, 2));
+    await w.close();
+
     await _retirarCopiasViejas();
-    return id;
+    return nombre;
   } catch (e) {
     console.warn('No se pudo crear la copia diaria:', e);
     return null;
   }
 }
 
+async function _existe(dir, nombre) {
+  try { await dir.getFileHandle(nombre); return true; }
+  catch (_) { return false; }
+}
+
 /** Las copias que hay, de la más reciente a la más vieja. */
 async function listarCopias() {
-  if (!AUTH.activa) return [];
-  // Se lee la colección entera —tiene `config`, `order` y como mucho siete
-  // copias— y se filtra por prefijo. Una consulta con `where` sobre el id del
-  // documento no aportaría nada a este tamaño.
-  const snap = await _metaRef().get();
+  if (!ARCHIVO.conectado) return [];
   const copias = [];
-  snap.forEach(d => {
-    if (!d.id.startsWith(COPIAS_PREFIJO)) return;
-    const data = d.data() || {};
-    copias.push({ id: d.id, fecha: d.id.slice(COPIAS_PREFIJO.length), creadoEn: data.creadoEn || '', total: data.total ?? null });
-  });
-  return copias.sort((a, b) => (a.id < b.id ? 1 : -1));
+  try {
+    const dir = await _dirCopias(false);
+    if (!dir) return [];
+    // Solo las copias diarias: los `conflicto-*.json` que deja `js/archivo.js`
+    // viven aquí también, pero no son copias que se puedan restaurar a ciegas.
+    for await (const [nombre, handle] of dir.entries()) {
+      if (handle.kind !== 'file') continue;
+      if (!nombre.startsWith(COPIAS_PREFIJO) || !nombre.endsWith('.json')) continue;
+      const file = await handle.getFile();
+      copias.push({
+        nombre,
+        fecha: nombre.slice(COPIAS_PREFIJO.length, -'.json'.length),
+        creadoEn: new Date(file.lastModified).toISOString(),
+        bytes: file.size,
+      });
+    }
+  } catch (e) {
+    // `copias/` puede no existir todavía: no es un error.
+    if (e?.name !== 'NotFoundError') console.warn('No se pudieron listar las copias:', e);
+    return [];
+  }
+  return copias.sort((a, b) => (a.nombre < b.nombre ? 1 : -1));
 }
 
 async function _retirarCopiasViejas() {
   const copias = await listarCopias();
   const sobran = copias.slice(COPIAS_A_GUARDAR);
   if (!sobran.length) return;
-  const lote = db.batch();
-  sobran.forEach(c => lote.delete(_metaRef().doc(c.id)));
-  await lote.commit();
+  const dir = await _dirCopias(false);
+  for (const c of sobran) {
+    try { await dir.removeEntry(c.nombre); }
+    catch (e) { console.warn(`No se pudo borrar ${c.nombre}:`, e); }
+  }
 }
 
 /**
- * Devuelve los trámites y el orden guardados en una copia, sin tocar STATE.
- * Separado de la restauración para que la confirmación pueda decir cuántos
- * trámites entran antes de reemplazar nada.
+ * Devuelve lo guardado en una copia, sin tocar STATE. Separado de la
+ * restauración para que la confirmación pueda decir cuántos trámites entran
+ * antes de reemplazar nada.
  */
-async function leerCopia(id) {
-  const doc = await _metaRef().doc(id).get();
-  if (!doc.exists) throw new Error('La copia ya no existe.');
-  const data = doc.data() || {};
+async function leerCopia(nombre) {
+  const dir  = await _dirCopias(false);
+  if (!dir) throw new Error('Sin carpeta de datos.');
+  const h    = await dir.getFileHandle(nombre);
+  const data = JSON.parse(await (await h.getFile()).text());
   return {
-    tramites: dedupeTramites(JSON.parse(data.tramites || '[]')),
-    order:    dedupeOrder(JSON.parse(data.order || '[]')),
+    tramites: dedupeTramites(Array.isArray(data.tramites) ? data.tramites : []),
+    order:    dedupeOrder(Array.isArray(data.order) ? data.order : []),
     creadoEn: data.creadoEn || '',
   };
 }
@@ -132,13 +134,13 @@ async function leerCopia(id) {
 /**
  * Reemplaza los trámites actuales por los de la copia.
  *
- * Antes de reemplazar deja una copia de lo que hay ahora, con el id de hoy
- * forzado. Restaurar por error es tan fácil como restaurar a propósito, y sin
- * esa red la equivocación no tendría vuelta.
+ * Antes de reemplazar guarda una copia de lo que hay ahora, forzada. Restaurar
+ * por error es tan fácil como restaurar a propósito, y sin esa red la
+ * equivocación no tendría vuelta.
  */
-async function restaurarCopia(id) {
-  const copia = await leerCopia(id);
-  const cuando = copia.creadoEn ? new Date(copia.creadoEn).toLocaleString('es-CO') : id.slice(COPIAS_PREFIJO.length);
+async function restaurarCopia(nombre) {
+  const copia  = await leerCopia(nombre);
+  const cuando = copia.creadoEn ? new Date(copia.creadoEn).toLocaleString('es-CO') : nombre;
 
   // El mensaje va en una sola línea: `showConfirm` lo pinta con `textContent`,
   // así que un salto de línea no se vería.
@@ -155,20 +157,17 @@ async function restaurarCopia(id) {
   STATE.tramites = copia.tramites;
   STATE.order    = copia.order;
   STATE.tramites.forEach(migrateTramite);
-  // `saveAll(true)` escribe la caché al momento y encola la subida; el sello se
-  // vacía para que el comparador vea todos los trámites como cambiados y los
-  // suba, incluidos los que la nube ya no tenía.
-  _sello.clear();
   saveAll(true);
   renderAll();
   showToast(`Copia del ${cuando} restaurada.`);
   return true;
 }
 
-async function borrarCopia(id) {
+async function borrarCopia(nombre) {
   const ok = await showConfirm('¿Eliminar esta copia?', { danger: true, confirmLabel: 'Eliminar' });
   if (!ok) return false;
-  await _metaRef().doc(id).delete();
+  const dir = await _dirCopias(false);
+  await dir.removeEntry(nombre);
   showToast('Copia eliminada.');
   return true;
 }
@@ -182,6 +181,12 @@ async function borrarCopia(id) {
 async function renderCopias() {
   const el = document.getElementById('copiasList');
   if (!el) return;
+
+  if (!ARCHIVO.conectado) {
+    el.innerHTML = '<p class="copias-vacio">Conecta la carpeta de datos para tener copias automáticas.</p>';
+    return;
+  }
+
   el.innerHTML = '<p class="copias-vacio">Cargando…</p>';
   try {
     const copias = await listarCopias();
@@ -196,22 +201,22 @@ async function renderCopias() {
       fila.className = 'copia-fila';
       fila.innerHTML =
         `<span class="copia-fecha">${escapeHtml(cuando)}</span>`
-        + `<span class="copia-total">${c.total ?? '—'} trámite(s)</span>`
+        + `<span class="copia-total">${Math.max(1, Math.round(c.bytes / 1024))} KB</span>`
         + `<button class="btn-small" type="button" data-restaurar>Restaurar</button>`
         + `<button class="btn-small btn-danger" type="button" data-borrar aria-label="Eliminar copia">Eliminar</button>`;
       fila.querySelector('[data-restaurar]').addEventListener('click', async () => {
-        try { if (await restaurarCopia(c.id)) renderCopias(); }
+        try { if (await restaurarCopia(c.nombre)) renderCopias(); }
         catch (e) { console.error(e); showToast('No se pudo restaurar la copia.'); }
       });
       fila.querySelector('[data-borrar]').addEventListener('click', async () => {
-        try { if (await borrarCopia(c.id)) renderCopias(); }
+        try { if (await borrarCopia(c.nombre)) renderCopias(); }
         catch (e) { console.error(e); showToast('No se pudo eliminar la copia.'); }
       });
       el.appendChild(fila);
     });
   } catch (e) {
     console.error('Error cargando las copias:', e);
-    el.innerHTML = '<p class="copias-vacio">No se pudieron cargar las copias. Revisa la conexión.</p>';
+    el.innerHTML = '<p class="copias-vacio">No se pudieron leer las copias de la carpeta.</p>';
   }
 }
 
@@ -220,8 +225,9 @@ function initCopias() {
     const btn = e.currentTarget;
     btn.disabled = true;
     try {
-      const id = await crearCopiaDiaria({ forzar: true });
-      if (id) { showToast('Copia creada.'); renderCopias(); }
+      const nombre = await crearCopiaDiaria({ forzar: true });
+      if (nombre) { showToast('Copia creada.'); renderCopias(); }
+      else showToast('No se pudo crear la copia.');
     } finally { btn.disabled = false; }
   });
 }

@@ -1,78 +1,35 @@
 rules_version = '2';
 
 // ╔══════════════════════════════════════════════════════════════╗
-// ║  JuriTask — Reglas de Firestore (v4, un solo usuario)        ║
+// ║  JuriTask — Reglas de Firestore (v5, sin base de datos)      ║
 // ╚══════════════════════════════════════════════════════════════╝
 //
-// La app dejó de ser multiusuario: no hay equipos, ni compartir, ni
-// invitaciones, ni administradores, ni notificaciones. Por eso desaparecen las
-// reglas de `teams`, `invitations`, `meta/userIndex`, `notifications` y
-// `backups`, y con ellas `role`, `blocked` e `isTeammate`.
+// **La app ya no usa Firestore.** Los trámites viven en un JSON del disco del
+// usuario, vía File System Access API (`js/archivo.js`,
+// docs/archivo-datos.md). `js/firebase.js` ni siquiera llama a
+// `firebase.firestore()`: de Firebase solo queda Auth, y solo porque de ahí
+// sale el token de Google que usan Gmail y el selector de Drive
+// (docs/google-auth.md).
 //
-// **La v3 sigue aplicándose hasta que despliegues esta.** Los datos de esas
-// colecciones no se borran al cambiar las reglas: quedan en Firestore,
-// inalcanzables. Si algún día hay que recuperarlos, se vuelve a abrir la regla.
+// Por eso estas reglas no permiten nada. No es una restricción que haya que
+// aflojar más adelante: es el estado correcto de un proyecto cuya base de datos
+// se movió a otro sitio. Una regla abierta aquí solo serviría para que alguien
+// que dé con la dirección del proyecto escriba en él.
 //
-// Rutas que la app usa hoy, y ninguna más:
+// **Los datos de antes no se borran al desplegar esto.** Las colecciones
+// `users/{uid}/tramites`, `users/{uid}/meta` y las de la etapa multiusuario
+// (`teams`, `invitations`, `notifications`, `backups`) siguen en Firestore,
+// inalcanzables desde la app. Si hay que recuperar algo de ahí:
 //
-//   users/{uid}/tramites/{id}     un documento por trámite
-//   users/{uid}/meta/config       STATE.config
-//   users/{uid}/meta/order        el orden de las tarjetas
+//   1. Consola de Firebase → Firestore Database, que no pasa por estas reglas.
+//   2. O reabrir temporalmente la regla de la ruta concreta, exportar, y
+//      volver a cerrarla.
 //
-// El documento `users/{uid}` en sí ya no se usa: guardaba el perfil (approved,
-// role, teamId). Queda cerrado.
+// Antes de borrarlas de verdad, conviene exportarlas: son el histórico anterior
+// a la migración.
 
 service cloud.firestore {
   match /databases/{database}/documents {
-
-    // ── Quién puede usar la app ────────────────────────────────
-    //
-    // Lista de UID autorizados. **Vacía significa: cualquier cuenta de
-    // Google.** Eso no expone tus datos —cada cuenta solo alcanza su propio
-    // árbol, ver `esDueno()` más abajo— pero sí deja que un desconocido que dé
-    // con la dirección de la app se registre y consuma tu cuota de Firebase.
-    //
-    // Para cerrarlo, pon aquí tu UID:
-    //
-    //   1. Consola de Firebase → Authentication → Users.
-    //   2. Columna "User UID": una cadena larga de letras y números.
-    //   3. Añádela a la lista, separando con comas si son varias cuentas.
-    //
-    //   function duenos() { return ['aB3xK…', 'Zq9mP…']; }
-    //
-    // Se usa el UID y no el correo a propósito: el UID es opaco y este archivo
-    // está en un repositorio público.
-    function duenos() { return []; }
-
-    // Es una cuenta autorizada, y está operando sobre su propio árbol.
-    //
-    // `email_verified` es gratis con el acceso por Google —siempre viene
-    // verificado— y cierra la puerta a proveedores que no comprueban el correo,
-    // por si algún día se añade otro método de acceso.
-    function esDueno(uid) {
-      return request.auth != null
-          && request.auth.uid == uid
-          && request.auth.token.email_verified == true
-          && (duenos().size() == 0 || request.auth.uid in duenos());
-    }
-
-    // ── Los datos ──────────────────────────────────────────────
-    // Rutas explícitas en vez de un comodín recursivo: `{doc=**}` tiene
-    // matices de coincidencia entre versiones de reglas, y esto no es sitio
-    // para depender de ellos.
-
-    match /users/{uid}/tramites/{tramiteId} {
-      allow read, write: if esDueno(uid);
-    }
-
-    match /users/{uid}/meta/{docId} {
-      allow read, write: if esDueno(uid);
-    }
-
-    // ── Todo lo demás, cerrado ─────────────────────────────────
-    // Incluye el propio `users/{uid}`, las colecciones de la etapa
-    // multiusuario y cualquier colección nueva que alguien cree por error: sin
-    // esto nacería sin protección.
     match /{documento=**} {
       allow read, write: if false;
     }

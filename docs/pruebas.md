@@ -1,4 +1,4 @@
-# Proceso: Prueba de humo en navegador
+# Proceso: Pruebas en navegador
 
 `test/smoke.js` levanta la app en un Chromium real y comprueba que los flujos
 principales siguen vivos. No sustituye la revisión a ojo, pero atrapa lo que
@@ -7,7 +7,7 @@ renombrada a medias, un botón que desapareció de más, un listener huérfano.
 
 ```bash
 node test/smoke.js                    # sale 0 si pasa todo, 1 si algo falla
-node test/firestore.js                # la sincronización, con un SDK de mentira
+node test/archivo.js                  # el archivo de datos, con una FS API de mentira
 JT_SHOTS=/tmp node test/smoke.js      # dónde dejar las capturas
 JT_CHROME=/ruta/al/chrome node test/smoke.js   # usar otro binario
 ```
@@ -25,13 +25,13 @@ La prueba no quiere red, así que sirve un `index.html` retocado al vuelo
 |---|---|
 | Quita los `<script src="https://…">` | Sin red no cargan (Lucide, html2canvas, el Picker, el SDK de Firebase) |
 | Quita el registro del service worker | Se registra y dispara `location.reload()` en `controllerchange`, recargando a mitad de prueba |
-| Añade un arranque propio | Con Firebase fuera nadie llama a `init()`: el arranque cuelga de la sesión |
+| Añade un arranque propio | Con Firebase fuera nadie define `mostrarApp()`, y el arranque real se quedaría en la puerta esperando una carpeta de datos que aquí no hay |
 
 > El regex del service worker **no mira el número del comentario**. Lo miraba, y
 > cuando se renumeraron las secciones de `index.html` dejó de coincidir en
 > silencio: el SW volvió a registrarse y a recargar la página a media prueba
-> durante quién sabe cuánto. Fue lo que hizo fallar `test/firestore.js` al
-> escribirlo.
+> durante quién sabe cuánto. Se descubrió al escribir la prueba de la
+> sincronización, y sigue valiendo igual para `test/archivo.js`.
 
 Además inyecta un stub de `window.lucide` antes de `storage.js`, para que
 `icons.js` no falle sin CDN. Los iconos no se dibujan; a la prueba no le
@@ -39,8 +39,9 @@ importa.
 
 `DROP` retira `js/firebase.js` y `js/auth.js`: necesitan red y una sesión de
 Google de verdad. Todo lo demás arranca en local, que es justo lo que se
-comprueba. Lo que esos dos módulos hacen se prueba aparte, en
-`test/firestore.js`.
+comprueba. El arranque real —la puerta, la carpeta, la escritura— se prueba
+aparte en `test/archivo.js`, que sí monta una File System Access API de
+mentira.
 
 ## Una cosa que hay que saber
 
@@ -63,45 +64,62 @@ activo con una tarea pendiente y uno terminado.
 - **Reactivar**: el botón sale en Terminados, el trámite vuelve a la lista
   activa, se persiste `terminado:false` y sale el toast con Deshacer.
 - **Reporte del día**: quedan Captura y Panel lateral, y no Imprimir ni Copiar.
-- **Amputación**: vuelve la sesión, no vuelven los equipos — ninguna pieza de
-  perfiles ajenos, notificaciones, ámbitos compartidos ni aprobación. Y el
-  acceso con Google está declarado en `index.html`.
+- **Amputación**: no vuelven los equipos — ninguna pieza de perfiles ajenos,
+  notificaciones, ámbitos compartidos ni aprobación.
+- **Puerta y sesión**: `index.html` declara la puerta de la carpeta
+  (`#gateScreen`, `#gateElegir`), el botón opcional de Google
+  (`#btnConectarGoogle`) y `js/archivo.js`; y **no** declara
+  `firebase-firestore-compat`, que se fue con la base de datos.
 - **Crear un trámite**: se guarda como `propio` y sin `sharedWith`, `_scope`
   ni `createdBy`.
-- **Borradores del día**: está el botón manual, no queda nada del trigger, y la
-  selección de tareas solo coge requerimientos vencidos de trámites vivos.
+- **Borradores del día**: ya no están, ni ellos ni el trigger; la bitácora de
+  enviados sí sigue.
+- **Archivo de datos**: Ajustes declara la carpeta, la lista de copias y el
+  aviso de cambios sin guardar.
 
 Al final imprime un resumen y **falla si hubo cualquier `pageerror` o error de
 consola** que no sea de red.
 
-## Qué cubre `test/firestore.js`
+## Qué cubre `test/archivo.js`
 
-El ciclo entero de sincronización contra un SDK de mentira: quién gana al
-cargar, qué sube, qué no se reescribe, qué se borra, y que cerrar sesión vacía
-la caché local.
+Sustituyó a `test/firestore.js` cuando la base de datos pasó de la nube al disco
+([archivo-datos.md](archivo-datos.md)). Ejercita el ciclo entero contra una File
+System Access API de mentira: quién gana al cargar, qué se escribe y —sobre
+todo— **qué no**.
 
-Las comprobaciones 11-14 vigilan los **trámites duplicados**
-([sincronizacion-firestore.md](sincronizacion-firestore.md#el-id-no-es-opcional)):
-que las copias de la nube no se pinten repetidas, que las sobrantes se borren,
-que un documento sin `id` adopte el suyo, y que guardar dos veces un trámite no
-deje dos documentos. Para esto último el SDK falso imita al de verdad en el
-detalle que causaba el fallo: **`doc()` sin id genera uno nuevo en cada
-llamada**. Si se simplifica esa línea, la prueba 14 deja de probar nada.
+- **1-3, la puerta.** Sin carpeta la app no entra; elegir una la crea, entra y
+  vuelca al archivo lo que hubiera en la caché.
+- **4-6, el ciclo normal.** Un cambio llega al archivo, la marca de pendientes
+  se levanta al guardar, y al reabrir con la carpeta recordada manda el archivo.
+- **7-8, el trabajo sin guardar.** Es la regresión del fallo por el que la app
+  amanecía con datos de días atrás: con la marca `juritask_pendiente` puesta, la
+  carga conserva lo local en `STATE` y en la caché, y lo escribe. Sin la marca,
+  la 7 falla porque el archivo reemplaza la caché sin mirar.
+- **9-11, no vaciar un archivo con datos.** Un `STATE` vacío no puede vaciar el
+  archivo; «Borrar todos mis datos» sí, vía `autorizarVaciado()`; y esa
+  autorización **no queda armada** para la siguiente escritura.
+- **12-14, las copias.** Se crea una al día en `copias/`, la segunda del mismo
+  día no pisa a la primera, y restaurar devuelve los trámites.
+- **15, el conflicto.** Un archivo cambiado por fuera se guarda como
+  `copias/conflicto-<hora>.json` antes de pisarlo.
+- **16, sin soporte.** Sin `showDirectoryPicker` la app lo detecta en vez de
+  reventar.
 
-Las comprobaciones 15-19 vigilan el **trabajo que no llegó a subir**
-([sincronizacion-firestore.md](sincronizacion-firestore.md#la-marca-de-cambios-sin-subir)):
-que una carga con la marca `juritask_pendiente` puesta conserve lo local en
-`STATE` y en la caché, que lo suba, que la marca se levante al confirmarse, y
-que las subidas tengan tope de espera. Es la regresión del fallo por el que la
-app amanecía con datos de días atrás: sin la marca, la prueba 15 falla porque la
-nube reemplaza la caché sin mirar.
+Dos detalles del andamiaje, por si hay que tocarlo: el "disco" falso se persiste
+en `localStorage` para sobrevivir a los `reload()` —sin eso no se podría probar
+lo que pasa **entre** dos arranques—, y el handle de la carpeta se guarda como
+una marca, no como objeto, porque IndexedDB no puede clonar algo con funciones.
+
+También hay un ayudante `sembrarCache()`: escribir solo en `localStorage` y
+recargar no siembra nada, porque el `beforeunload` de la app vuelca el `STATE`
+de la página que se va por encima.
 
 ## Al modificar
 
 - Si algún día un módulo exige red o sesión para arrancar, agrégalo a `DROP`.
 - **`page.evaluate()` no vale para tocar los globals de la app.** Usa
   `addScriptTag`, que sí corre en el mundo principal, y devuelve el resultado
-  por el DOM, que es lo único que comparten los dos mundos. `test/firestore.js`
-  tiene el ayudante `enPagina()` hecho.
+  por el DOM, que es lo único que comparten los dos mundos. `test/archivo.js`
+  tiene el ayudante `enPagina()` hecho, y además espera promesas.
 - Si una comprobación empieza a fallar por tiempos, usa `waitForSelector` en
   vez de subir el `waitForTimeout`: el render de la app no es síncrono.

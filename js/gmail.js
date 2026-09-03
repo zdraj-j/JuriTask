@@ -639,115 +639,12 @@ function abrirEnGmail(query) {
   }, true);
 })();
 
-// ============================================================
-// DEJAR BORRADORES EN EL HILO
-// ============================================================
-// Lo que hacía el trigger de Apps Script antes de que bloquearan el servicio.
-// Ahora corre en el navegador, con la app abierta y a petición del usuario.
+// La sección "DEJAR BORRADORES EN EL HILO" vivía aquí: `_gmailPost`,
+// `crearBorradorRespuesta`, `etiquetarHilo` y los ayudantes de base64 para las
+// cabeceras MIME. Se fue entera con los borradores del día, que eran su único
+// consumidor (ver docs/bitacora-envios.md).
 //
-// **Nunca envía.** Crea el borrador dentro del hilo para que lo revises en
-// Gmail. Ver docs/borradores-automaticos.md.
-
-const GMAIL_ETIQUETA = 'JuriTask/Borrador generado';
-
-async function _gmailPost(path, token, cuerpo) {
-  const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/' + path, {
-    method: 'POST',
-    headers: { Authorization: 'Bearer ' + token, 'Content-Type': 'application/json' },
-    body: JSON.stringify(cuerpo),
-  });
-  if (res.status === 401) { const err = new Error('unauthorized'); err.code = 401; throw err; }
-  if (!res.ok) { const err = new Error('gmail-http-' + res.status); err.code = res.status; throw err; }
-  return res.json();
-}
-
-/** Texto → base64 estándar, pasando por UTF-8 (btoa solo admite latin-1). */
-function _textoAB64(texto) {
-  const bytes = new TextEncoder().encode(texto);
-  let bin = '';
-  bytes.forEach(b => { bin += String.fromCharCode(b); });
-  return btoa(bin);
-}
-
-/** Variante base64url, que es lo que pide el campo `raw` de Gmail. */
-function _textoAB64url(texto) {
-  return _textoAB64(texto).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
-}
-
-/**
- * Cabecera con acentos. Sin esto, un asunto como "Notificación" viaja con los
- * bytes crudos y Gmail lo muestra roto.
- */
-function _cabeceraCodificada(valor) {
-  if (/^[\x20-\x7E]*$/.test(valor)) return valor;
-  return '=?UTF-8?B?' + _textoAB64(valor) + '?=';
-}
-
-/** Último mensaje del hilo más reciente cuyo asunto lleve ese número. */
-async function ultimoMensajeConAsunto(numero, token) {
-  const q = `subject:"${String(numero).replace(/"/g, '')}" newer_than:1y`;
-  const lista = await _gmailFetch('messages?maxResults=10&q=' + encodeURIComponent(q), token);
-  const refs = lista.messages || [];
-  if (!refs.length) return null;
-
-  // La lista viene de más reciente a más antiguo, así que el primero basta;
-  // se pide el hilo entero para responder al último mensaje, no al primero.
-  const hilo = await _gmailFetch('threads/' + refs[0].threadId + '?format=full', token);
-  const msgs = hilo.messages || [];
-  if (!msgs.length) return null;
-
-  const ultimo  = msgs[msgs.length - 1];
-  const payload = ultimo.payload || {};
-  return {
-    threadId:  hilo.id,
-    messageId: ultimo.id,
-    de:        _headerValue(payload, 'From'),
-    asunto:    _headerValue(payload, 'Subject'),
-    idCabecera: _headerValue(payload, 'Message-ID'),
-    referencias: _headerValue(payload, 'References'),
-    cuerpo:    _stripHtml(_extractBody(payload)).slice(0, 2000),
-  };
-}
-
-/**
- * Crea un borrador de respuesta **dentro del hilo**.
- *
- * `In-Reply-To` y `References` son lo que hace que Gmail lo enganche a la
- * conversación en vez de dejarlo suelto; el `threadId` por sí solo no basta.
- */
-async function crearBorradorRespuesta(msg, cuerpoHtml, token) {
-  const asunto = /^re:/i.test(msg.asunto || '') ? msg.asunto : 'Re: ' + (msg.asunto || '');
-  const refs = [msg.referencias, msg.idCabecera].filter(Boolean).join(' ');
-
-  const cabeceras = [
-    `To: ${msg.de || ''}`,
-    `Subject: ${_cabeceraCodificada(asunto)}`,
-    msg.idCabecera ? `In-Reply-To: ${msg.idCabecera}` : '',
-    refs ? `References: ${refs}` : '',
-    'MIME-Version: 1.0',
-    'Content-Type: text/html; charset=UTF-8',
-    'Content-Transfer-Encoding: base64',
-  ].filter(Boolean).join('\r\n');
-
-  // El cuerpo va en base64 dentro del MIME —por los acentos, igual que el
-  // asunto— y después el MIME entero se codifica otra vez para el campo `raw`.
-  const mime = cabeceras + '\r\n\r\n' + _textoAB64(cuerpoHtml);
-
-  return _gmailPost('drafts', token, {
-    message: { threadId: msg.threadId, raw: _textoAB64url(mime) },
-  });
-}
-
-/** Etiqueta el hilo, creando la etiqueta la primera vez. */
-async function etiquetarHilo(threadId, token, nombre = GMAIL_ETIQUETA) {
-  const lista = await _gmailFetch('labels', token);
-  let etiqueta = (lista.labels || []).find(l => l.name === nombre);
-  if (!etiqueta) {
-    etiqueta = await _gmailPost('labels', token, {
-      name: nombre,
-      labelListVisibility: 'labelShow',
-      messageListVisibility: 'show',
-    });
-  }
-  return _gmailPost('threads/' + threadId + '/modify', token, { addLabelIds: [etiqueta.id] });
-}
+// Nada de lo que queda en la app escribe en Gmail: solo lee. Si algún día se
+// rehacen los borradores, está en el historial de git —y con ello el detalle
+// que costaba acertar: `In-Reply-To` y `References` son lo que engancha el
+// borrador a la conversación, el `threadId` por sí solo no basta—.

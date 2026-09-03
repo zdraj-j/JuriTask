@@ -21,15 +21,23 @@ const MIME = { '.html':'text/html', '.js':'text/javascript', '.css':'text/css',
 // y la prueba no va a autenticarse contra Google de verdad.
 const DROP = ['js/firebase.js', 'js/auth.js'];
 
-// Con esos módulos fuera, nadie llama a `init()` —el arranque cuelga de la
-// sesión— así que la prueba entra por donde entraría `mostrarApp()`.
+// Con esos módulos fuera nadie define `mostrarApp()`, y el arranque real
+// (`arrancarApp()` en config.js) se quedaría en la puerta esperando una carpeta
+// de datos que aquí no hay. La prueba entra directamente a la app: lo que le
+// interesa es la UI sobre STATE, no la conexión con el disco —de eso se ocupa
+// `test/archivo.js`, que sí monta una File System Access API de mentira—.
 const ARRANQUE = `<script>
+window.mostrarApp = function () {};
+window.mostrarPuerta = function () {};
+window.renderSesion = function () {};
 window.addEventListener('DOMContentLoaded', () => {
-  document.getElementById('splashScreen')?.remove();
-  document.getElementById('authScreen')?.remove();
-  document.getElementById('appContainer').style.display = '';
-  loadAll();
-  init();
+  setTimeout(() => {
+    document.getElementById('splashScreen')?.remove();
+    document.getElementById('gateScreen')?.remove();
+    document.getElementById('appContainer').style.display = '';
+    loadAll();
+    init();
+  }, 0);
 });
 </script>`;
 
@@ -123,12 +131,22 @@ const ok = (c) => c ? 'PASA' : 'FALLA';
 
   // La sesión se comprueba sobre el index.html real: en la prueba los módulos
   // de Firebase se retiran (necesitan red), así que mirar `window` no diría nada.
+  //
+  // Lo que se declara cambió de sitio: la puerta ya **no** es el login sino la
+  // carpeta de datos (`gateScreen`), y conectar Google pasó a ser una acción
+  // opcional del pie de la barra lateral (`btnConectarGoogle`). Firebase sigue
+  // en la lista porque de ahí sale el token de Gmail y Drive —pero sin
+  // `firebase-firestore-compat`, que se fue con la base de datos—.
   const indexReal = fs.readFileSync(path.join(ROOT, 'index.html'), 'utf8');
-  const piezas = ['id="authScreen"', 'id="btnGoogleLogin"', 'id="btnLogout"',
-                  'firebase-app-compat', 'js/firebase.js', 'js/auth.js'];
+  const piezas = ['id="gateScreen"', 'id="gateElegir"', 'id="btnConectarGoogle"', 'id="btnLogout"',
+                  'firebase-app-compat', 'firebase-auth-compat', 'js/firebase.js', 'js/auth.js',
+                  'js/archivo.js'];
   const faltan = piezas.filter(p => !indexReal.includes(p));
-  out.push(['SESIÓN acceso con Google declarado', faltan.length === 0,
-            faltan.length ? `faltan: ${faltan.join(', ')}` : `${piezas.length} piezas`]);
+  const sobra  = indexReal.includes('firebase-firestore-compat') ? ['firebase-firestore-compat'] : [];
+  out.push(['SESIÓN puerta de archivo + Google opcional', faltan.length === 0 && sobra.length === 0,
+            faltan.length ? `faltan: ${faltan.join(', ')}`
+                          : sobra.length ? `sobra: ${sobra.join(', ')}`
+                                         : `${piezas.length} piezas, sin Firestore`]);
 
   // ── Crear un trámite (saveTramite cambió bastante) ──────
   await page.click('#newTramiteBtn');
@@ -245,42 +263,30 @@ const ok = (c) => c ? 'PASA' : 'FALLA';
             gm.hay ? `name="${gm.llamadas[0]?.name}" url=${(gm.llamadas[0]?.url || '').slice(0, 60)}…`
                    : 'no se pintó el botón']);
 
-  // ── Punto 8: borradores del día, ahora manual ───────────
-  // El trigger de Apps Script murió con el servidor; queda el botón.
+  // ── Punto 8: los borradores del día se retiraron ────────
+  // Se fueron con Firestore; la bitácora de enviados, que vivía en el mismo
+  // archivo, se queda porque es una función aparte y se usa por su cuenta.
   const b8 = await page.evaluate(() => ({
-    boton:   !!document.getElementById('borradoresDiaBtn'),
-    ia:      !!document.getElementById('borradoresIAToggle'),
-    trigger: !!document.getElementById('triggerToggle') || !!document.getElementById('triggerHora'),
+    borradores: !!document.getElementById('borradoresDiaBtn') || !!document.getElementById('borradoresIAToggle'),
+    trigger:    !!document.getElementById('triggerToggle') || !!document.getElementById('triggerHora'),
+    bitacora:   !!document.getElementById('bitacoraScanBtn') && !!document.getElementById('bitacoraAutoToggle'),
   }));
-  out.push(['P8 botón manual, sin restos del trigger',
-            b8.boton && b8.ia && !b8.trigger,
-            `botón=${b8.boton} ia=${b8.ia} trigger=${b8.trigger}`]);
+  out.push(['P8 sin borradores del día, con bitácora',
+            !b8.borradores && !b8.trigger && b8.bitacora,
+            `borradores=${b8.borradores} trigger=${b8.trigger} bitácora=${b8.bitacora}`]);
 
-  // La selección de tareas es lógica pura sobre STATE, así que se puede
-  // comprobar sin tocar Gmail. `addScriptTag` corre en el mundo principal;
-  // `page.evaluate` no vería `_tareasParaBorrador`.
-  await page.addScriptTag({ content: `
-    (function () {
-      STATE.tramites = [
-        { id:'x1', numero:'55555', modulo:'CNT', terminado:false, seguimiento:[
-            { descripcion:'1er req', fecha:'2020-01-01', estado:'pendiente' },
-            { descripcion:'1er req', fecha:'2099-01-01', estado:'pendiente' },
-            { descripcion:'1er req', fecha:'2020-01-01', estado:'completada' },
-            { descripcion:'llamar al abogado', fecha:'2020-01-01', estado:'pendiente' } ] },
-        { id:'x2', numero:'66666', modulo:'CNT', terminado:true, seguimiento:[
-            { descripcion:'1er req', fecha:'2020-01-01', estado:'pendiente' } ] },
-      ];
-      var r = _tareasParaBorrador();
-      var el = document.createElement('div');
-      el.id = '__b8';
-      el.textContent = JSON.stringify({ n: r.length, ids: r.map(function (x) { return x.t.id; }) });
-      document.body.appendChild(el);
-    })();
-  ` });
-  const sel = JSON.parse(await page.$eval('#__b8', e => e.textContent));
-  out.push(['P8 solo requerimientos vencidos y sin terminar',
-            sel.n === 1 && sel.ids[0] === 'x1',
-            `seleccionadas=${sel.n} (${sel.ids.join(',') || 'ninguna'})`]);
+  // ── Archivo de datos: la sección de Ajustes existe ──────
+  // El detalle de la escritura lo cubre `test/archivo.js`; aquí solo se
+  // comprueba que la UI que la gobierna está declarada.
+  const arch = await page.evaluate(() => ({
+    seccion: !!document.getElementById('archivoCarpeta'),
+    elegir:  !!document.getElementById('archivoElegirBtn'),
+    copias:  !!document.getElementById('copiasList'),
+    aviso:   !!document.getElementById('syncEstado'),
+  }));
+  out.push(['ARCHIVO Ajustes declara carpeta, copias y aviso',
+            arch.seccion && arch.elegir && arch.copias && arch.aviso,
+            `carpeta=${arch.seccion} elegir=${arch.elegir} copias=${arch.copias} aviso=${arch.aviso}`]);
 
   await page.screenshot({ path: path.join(SHOT, 'reporte-dia.png') });
   await page.click('#reportClose');
