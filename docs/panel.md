@@ -40,10 +40,16 @@ función pura sobre los arrays que recibe.
 
 ## Backups
 
-No hay una sección propia. Los datos viven en Firestore
-([sincronizacion-firestore.md](sincronizacion-firestore.md)), que ya guarda el
-histórico del lado de Google, y **Exportar** en Ajustes baja el JSON completo
-cuando quieres una copia en la mano.
+No hay una sección propia en el panel: las copias viven en **Ajustes › Copias de
+seguridad** (`js/copias.js`, ver
+[copias-seguridad.md](copias-seguridad.md)).
+
+> Lo que decía antes esta sección —que Firestore «ya guarda el histórico del
+> lado de Google»— **era falso**. Firestore no guarda ningún histórico por su
+> cuenta: sobrescribe el documento y lo anterior desaparece. Recuperar un estado
+> pasado exige *point-in-time recovery*, que es del plan de pago y hay que
+> activarlo a mano. Mientras esa frase estuvo ahí, la app no tenía ninguna copia
+> de seguridad y nadie lo sabía.
 
 ## Al modificar
 

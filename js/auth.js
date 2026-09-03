@@ -84,7 +84,14 @@ document.addEventListener('DOMContentLoaded', () => {
   });
 
   document.getElementById('btnLogout')?.addEventListener('click', async () => {
-    if (!confirm('¿Cerrar sesión?')) return;
+    // Cerrar sesión vacía la caché local. Si hay cambios que la nube todavía no
+    // tiene, esa caché es la única copia que existe: hay que decirlo antes, no
+    // después.
+    const pendiente = typeof cambiosPendientesDesde === 'function' && cambiosPendientesDesde();
+    const aviso = pendiente
+      ? 'Hay cambios que aún no se han guardado en la nube. Al cerrar sesión se borra la copia local y se perderán.\n\nExporta el JSON antes de continuar.\n\n¿Cerrar sesión de todas formas?'
+      : '¿Cerrar sesión?';
+    if (!confirm(aviso)) return;
     // El orden importa: primero se corta el guardado, porque el `beforeunload`
     // de la recarga volvería a volcar STATE sobre el localStorage recién
     // vaciado —clave de Gemini incluida—.
@@ -95,6 +102,9 @@ document.addEventListener('DOMContentLoaded', () => {
       localStorage.removeItem(KEYS.tramites);
       localStorage.removeItem(KEYS.order);
       localStorage.removeItem(KEYS.config);
+      // La marca de cambios sin subir se va con la caché a la que se refiere:
+      // dejarla haría que la próxima sesión defendiera datos que ya no están.
+      localStorage.removeItem(KEYS.pendiente);
     } catch (_) { /* sin localStorage: nada que limpiar */ }
     await AUTH.logout();
     location.reload();

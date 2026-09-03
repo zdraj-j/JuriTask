@@ -88,6 +88,14 @@ deje dos documentos. Para esto último el SDK falso imita al de verdad en el
 detalle que causaba el fallo: **`doc()` sin id genera uno nuevo en cada
 llamada**. Si se simplifica esa línea, la prueba 14 deja de probar nada.
 
+Las comprobaciones 15-19 vigilan el **trabajo que no llegó a subir**
+([sincronizacion-firestore.md](sincronizacion-firestore.md#la-marca-de-cambios-sin-subir)):
+que una carga con la marca `juritask_pendiente` puesta conserve lo local en
+`STATE` y en la caché, que lo suba, que la marca se levante al confirmarse, y
+que las subidas tengan tope de espera. Es la regresión del fallo por el que la
+app amanecía con datos de días atrás: sin la marca, la prueba 15 falla porque la
+nube reemplaza la caché sin mirar.
+
 ## Al modificar
 
 - Si algún día un módulo exige red o sesión para arrancar, agrégalo a `DROP`.

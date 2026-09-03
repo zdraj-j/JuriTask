@@ -9,7 +9,7 @@ JuriTask es instalable y funciona offline a nivel de app-shell.
 
 ## Service Worker
 
-- `VERSION = 'juritask-v23'`; caches `*-shell` y `*-runtime`.
+- `VERSION = 'juritask-v24'`; caches `*-shell` y `*-runtime`.
 - `SHELL_ASSETS` lista los recursos propios (HTML, CSS, JS, iconos) que forman
   el esqueleto offline.
 - El shell es lo único que se cachea. `isDynamicApi()` deja pasar a la red,

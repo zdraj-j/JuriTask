@@ -112,10 +112,49 @@ function undo() {
 // PERSISTENCIA — localStorage (caché) + Firestore (fuente de verdad)
 // ============================================================
 const KEYS = {
-  tramites: 'juritask_tramites',
-  order:    'juritask_order',
-  config:   'juritask_config',
+  tramites:  'juritask_tramites',
+  order:     'juritask_order',
+  config:    'juritask_config',
+  pendiente: 'juritask_pendiente',
 };
+
+// ============================================================
+// CAMBIOS SIN SUBIR
+// ============================================================
+// El orden de escritura de la app es siempre el mismo: primero `localStorage`,
+// después Firestore. La caché local, por tanto, **nunca va por detrás** de la
+// nube: o van iguales, o la local va por delante.
+//
+// Eso importa porque `cargarDeFirestore()` reemplaza STATE con lo que traiga la
+// nube. Si la subida del día anterior no llegó a completarse, esa carga borra
+// trabajo real y además lo pisa en la caché local, que era la última copia que
+// quedaba. Es exactamente el camino por el que una jornada entera puede
+// desaparecer sin dejar rastro ni error a la vista.
+//
+// La marca cierra ese agujero: se pone en cuanto algo cambia y **solo** se
+// quita cuando Firestore confirma la escritura. Mientras esté puesta, la carga
+// sabe que la copia local manda (ver `_fusionarConLocal` en js/firebase.js).
+
+function marcarCambiosPendientes() {
+  try {
+    if (localStorage.getItem(KEYS.pendiente)) return;   // ya marcado: no repisar la fecha
+    localStorage.setItem(KEYS.pendiente, JSON.stringify({ desde: new Date().toISOString() }));
+  } catch (_) { /* sin localStorage no hay nada que marcar */ }
+}
+
+function limpiarCambiosPendientes() {
+  try { localStorage.removeItem(KEYS.pendiente); } catch (_) {}
+}
+
+/** Fecha del cambio más viejo sin subir, o `null` si todo está sincronizado. */
+function cambiosPendientesDesde() {
+  try {
+    const raw = localStorage.getItem(KEYS.pendiente);
+    if (!raw) return null;
+    const d = new Date(JSON.parse(raw).desde);
+    return isNaN(d.getTime()) ? new Date(0) : d;
+  } catch (_) { return null; }
+}
 
 /**
  * saveAll con debounce de 400 ms para evitar re-escrituras excesivas.
@@ -129,6 +168,10 @@ const KEYS = {
  */
 let _saveTimer = null;
 function saveAll(immediate = false) {
+  // Antes de tocar nada: queda constancia de que hay trabajo que la nube aún no
+  // conoce. Se marca aquí y no en `_flushSave` porque la carga inicial también
+  // usa `_flushSave` para refrescar la caché, y eso no es un cambio del usuario.
+  marcarCambiosPendientes();
   if (typeof sincronizarConFirestore === 'function') sincronizarConFirestore();
   if (immediate) {
     _flushSave();

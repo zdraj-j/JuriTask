@@ -4,7 +4,7 @@
  * a la red, y la persistencia offline de los datos la maneja el SDK de
  * Firestore contra IndexedDB.
  */
-const VERSION = 'juritask-v23';
+const VERSION = 'juritask-v24';
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 
@@ -22,6 +22,7 @@ const SHELL_ASSETS = [
   './js/google-auth.js',
   './js/firebase.js',
   './js/auth.js',
+  './js/copias.js',
   './js/drive.js',
   './js/gemini.js',
   './js/plantillas-correo.js',
