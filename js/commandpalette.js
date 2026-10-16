@@ -27,6 +27,7 @@
       { icon: 'file-text',    label: 'Reporte del día',          run: () => typeof openReport === 'function' && openReport() },
       { icon: 'sheet',        label: 'Reporte de trámites (Excel)', run: () => typeof openReporte === 'function' && openReporte() },
       { icon: 'download',     label: 'Exportar reporte a Excel', run: () => typeof repExportXLSX === 'function' && repExportXLSX() },
+      { icon: 'mail',         label: 'Conteo de correos por día', run: () => typeof openConteoCorreos === 'function' && openConteoCorreos() },
       { icon: 'check-check',  label: 'Seleccionar trámites',     run: () => typeof selEnter === 'function' && selEnter() },
       { icon: 'undo-2',       label: 'Deshacer última acción',   run: () => typeof undo === 'function' && undo() },
       { icon: 'sun',          label: 'Tema: Claro',              run: theme('claro') },

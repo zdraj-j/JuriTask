@@ -142,6 +142,7 @@
       <button class="btn-icon" id="reportBtn" title="Reporte de hoy"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M16 14v2.2l1.6 1"/><path d="M16 2v4"/><path d="M21 7.5V6a2 2 0 0 0-2-2H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h3.5"/><path d="M3 10h5"/><path d="M8 2v4"/><circle cx="16" cy="16" r="6"/></svg></button>
       <button class="btn-icon" id="reportesBtn" title="Reporte de trámites y exportación a Excel"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v16a2 2 0 0 0 2 2h16"/><rect x="7" y="12" width="3" height="5" rx="1"/><rect x="12" y="8" width="3" height="9" rx="1"/><rect x="17" y="4" width="3" height="13" rx="1"/></svg></button>
       <button class="btn-icon" id="scanMailBtn" title="Revisar correo (detectar trámites nuevos)" style="position:relative"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect width="20" height="16" x="2" y="4" rx="2"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/></svg><span class="scan-badge" id="scanMailBadge" style="display:none">0</span></button>
+      <button class="btn-icon" id="conteoCorreoBtn" title="Conteo de correos por día"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M22 13V6a2 2 0 0 0-2-2H4a2 2 0 0 0-2 2v12c0 1.1.9 2 2 2h8"/><path d="m22 7-8.97 5.7a1.94 1.94 0 0 1-2.06 0L2 7"/><path d="M16 22v-4"/><path d="M19 22v-7"/><path d="M22 22v-2"/></svg></button>
       <button class="btn-icon" id="bitacoraScanBtn" title="Actividades por registrar (correos enviados)"><svg xmlns="http://www.w3.org/2000/svg" width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M15 2H6a2 2 0 0 0-2 2v16a2 2 0 0 0 2 2h12a2 2 0 0 0 2-2V7Z"/><path d="M14 2v4a2 2 0 0 0 2 2h4"/><path d="M16 13H8"/><path d="M16 17H8"/><path d="M10 9H8"/></svg></button>
       <button class="btn btn-primary" id="newTramiteBtn" style="font-size:13px;padding:7px 14px">+ Nuevo trámite</button>
       <button class="btn-icon mob-opts-btn" id="mobOptsBtn" style="display:none" aria-label="Más opciones"><i data-lucide="ellipsis-vertical"></i></button>
@@ -693,6 +694,7 @@
 <script src="js/plantillas-correo.js"></script>
 <script src="js/gmail.js"></script>
 <script src="js/bitacora.js"></script>
+<script src="js/conteo-correo.js"></script>
 
 <!-- 3.c Reporte de trámites + exportación a Excel (escritor .xlsx propio) -->
 <script src="js/xlsx.js"></script>
