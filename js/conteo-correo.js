@@ -74,7 +74,6 @@ async function _conteoContarDia(iso, base, incluirSpam, token) {
     const params = new URLSearchParams({
       q,
       maxResults: '500',
-      fields: 'messages(id),nextPageToken',
     });
     if (incluirSpam) params.set('includeSpamTrash', 'true');
     if (pageToken)   params.set('pageToken', pageToken);
@@ -85,30 +84,60 @@ async function _conteoContarDia(iso, base, incluirSpam, token) {
   return n;
 }
 
-// Gmail devuelve 429 si se le pide demasiado rápido: se espera y se reintenta.
+// Lectura propia de la Gmail API, más tolerante que `_gmailFetch`:
+//   - Lee el cuerpo como texto. Gmail a veces responde 200 con el cuerpo vacío
+//     o cortado (sospecha: `fields=` en días sin correos, que ya no se usa,
+//     o la red); `res.json()` reventaba con "Unexpected end of JSON input".
+//     Cuerpo vacío = día sin correos; cuerpo ilegible = se reintenta.
+//   - Reintenta 429/5xx y fallos de red con espera creciente.
+//   - Conserva `code: 401` para que `_withGmailToken` renueve el token.
+const CONTEO_REINTENTOS = 5;
+
 async function _conteoFetchConReintento(path, token) {
   for (let intento = 0; ; intento++) {
+    let reintentable;
     try {
-      return await _gmailFetch(path, token);
-    } catch (e) {
-      if ((e.code === 429 || e.code === 503) && intento < 4) {
-        await new Promise(r => setTimeout(r, 800 * 2 ** intento));
-        continue;
+      const res = await fetch('https://gmail.googleapis.com/gmail/v1/users/me/' + path, {
+        headers: { Authorization: 'Bearer ' + token },
+      });
+      if (res.status === 401) throw Object.assign(new Error('unauthorized'), { code: 401 });
+      const texto = await res.text();
+      if (res.ok) {
+        if (!texto.trim()) return {};
+        try { return JSON.parse(texto); }
+        catch (_) { reintentable = Object.assign(new Error('respuesta incompleta de Gmail'), { code: 'json' }); }
+      } else {
+        const err = Object.assign(new Error('gmail-http-' + res.status), { code: res.status });
+        if (res.status !== 429 && res.status < 500) throw err;
+        reintentable = err;
       }
-      throw e;
+    } catch (e) {
+      if (e.code === 401 || typeof e.code === 'number') throw e;
+      reintentable = e;                     // TypeError: fallo de red
     }
+    if (_conteoCancelado || intento >= CONTEO_REINTENTOS - 1) throw reintentable;
+    await new Promise(r => setTimeout(r, 700 * 2 ** intento));
   }
 }
 
-/** Cuenta todos los días con unas pocas llamadas en paralelo. */
+/**
+ * Cuenta todos los días con unas pocas llamadas en paralelo.
+ * Si un día falla, los demás trabajadores paran: antes seguían contando y
+ * pisaban el mensaje de error con "Contando… día N de M".
+ */
 async function _conteoContarRango(dias, base, incluirSpam, token, onProgreso) {
   const res = new Array(dias.length);
-  let siguiente = 0, hechos = 0;
+  let siguiente = 0, hechos = 0, fallo = false;
   async function trabajador() {
-    while (siguiente < dias.length) {
+    while (siguiente < dias.length && !fallo) {
       const i = siguiente++;
-      res[i] = await _conteoContarDia(dias[i], base, incluirSpam, token);
-      onProgreso(++hechos, dias.length);
+      try {
+        res[i] = await _conteoContarDia(dias[i], base, incluirSpam, token);
+      } catch (e) {
+        fallo = true;
+        throw e;
+      }
+      if (!fallo) onProgreso(++hechos, dias.length);
     }
   }
   await Promise.all(Array.from({ length: Math.min(CONTEO_CONCURRENCIA, dias.length) }, trabajador));
@@ -240,7 +269,7 @@ async function runConteoCorreos() {
       _conteoContarRango(dias, base, spam, token, (h, t) => {
         estado.textContent = `Contando… día ${h} de ${t}`;
       }));
-    if (!filas) { estado.textContent = 'No se pudo leer el correo.'; return; }
+    if (!filas) { estado.textContent = 'No se pudo leer el correo. Vuelve a pulsar "Contar".'; return; }
     _conteoResultado = { cuenta: AUTH.email, desde, hasta, tipo, filtro, spam, filas };
     estado.textContent = '';
     _conteoRenderResultado();
