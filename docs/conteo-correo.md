@@ -35,13 +35,21 @@ bitácora de enviados leen el buzón de la cuenta conectada.
 - **Días en hora local.** La búsqueda usa `after:`/`before:` con segundos Unix
   de la medianoche local. Con fechas `AAAA/MM/DD` Gmail usa la hora del
   Pacífico y los conteos se correrían unas horas.
-- **Exacto, no estimado.** Una llamada a `messages.list` por día pidiendo solo
-  ids (`fields=messages(id),nextPageToken`, 500 por página) y se cuentan.
+- **Exacto, no estimado.** Una llamada a `messages.list` por día (500 por
+  página) y se cuentan los ids.
   `resultSizeEstimate` no sirve: es una estimación.
 - **Mensajes, no conversaciones.** Cada correo de un hilo suma.
 - Recibidos = `-in:sent -in:draft -in:chats`. Spam y papelera quedan fuera
   salvo que se marque la casilla (`includeSpamTrash`).
-- 4 llamadas en paralelo; ante 429/503 se espera y se reintenta (hasta 4 veces).
+- 4 llamadas en paralelo. Usa su propio `fetch` (`_conteoFetchConReintento`),
+  no `_gmailFetch`: lee el cuerpo como texto porque Gmail a veces responde 200
+  con el cuerpo vacío o cortado, y `res.json()` fallaba con *Unexpected end of
+  JSON input*. Vacío = día sin correos; ilegible, 429, 5xx o fallo de red = se
+  reintenta con espera creciente (hasta 5 intentos).
+- Si un día falla del todo, los demás trabajadores paran, para que el mensaje
+  de error no quede tapado por "Contando… día N de M".
+- Se quitó `fields=` por precaución: es el sospechoso más probable de los
+  cuerpos vacíos, y sin él la respuesta siempre trae `resultSizeEstimate`.
 
 ## Requisitos de Google
 
@@ -53,6 +61,6 @@ app.
 
 ## Al modificar
 
-- Si cambia `_gmailFetch` en `gmail.js`, revisar `_conteoFetchConReintento`,
-  que depende de que los errores traigan `code` con el estado HTTP.
+- `_conteoFetchConReintento` debe seguir lanzando `code: 401` cuando caduca el
+  token: es lo que hace que `_withGmailToken` lo renueve.
 - Nada aquí escribe en Gmail: solo lee.

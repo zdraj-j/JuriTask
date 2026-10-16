@@ -8,7 +8,7 @@
  * no por `fetch`. Eso hace que la app funcione sin conexión por construcción,
  * sin que el service worker tenga que hacer nada al respecto.
  */
-const VERSION = 'juritask-v26';
+const VERSION = 'juritask-v27';
 const SHELL = `${VERSION}-shell`;
 const RUNTIME = `${VERSION}-runtime`;
 
